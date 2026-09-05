@@ -1,0 +1,14 @@
+{
+  "name": "mule-loop-marketplace",
+  "owner": {
+    "name": "Tsutomu MIYASHITA"
+  },
+  "plugins": [
+    {
+      "name": "mule-loop",
+      "source": "./",
+      "description": "MuleSoft API のループエンジニアリング一式 (/mule-init, /mule-start, /mule-run)"
+    }
+  ],
+  "description": "MuleSoft API のループエンジニアリング (mule-loop)"
+}

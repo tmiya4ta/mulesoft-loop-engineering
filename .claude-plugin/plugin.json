@@ -1,0 +1,6 @@
+{
+  "name": "mule-loop",
+  "version": "0.1.0",
+  "description": "MuleSoft API を Claude Code のループエンジニアリングで作る。意図ループ / 計画ループ / 実行ループの 3 層と、初心者を案内する /mule-start。",
+  "author": { "name": "Tsutomu MIYASHITA" }
+}
