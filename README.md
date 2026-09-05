@@ -88,6 +88,7 @@ export ANYPOINT_REGION=PROD_JP
 | ツール | 無いとどうなるか |
 |---|---|
 | Maven + Mule Maven Plugin | 段 2, 3 の検証が動かない (必須) |
+| Anypoint CLI v4 + `@salesforce/anypoint-cli-dx-mule-plugin` | `/mule-init` がプロジェクト骨格を作れない。手書き pom はライブラリ取得に失敗する |
 | `dw` CLI | DataWeave の秒単位検証が段 2 に落ちる |
 | `xmllint` | Mule XML の即時検査が飛ぶ |
 | `gh` | PR 作成が手動になる |

@@ -10,8 +10,18 @@ argument-hint: "[--layer system|process|experience] [--name <api-name>]"
 1. `git rev-parse --show-toplevel` でリポジトリ直下を確認する。git 管理外なら `git init` を提案してから進める。
 2. 引数に `--layer` と `--name` が無ければ AskUserQuestion で聞く。
    - layer の選択肢: 「外部システム (SAP / DB / SaaS) を包む → system」「複数の system を組み合わせて業務の 1 手順にする → process」「画面や特定の利用者向けに形を整える → experience」。専門用語より用途の説明を前に出す。
-3. template/ の各ファイルをコピーする。**既にあるファイルは上書きしない**。CLAUDE.md が既にある場合は末尾に template/CLAUDE.md の内容を追記し、冒頭にマーカー `<!-- mule-loop -->` を付ける。
+3. **Mule プロジェクトが無ければ作る。** `pom.xml` が無い場合、Studio / ACB と同じ構成 (mule-maven-plugin、Exchange と MuleSoft のリポジトリ、mule-artifact.json) を持つ骨格を CLI で作る。手で pom を書くと Maven のライブラリ取得に失敗するので、必ずこの経路を使う。
+   ```bash
+   NODE_NO_WARNINGS=1 anypoint-cli-v4 dx mule project create <name> --group-id <group> --mule-version 4.9.0 \
+     --dependencies "org.mule.connectors:mule-http-connector:1.10.0"
+   ```
+   生成物は `<name>/` に入るので、リポジトリ直下に移す (`mv <name>/* <name>/.[!.]* . 2>/dev/null; rmdir <name>`)。
+   CLI が無い場合 (`anypoint-cli-v4 dx mule --help` が失敗) は `npm i -g anypoint-cli-v4 && anypoint-cli-v4 plugins:install @salesforce/anypoint-cli-dx-mule-plugin` を案内する。MCP `create_mule_project` でも同じものが作れる。
+   コネクタの GAV は推測せず、`anypoint-cli-v4 dx mule describe-connector` か Exchange で確かめる。
+3b. **MUnit を足す。** 生成直後の pom には MUnit が無いので `scripts/add-munit.sh` を実行する (設定済みなら何もしない)。
+3c. template/ の各ファイルをコピーする。**既にあるファイルは上書きしない**。CLAUDE.md が既にある場合は末尾に template/CLAUDE.md の内容を追記し、冒頭にマーカー `<!-- mule-loop -->` を付ける。
 4. CLAUDE.md の `layer:` と `name:` を埋める。
-5. `mvn -v` と `dw --version` と `xmllint --version` の有無を確認し、無いものを表にして知らせる。無くても進められるが、検証が段 3 (mvn) だけになることを伝える。
+5. `mvn -v`、`dw --version`、`xmllint --version`、`anypoint-cli-v4 dx mule --help` の有無を確認し、無いものを表にして知らせる。
+5b. `mvn -q clean package -DskipTests` を 1 回流し、ライブラリ取得が通ることを確かめる。失敗したら `~/.m2/settings.xml` の Exchange 認証 (Enterprise コネクタを使う場合) を疑い、docs/mulesoft-tools.md の「プロジェクト作成」を案内する。
 6. `.mcp.json` がリポジトリに無ければ、プラグインの `.mcp.json` をコピーするか聞く (MCP はプラグイン側で有効になるので任意)。
 7. 最後に「次は `/mule-start` で作りたい API を対話で決めます」とだけ案内する。

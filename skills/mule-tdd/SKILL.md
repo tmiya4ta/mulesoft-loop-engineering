@@ -18,17 +18,17 @@ description: MuleSoft の実装を TDD (Red → Green → Refactor) で進める
   - `munit:execution` で対象フローを `flow-ref` する。
   - `munit:validation` で `.out.json` と `payload` を `MunitTools::equalTo` か `MunitTools::withMediaType` で比較する。HTTP ステータスも `attributes.statusCode` で確認する。
 - DataWeave の変換が主題なら、まず `dw` CLI で `.in.json` を流して `.out.json` と diff する簡易テストを作る (秒で回る)。
-- **`mvn -q test -Dtest=<TestName>` を実行し、失敗を確認する。** 失敗しないテストは何も検証していない。失敗の理由が「フローが無い」「変換が無い」であることを確かめてから次へ。
+- **`mvn -q test -Dmunit.test=<resource>-test.xml` を実行し、失敗を確認する。** 失敗しないテストは何も検証していない。失敗の理由が「フローが無い」「変換が無い」であることを確かめてから次へ。
 
 ## 2. Green: 通る最小の実装をする
 - 失敗しているテスト 1 つを通すための最小限だけ書く。先回りして他のリソースやエラー処理を書かない。
 - フローは `src/main/mule/<resource>.xml`、変換は `src/main/resources/dwl/<name>.dwl` に置く。インライン DataWeave は書かない。
-- 実行順は速い順: `dw` で変換単体 → `mvn -q test -Dtest=<TestName>`。
+- 実行順は速い順: `dw` で変換単体 → `mvn -q test -Dmunit.test=<resource>-test.xml`。
 - 通ったら次のテスト (失敗ケース、境界ケース) へ。テストごとに Red → Green を繰り返す。
 
 ## 3. Refactor: 通ったまま整える
 - 重複した変換の共通化、`global.xml` の共通エラーハンドラへの寄せ、命名を CONTEXT.md に合わせる。
-- 1 手直すごとに `mvn -q test -Dtest=<TestName>` を回す。赤くなったら戻す。
+- 1 手直すごとに `mvn -q test -Dmunit.test=<resource>-test.xml` を回す。赤くなったら戻す。
 - 最後に `done_when` を実行し exit 0 を確認する。
 
 ## 禁止
@@ -38,7 +38,7 @@ description: MuleSoft の実装を TDD (Red → Green → Refactor) で進める
 
 ## 出力のたびに残す証拠
 ```
-red:   mvn -q test -Dtest=OrderCancelTest   → exit 1 (期待どおり失敗)
-green: mvn -q test -Dtest=OrderCancelTest   → exit 0
+red:   mvn -q test -Dmunit.test=order-cancel-test.xml   → exit 1 (期待どおり失敗)
+green: mvn -q test -Dmunit.test=order-cancel-test.xml   → exit 0
 done:  <done_when>                          → exit 0
 ```

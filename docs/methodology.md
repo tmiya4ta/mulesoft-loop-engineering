@@ -34,7 +34,7 @@
 
 | 段階 | やること | 証拠 |
 |---|---|---|
-| Red | samples のペアから MUnit を書き、`mvn -q test -Dtest=X` が **失敗する** ことを確認 | exit 1 |
+| Red | samples のペアから MUnit を書き、`mvn -q test -Dmunit.test=X` が **失敗する** ことを確認 | exit 1 |
 | Green | 失敗しているテスト 1 つを通す最小の実装 | exit 0 |
 | Refactor | 通ったまま整える。1 手ごとにテスト | exit 0 のまま |
 
@@ -53,7 +53,7 @@
 | 段 | 検証器 | 目安 | 担当 |
 |---|---|---|---|
 | 1 | xmllint、`dw` CLI、層の越境 grep、done_when 有無 | 秒 | hook (`scripts/quick-check.sh`) が自動 |
-| 2 | `mvn -q test -Dtest=<対象>`、mulex | 十秒 | 実行エージェント |
+| 2 | `mvn -q test -Dmunit.test=<対象ファイル>`、mulex | 十秒 | 実行エージェント |
 | 3 | `mvn -q test` 全体、契約テスト | 分 | 進捗エージェント (`done_when`) と CI |
 
 ループ 1 周が 1 分を超えると人がループを待たずに手で直し始める。段 1 と 2 を速く保つことが採用率を決める。

@@ -20,7 +20,7 @@ model: inherit
 3. RAML は仕様です。実装が RAML と食い違ったら実装を直します。RAML を直す必要があるなら止まって報告します。
 4. 1 リソース 1 フロー、変換は src/main/resources/dwl/ に置き、フロー内にインライン DataWeave を書きません。
 5. 層の責務 (CLAUDE.md の `layer:`) を守ります。Process / Experience 層から DB や SAP コネクタを直接使いません。
-6. 実行順は速い検証から: `dw` CLI で変換単体、次に `mvn -q test -Dtest=<対象>`、最後に done_when そのもの。
+6. 実行順は速い検証から: `dw` CLI で変換単体、次に `mvn -q test -Dmunit.test=<対象ファイル>`、最後に done_when そのもの。
 7. 同じ失敗が 3 回続いたら止まります。無限に回しません。
 
 ## 出力 (最後のメッセージ)

@@ -1,7 +1,7 @@
 ---
 id: T-000
 goal: <1 文。何ができるようになるか>
-done_when: mvn -q test -Dtest=<TestName>
+done_when: mvn -q test -Dmunit.test=<resource>-test.xml
 status: todo
 attempts: 0
 blocked_by: []

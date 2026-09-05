@@ -84,7 +84,27 @@ GitHub https://github.com/mulesoft/mulesoft-dx (Apache-2.0)。
 
 `/plugin marketplace add machaval/api-spec-skills` で `api-spec-validator` が入る。意図ループの手順 3 で RAML/OAS を Anypoint CLI のガバナンスルールで検証するのに使える。
 
-## 5. 使い分けの原則
+## 5. プロジェクト作成 (Maven のライブラリ取得が失敗する問題)
+
+手で `pom.xml` を書いた Mule プロジェクトは、mule-maven-plugin の `<extensions>true</extensions>`、
+`mule-application` パッケージング、Exchange / MuleSoft のリポジトリ定義、`mule-artifact.json` のどれかが欠けて
+ライブラリ取得に失敗する。Studio / ACB と同じ骨格を作る経路は 3 つあり、`/mule-init` は 1 を使う。
+
+| 経路 | コマンド | 備考 |
+|---|---|---|
+| 1. Anypoint CLI v4 DX plugin | `anypoint-cli-v4 dx mule project create <name> --group-id <g> --mule-version 4.9.0 --dependencies "<GAV,...>"` | 手元で検証済み (2026-09-05)。`--skip-environment` は 1.0.3 には無い |
+| 2. DX MCP Server | `create_mule_project` (projectPath, projectName) | 1 と同じ骨格。MCP 設定と Connected App が要る |
+| 3. 公式スキル `build-mule-integration` | Step 8 で内部的に 1 を呼ぶ | コネクタ発見からやってくれるが、質問が多い |
+
+導入: `npm i -g anypoint-cli-v4 && anypoint-cli-v4 plugins:install @salesforce/anypoint-cli-dx-mule-plugin`
+
+生成される pom には **MUnit が入っていない**。`template/scripts/add-munit.sh` が munit-runner / munit-tools / munit-maven-plugin を足す (検証済み。Red テストが exit 1 で返る)。
+
+MUnit の絞り込みは `-Dtest=` ではなく **`-Dmunit.test=<テストファイル名>`**。
+
+Enterprise コネクタ (SAP、Salesforce の一部など) を使うときは `~/.m2/settings.xml` に Exchange の認証 (`anypoint-exchange-v2` の server 定義) が要る。無いと 401 でライブラリ取得が止まる。
+
+## 6. 使い分けの原則
 
 - **公式ツールは「生成」を速くし、mule-loop は「判定」を握る。** `generate_mule_flow` や `build-mule-integration` が何を出しても、done_when と MUnit が通るまでは仮説。
 - **デプロイ系は人のゲート 3 の後。** `.mcp.json` に入れてはあるが、`mule-run` は呼ばない。
