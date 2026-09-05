@@ -9,8 +9,8 @@ MuleSoft を知らない人でも `/mule-start` の対話だけで、仕様 → 
 
 ```bash
 # 1. このリポジトリをマーケットプレイスとして登録し、プラグインを入れる
-claude plugin marketplace add tmiya4ta/mule-demos --path loop-engineering   # git から
-#   ローカルなら: claude plugin marketplace add /path/to/loop-engineering
+claude plugin marketplace add tmiya4ta/mulesoft-loop-engineering   # git から
+#   ローカルなら: claude plugin marketplace add /path/to/mulesoft-loop-engineering
 claude plugin install mule-loop@mule-loop-marketplace
 
 # 2. 依存 (mattpocock-skills、MuleSoft 公式スキル、MCP の前提確認)
@@ -21,7 +21,7 @@ claude
 登録せずに試すなら:
 
 ```bash
-claude --plugin-dir /path/to/loop-engineering
+claude --plugin-dir /path/to/mulesoft-loop-engineering
 ```
 
 ## 使い方
