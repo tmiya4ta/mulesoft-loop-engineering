@@ -28,6 +28,20 @@
 
 **ゴールは下に降り、失敗は上に昇る。** 実行が 3 周直らなければ計画に、計画で分解できなければ仕様に、仕様で決められなければ人に返る。
 
+## 実行ループは TDD で回す
+
+実行ループの中身は Red → Green → Refactor に固定する (`skills/mule-tdd`)。
+
+| 段階 | やること | 証拠 |
+|---|---|---|
+| Red | samples のペアから MUnit を書き、`mvn -q test -Dtest=X` が **失敗する** ことを確認 | exit 1 |
+| Green | 失敗しているテスト 1 つを通す最小の実装 | exit 0 |
+| Refactor | 通ったまま整える。1 手ごとにテスト | exit 0 のまま |
+
+なぜ TDD か。ループエンジニアリングでは「何をもって終わりか」が全てで、TDD は終了条件をコードより先に書く規律そのもの。Red を確認しないテストは何も判定していないので、進捗エージェントは red の証拠が無い diff を受け取らない。
+
+意図ループの手順 3 で作る MUnit は雛形ではなく本物のテストで、承認時点で Red になっている。つまり **人が承認するのは「失敗しているテスト」** で、実行ループの仕事はそれを Green にすることだけ。
+
 ## 3 つの規則
 
 1. **done_when の無いゴールは存在しない。** hook が弾く。
@@ -55,6 +69,18 @@
 | レビュー | `agents/mule-reviewer.md` | 規約 | 書けない |
 
 意図ループの深掘りは自作せず、`mattpocock-skills` の `grilling` (決定の木を 1 ラウンドずつ、推奨回答つき) と `domain-modeling` (用語集を即時更新) を借りる。自前部分は「初心者向けの前置き 3 問」と「MuleSoft 固有の出口 (RAML / samples / MUnit)」だけ。
+
+## MuleSoft 公式ツールの位置づけ
+
+詳細は [mulesoft-tools.md](mulesoft-tools.md)。原則は **公式ツールは生成を速くし、mule-loop は判定を握る**。
+
+| ループ | 借りるもの |
+|---|---|
+| 意図 | `platform-assistant` (同梱) で既存 API を調べる。MCP `generate_api_spec` で RAML 草稿。`api-spec-validator` で検証 |
+| 実行 (Green) | 公式スキル `build-mule-integration`、MCP `generate_mule_flow`。出力は仮説で MUnit が判定 |
+| 段 3 | 公式スキル `generate-bat-tests` (デプロイ後の契約テスト) |
+| ゲート 3 の後 | MCP `deploy_mule_application`、Platform MCP と `secure-api` でポリシー |
+| 維持 | MCP `get_platform_insights`、Platform MCP のモニタリング |
 
 ## チームへの展開
 

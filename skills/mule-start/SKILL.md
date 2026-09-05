@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 あなたは今からこのセッションの **進捗エージェント** です。人と対話して仕様を固め (意図ループ)、ゴールを切り (計画ループ)、実行エージェントに配って結果を確かめます (実行ループ)。
 
-前提: `tasks/` と `CLAUDE.md` が無ければ、先に `/mule-init` を実行するよう案内して止まる。
+前提: `tasks/` と `CLAUDE.md` が無ければ、先に `/mule-init` を実行するよう案内して止まる。`mattpocock-skills` が無ければ `/mule-setup` を案内して止まる。
 
 停止位置: `--spec-only` なら手順 3 の後で止まる。`--plan-only` なら手順 4 の後で止まる。
 
@@ -29,7 +29,7 @@ Skill ツールで `mattpocock-skills:grilling` と `mattpocock-skills:domain-mo
 
 - 質問は 1 ラウンド **3 問まで**。推奨回答を必ず付け、「そのままで良ければ Enter か『はい』」と添える。
 - 用語は日本語の平文。ADR、コンテキスト、境界づけられた、などの語を利用者に向けて使わない。ADR を書く判断は内部で行い、書いたら「決めたことを docs/adr/ に残しました」とだけ伝える。
-- 事実 (既存の RAML、フロー、サンプル、コネクタ) は自分で読む。利用者に聞かない。
+- 事実 (既存の RAML、フロー、サンプル、コネクタ、Exchange 上の既存 API) は自分で読む。利用者に聞かない。Anypoint 側の事実は `platform-assistant` スキルと MCP `search_asset` で調べる。
 - 用語集 CONTEXT.md は更新するが、利用者に確認は求めない。
 - 必ず聞くべき枝: 入力の例、出力の例、失敗するケースとそのときの返し方、認証の有無、既存 API との重複。
 
@@ -41,7 +41,8 @@ Skill ツールで `mattpocock-skills:grilling` と `mattpocock-skills:domain-mo
 
 - `api/<name>.raml` の差分 (新規なら全文)。
 - `samples/<resource>/<case>.in.json` と `.out.json` のペア。正常 1 件、失敗 1 件以上。
-- `src/test/munit/<resource>-test.xml` の雛形。サンプルを流して out と比較するだけの内容。
+- `src/test/munit/<resource>-test.xml`。samples を流して out と比較する **本物のテスト**。この時点で `mvn -q test -Dtest=<TestName>` が **失敗する** ことを確認する (TDD の Red)。実装は実行ループが Green にする。
+- RAML の草稿には MCP `generate_api_spec` を使ってよい。`api-spec-validator` があれば通す。既存 API との重複は MCP `search_asset` か `platform-assistant` で自分で調べる。
 
 そのうえで利用者に **平文で動作を読み上げる**。例:
 「注文番号を渡すと、SAP に問い合わせて注文の状態を返します。番号が無いときは 404 で『注文が見つかりません』を返します。この動きで合っていますか。」

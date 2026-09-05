@@ -3,7 +3,7 @@
 MuleSoft API を Claude Code の **ループエンジニアリング** で作るためのプラグイン兼テンプレート。
 MuleSoft を知らない人でも `/mule-start` の対話だけで、仕様 → 受け入れ条件 → ゴール台帳 → 実装 → PR まで 1 コンソールで進める。
 
-考え方は [docs/methodology.md](docs/methodology.md)。
+考え方は [docs/methodology.md](docs/methodology.md)。実装は TDD (Red → Green → Refactor) で進める。
 
 ## 導入 (チームの各メンバー)
 
@@ -13,8 +13,9 @@ claude plugin marketplace add tmiya4ta/mule-demos --path loop-engineering   # gi
 #   ローカルなら: claude plugin marketplace add /path/to/loop-engineering
 claude plugin install mule-loop@mule-loop-marketplace
 
-# 2. 依存スキル (意図ループの深掘りに使う)
-claude plugin install mattpocock-skills@claude-plugins-official
+# 2. 依存 (mattpocock-skills、MuleSoft 公式スキル、MCP の前提確認)
+claude
+> /mule-setup
 ```
 
 登録せずに試すなら:
@@ -42,13 +43,18 @@ claude
 | `/mule-run` | 台帳の未完了ゴールだけ回す。中断からの再開 |
 | `/mule-run T-003` | 1 件だけ |
 | `/mule-run --parallel 3` | 3 件まで並列 |
+| `/mule-setup` | 外部スキルと MCP の前提を入れる (初回) |
+| `/mule-tdd` | 実行エージェントが従う Red → Green → Refactor の規律。人が手で実装するときも使える |
 
 ## 中身
 
 ```
 .claude-plugin/   plugin.json / marketplace.json
 skills/
+  mule-setup/     外部依存の導入 (scripts/setup-deps.sh)
   mule-init/      テンプレート配置
+  mule-tdd/       TDD の規律 (実行エージェントが必ず従う)
+  platform-assistant/  MuleSoft 公式メタスキルを同梱 (Apache-2.0)
   mule-start/     意図 → 計画 → 実行 を通す入口 (進捗エージェントの手順書)
   mule-run/       計画・実行ループだけ (再開用)
 agents/
@@ -56,7 +62,19 @@ agents/
   mule-reviewer.md  読み取り専用レビュー
 hooks/hooks.json  編集のたびに scripts/quick-check.sh (数秒の検証)
 template/         /mule-init が配る: CLAUDE.md, CONTEXT.md, tasks/, samples/, api/, scripts/done.sh, .claude/settings.json
+.mcp.json         MuleSoft DX MCP Server (stdio) と Platform MCP Server (http)
 docs/methodology.md
+docs/mulesoft-tools.md  公式 MCP / スキルの一覧とループでの位置づけ
+```
+
+## MuleSoft 公式ツール
+
+[docs/mulesoft-tools.md](docs/mulesoft-tools.md) に、DX MCP Server (21 ツール)、Platform MCP Server (68 ツール)、公式スキル群 (mulesoft-dx) の一覧と、どのループで使うかをまとめてある。MCP は `.mcp.json` で有効になる。DX MCP Server には Connected App の環境変数が要る。
+
+```bash
+export ANYPOINT_CLIENT_ID=...
+export ANYPOINT_CLIENT_SECRET=...
+export ANYPOINT_REGION=PROD_JP
 ```
 
 ## 人が押すのは 3 か所だけ

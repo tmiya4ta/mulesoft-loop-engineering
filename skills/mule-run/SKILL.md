@@ -10,7 +10,7 @@ argument-hint: "[T-NNN だけ実行] [--parallel N]"
 1. `tasks/T-*.md` を読み、`status` が `todo` または `failed` (attempts < 3) で、`blocked_by` が全て `passed` のものを取り出す。
 2. 取り出したゴールごとに `status: running` に更新し、Agent ツールで `mule-executor` を **`isolation: "worktree"`** で起動する。プロンプトはゴールファイルのパスと「CLAUDE.md を読んで規則に従うこと」だけ。`--parallel N` があれば N 件まで同時に起動する。
 3. 戻ってきたら diff を取り込み、**`done_when` を自分で実行する**。実行エージェントの自己申告は信じない。
-   - exit 0 → `status: passed`、`evidence:` に実行したコマンドと日時を書く。
+   - exit 0 → `status: passed`、`evidence:` に実行したコマンドと日時、実行エージェントが報告した red / green の行を書く。**red の証拠が無い diff は TDD を踏んでいないので failed にする。**
    - それ以外 → `attempts` を +1、`status: failed`、`note:` に実行エージェントの note を書く。
 4. `attempts` が 3 に達したゴールは `status: blocked` にし、**利用者に 3 行以内で報告して止まる**。原因が仕様の曖昧さなら「/mule-start で仕様に戻る」ことを勧める (失敗は上に昇る)。
 5. 取り出せるゴールが無くなるまで 1 に戻る。

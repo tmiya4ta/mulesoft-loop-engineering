@@ -13,5 +13,9 @@ note: ""
 - samples/<resource>/<case>.in.json → .out.json
 - api/<name>.raml の該当リソース
 
+## TDD の証拠 (実行エージェントが埋める)
+- red:
+- green:
+
 ## 補足
 <実行エージェントに渡したい文脈があれば。無ければ空>

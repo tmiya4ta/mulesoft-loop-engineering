@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "mulesoft-mcp-server": {
+      "command": "npx",
+      "args": ["-y", "mulesoft-mcp-server", "start"],
+      "env": {
+        "ANYPOINT_CLIENT_ID": "${ANYPOINT_CLIENT_ID}",
+        "ANYPOINT_CLIENT_SECRET": "${ANYPOINT_CLIENT_SECRET}",
+        "ANYPOINT_REGION": "${ANYPOINT_REGION:-PROD_US}"
+      }
+    },
+    "mulesoft-platform": {
+      "type": "http",
+      "url": "https://omni.mulesoft.com/mcp/"
+    }
+  }
+}

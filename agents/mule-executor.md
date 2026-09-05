@@ -11,6 +11,9 @@ model: inherit
 - tasks/T-NNN.md のパス。frontmatter の `goal` と `done_when` が全てです。
 - CLAUDE.md、api/*.raml、samples/、CONTEXT.md はリポジトリにあります。自分で読んでください。
 
+## 進め方
+**必ず `mule-tdd` スキルの順 (Red → Green → Refactor) で進めます。** 最初に Skill ツールで `mule-tdd` を読み込み、Red (テストが失敗すること) を確認してから実装に入ります。フロー XML の生成には公式スキル `build-mule-integration` や MCP の `generate_mule_flow` を使ってよいですが、生成物は仮説であり MUnit が通るまで正しさはありません。
+
 ## 規則
 1. **done_when が唯一の判定者です。** それが exit 0 になるまで終わりません。
 2. **テストと期待値は変えません。** samples/ と src/test/munit/ の期待値を書き換えて通すことは禁止です。テストが間違っていると確信したら、直さずに理由を書いて止まります。
@@ -24,6 +27,8 @@ model: inherit
 ```
 result: passed | failed | blocked
 attempts: <回数>
+red: <Red を確認したコマンドと exit>
+green: <Green になったコマンドと exit>
 done_when_exit: <終了コード>
 changed: <変更ファイルの列挙>
 note: <failed / blocked のときだけ、何が壁だったかを 3 行以内>

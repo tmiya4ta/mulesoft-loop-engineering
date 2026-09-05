@@ -13,4 +13,5 @@ argument-hint: "[--layer system|process|experience] [--name <api-name>]"
 3. template/ の各ファイルをコピーする。**既にあるファイルは上書きしない**。CLAUDE.md が既にある場合は末尾に template/CLAUDE.md の内容を追記し、冒頭にマーカー `<!-- mule-loop -->` を付ける。
 4. CLAUDE.md の `layer:` と `name:` を埋める。
 5. `mvn -v` と `dw --version` と `xmllint --version` の有無を確認し、無いものを表にして知らせる。無くても進められるが、検証が段 3 (mvn) だけになることを伝える。
-6. 最後に「次は `/mule-start` で作りたい API を対話で決めます」とだけ案内する。
+6. `.mcp.json` がリポジトリに無ければ、プラグインの `.mcp.json` をコピーするか聞く (MCP はプラグイン側で有効になるので任意)。
+7. 最後に「次は `/mule-start` で作りたい API を対話で決めます」とだけ案内する。
