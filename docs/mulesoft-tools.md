@@ -92,7 +92,7 @@ GitHub https://github.com/mulesoft/mulesoft-dx (Apache-2.0)。
 
 | 経路 | コマンド | 備考 |
 |---|---|---|
-| 1. Anypoint CLI v4 DX plugin | `anypoint-cli-v4 dx mule project create <name> --group-id <g> --mule-version 4.9.0 --dependencies "<GAV,...>"` | 手元で検証済み (2026-09-05)。`--skip-environment` は 1.0.3 には無い |
+| 1. Anypoint CLI v4 DX plugin | `anypoint-cli-v4 dx mule project create <name> --group-id <g> --mule-version 4.12.2 --dependencies "<GAV,...>"` | 手元で検証済み (2026-09-05)。`--skip-environment` は 1.0.3 には無い。**版は 4.10.1 以降** (4.9.0 は BOM 未公開で `ee:` を書くと MUnit が動かない) |
 | 2. DX MCP Server | `create_mule_project` (projectPath, projectName) | 1 と同じ骨格。MCP 設定と Connected App が要る |
 | 3. 公式スキル `build-mule-integration` | Step 8 で内部的に 1 を呼ぶ | コネクタ発見からやってくれるが、質問が多い |
 

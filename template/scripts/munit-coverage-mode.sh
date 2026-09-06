@@ -3,7 +3,7 @@
 # EE が取得できるかを確かめ、できるときだけ pom に runtimeProduct と 100% ゲートを入れる。
 set -u
 pom="${1:-pom.xml}"
-ver=$(sed -n 's/.*<app.runtime>\(.*\)<\/app.runtime>.*/\1/p' "$pom" | head -1); : "${ver:=4.9.0}"
+ver=$(sed -n 's/.*<app.runtime>\(.*\)<\/app.runtime>.*/\1/p' "$pom" | head -1); : "${ver:=4.12.2}"
 if mvn -q -o dependency:get -Dartifact=com.mulesoft.mule.distributions:mule-ee-distribution-standalone:${ver}:zip >/dev/null 2>&1 \
    || mvn -q dependency:get -Dartifact=com.mulesoft.mule.distributions:mule-ee-distribution-standalone:${ver}:zip >/dev/null 2>&1; then
   echo "EE ランタイムを取得できました。MUnit カバレッジ 100% ゲートを有効にします。"

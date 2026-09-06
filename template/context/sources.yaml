@@ -9,7 +9,7 @@ requirements:          # 何を作りたいかの資料 (要件、業務フロ�
 environment:           # 実行環境の資料 (Mule runtime、接続先、コネクタ版)
   paths: []            # 例: [context/environment/systems.md]
   urls:  []
-  mule_version: unknown        # 例: 4.9.0。unknown なら自動で最新を調べる
+  mule_version: unknown        # 例: 4.12.2。unknown なら自動で調べる。4.9.0 は避ける (gotchas 参照)
   java_version: unknown        # 例: 17
   systems: []                  # 例: [{name: sap, url: "https://...", type: sap}]
 

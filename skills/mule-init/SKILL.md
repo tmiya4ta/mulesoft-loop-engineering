@@ -12,12 +12,17 @@ argument-hint: "[--layer system|process|experience] [--name <api-name>]"
    - layer の選択肢: 「外部システム (SAP / DB / SaaS) を包む → system」「複数の system を組み合わせて業務の 1 手順にする → process」「画面や特定の利用者向けに形を整える → experience」。専門用語より用途の説明を前に出す。
 3. **Mule プロジェクトが無ければ作る。** `pom.xml` が無い場合、Studio / ACB と同じ構成 (mule-maven-plugin、Exchange と MuleSoft のリポジトリ、mule-artifact.json) を持つ骨格を CLI で作る。手で pom を書くと Maven のライブラリ取得に失敗するので、必ずこの経路を使う。
    ```bash
-   NODE_NO_WARNINGS=1 anypoint-cli-v4 dx mule project create <name> --group-id <group> --mule-version 4.9.0 \
+   NODE_NO_WARNINGS=1 anypoint-cli-v4 dx mule project create <name> --group-id <group> --mule-version 4.12.2 \
      --dependencies "org.mule.connectors:mule-http-connector:1.10.0"
    ```
    生成物は `<name>/` に入るので、リポジトリ直下に移す (`mv <name>/* <name>/.[!.]* . 2>/dev/null; rmdir <name>`)。
    CLI が無い場合 (`anypoint-cli-v4 dx mule --help` が失敗) は `npm i -g anypoint-cli-v4 && anypoint-cli-v4 plugins:install @salesforce/anypoint-cli-dx-mule-plugin` を案内する。MCP `create_mule_project` でも同じものが作れる。
+   **版は 4.10.1 以降にする (既定 4.12.2)。** 4.9.0 は `mule-runtime-impl-no-services-bom` が公開リポジトリに無く、
+   `ee:transform` を 1 つ書いた時点で MUnit が `Cannot create embedded container` で動かなくなる (knowledge/gotchas.md 参照)。
    コネクタの GAV は推測せず、`anypoint-cli-v4 dx mule describe-connector` か Exchange で確かめる。
+3ab. **mule-maven-plugin の版を直す。** `bash scripts/fix-plugin-version.sh` を実行する。
+   CLI は 4.7.0 を固定するが Mule 4.12 系とは非互換で、`NoSuchMethodError:
+   MuleRuntimeFeature.isEnabled` でビルドが通らない。
 3aa. **前提の置き場所を作る。** `context/` (requirements / environment / deployment)、`budget.yaml`、`context/deployment/authorizations.yaml`、`knowledge/` を配置し、**利用者に「資料をここに置いてください」と具体的なパスを伝える**。URL しか無い場合は `context/sources.yaml` に書いてもらう。
 3b. **MUnit を足す。** 生成直後の pom には MUnit が無いので `scripts/add-munit.sh` を実行する (設定済みなら何もしない)。
 3c. template/ の各ファイルをコピーする。**既にあるファイルは上書きしない**。CLAUDE.md が既にある場合は末尾に template/CLAUDE.md の内容を追記し、冒頭にマーカー `<!-- mule-loop -->` を付ける。

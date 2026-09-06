@@ -89,18 +89,28 @@ grep の前に落とす。`scripts/quick-check.sh` は修正済み。
 2 つ目は変換を module に切り出した直後に。module 正常 / module 壊れ / payload 参照 /
 script 壊れ / 素の正常 / 素の壊れ / 実物 2 本の 8 通りで期待どおりを確認。
 
-## `ee:` を 1 つでも書くと MUnit が動かない (CE 環境)
+## `ee:` を書くと requiredProduct が MULE_EE になる。落ちるかは Mule の版で決まる
 `<ee:transform>` を 1 つ置くと `target/META-INF/mule-artifact/mule-artifact.json` の
 `requiredProduct` が `MULE` → `MULE_EE` に変わり、MUnit が EE の器を作ろうとする。
-`com.mulesoft.mule.distributions:mule-runtime-impl-no-services-bom:4.9.0` は公開リポジトリに
-**無い** (404。4.10.1 は 200) ので `Cannot create embedded container` で落ちる。
-`<runtimeProduct>MULE_EE</runtimeProduct>` を書いた場合と同じ症状だが、**原因は名前空間 1 つ**で、
-pom には何も書いていないので気づきにくい。
+その解決に `com.mulesoft.mule.distributions:mule-runtime-impl-no-services-bom:<版>` が要る。
 
-変換は `src/main/resources/dwl/` の module に置き、フローからは `#[dwl::Module::fn(...)]` の
-1 行で呼ぶ。規則 5 が求める形と一致するので、迂回ではなく本来の形に寄る。
-根拠: 3 つの worktree が独立に同じ壁に当たり、進捗エージェントが対照実験で確認 (2026-09-06)。
-`ee:transform` あり → `requiredProduct: MULE_EE` / exit 1、退避 → `MULE` / exit 0。
+| Mule 版 | BOM の公開 | `ee:` ありの MUnit |
+|---|---|---|
+| 4.9.0 | **404** | `Cannot create embedded container` で落ちる |
+| 4.10.1 | 200 | 動く |
+| 4.12.2 | 200 | 動く (Studio 生成で実測 exit 0) |
+
+**第一の対処は `ee:` を避けることではなく、BOM が公開されている版 (4.10.1 以降、既定は 4.12.2)
+を使うこと。** `ee:transform` は Studio が既定で生成する標準部品なので、これを禁じると
+利用者に重い制約を課すことになる。4.9.0 のまま進むしかない場合だけ、変換を
+`src/main/resources/dwl/` の module に置き、フローからは `#[dwl::Module::fn(...)]` の 1 行で呼ぶ
+(これは規則 5 が求める形と一致するので、迂回ではなく本来の形に寄る)。
+
+症状は `<runtimeProduct>MULE_EE</runtimeProduct>` を書いた場合と同じだが、**原因は名前空間 1 つ**で
+pom には何も書いていないので気づきにくい。
+根拠: 4.9.0 で 3 つの worktree が独立に同じ壁に当たり対照実験で確認 (`ee:` あり → `MULE_EE` /
+exit 1、退避 → `MULE` / exit 0)。4.12.2 では `requiredProduct: MULE_EE` のまま MUnit が
+Tests run: 1 - Failed: 0 で通ることを確認。BOM は 4.9.0 が 404、4.10.1 と 4.12.2 が 200 (2026-09-06)。
 
 ## `mock-when` は操作に付けた `error-mapping` ごと無効化する
 `<munit-tools:mock-when>` は操作そのものを差し替えるので、その操作に付けた
@@ -110,3 +120,11 @@ mock 経由ではエラー型が写し替わらず、テストだけが赤くな
 なお `error-mapping` は XSD 上 `db:sql` より前に置く必要があり、順を間違えると
 配備前に `cvc-complex-type.2.4.a` で落ちる。
 根拠: 一意制約違反を 409 に写す実装中に 2 段で露見 (2026-09-06)。
+
+## `dx mule project create` は mule-maven-plugin 4.7.0 を固定する (4.12 系と非互換)
+`--mule-version 4.12.2` を指定しても pom の `mule.maven.plugin.version` は 4.7.0 のままで、
+`java.lang.NoSuchMethodError: 'boolean org.mule.runtime.features.api.MuleRuntimeFeature.isEnabled(java.util.Optional)'`
+が出て `process-classes` で落ちる。Studio が生成する pom は 4.10.1 なのでこの問題は起きない。
+`scripts/fix-plugin-version.sh` が app.runtime を見て 4.10 系に上げる。
+根拠: CLI 生成 4.12.2 で 4.7.0 は exit 1、4.10.1 に上げると `ee:transform` 込みで
+Tests run: 1 - Failed: 0 (2026-09-06)。
