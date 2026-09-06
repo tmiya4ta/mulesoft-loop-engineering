@@ -1,0 +1,29 @@
+# 決めごと。ループが人に判断を求めるのは「このファイルの空欄を最初に 1 回まとめて聞くとき」と
+# 4 つのゲート (受け入れ条件の承認 / PR マージ / 本番 / 昇格 PR) だけ。それ以外は聞かずに既定で進み、
+# 決めたことは docs/spec/<name>.md の「仮定」に残す。
+# 人が先に埋めておけば、その項目は聞かれない。空欄 ("" / unknown) は /mule-start が最初にまとめて聞く。
+
+api:
+  purpose: ""                 # 何をする API か (一言)
+  caller: unknown             # ui | internal-system | other-api   (画面やアプリ / 他の社内システム / 他の API)
+  data_source: unknown        # sap | db | salesforce | other-api | none
+  auth: unknown               # none | client-id-enforcement | jwt | basic   (呼ぶ側の認証)
+  error_style: unknown        # problem-json | simple-json   (失敗時の返し方: RFC 7807 か {code,message})
+
+layer: ""                     # system | process | experience。空なら api.* から判定して聞かない
+
+policy:
+  when_unsure: assume         # assume | ask。assume = 聞かずに既定で進み仮定として記録 (推奨)
+  grilling_rounds: 1          # 深掘りの質問ラウンド数の上限 (1 ラウンド = 最大 3 問)。0 で資料だけから決める
+  deploy_sandbox_after_merge: unknown   # yes | no。yes なら authorizations.yaml も allowed にすること
+
+# 既定値 (聞かない。変えたいときだけ書く)
+defaults:
+  http_port: 8081
+  base_path: /api
+  status_not_found: 404
+  status_validation: 400
+  status_upstream_error: 502
+  timeout_ms: 30000
+  pagination: none            # none | offset | cursor
+  id_field: id

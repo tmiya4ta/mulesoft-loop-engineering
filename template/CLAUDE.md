@@ -17,4 +17,5 @@ name: __NAME__
 - 検証は速い順に `dw` → `mvn -q test -Dmunit.test=<対象ファイル>` → `mvn -q test`。
 - フロー生成に公式スキル `build-mule-integration` や MCP `generate_mule_flow` を使ってよい。生成物は MUnit が通るまで仮説。
 - ゴールは `tasks/T-*.md`。`done_when` の無いゴールは作らない。
+- 人に判断を求めるのは `context/decisions.yaml` の空欄を最初に 1 回まとめて聞くときと、受け入れ条件の承認、PR マージ、本番、昇格 PR だけ。途中で迷ったら `decisions.yaml` の `defaults` で決めて `docs/spec/<name>.md` の「仮定」に残す。
 - デプロイは `/mule-deploy` だけが行い、`context/deployment/authorizations.yaml` が `allowed` で人が明示的に指示したときに限る。本番は人が行う。

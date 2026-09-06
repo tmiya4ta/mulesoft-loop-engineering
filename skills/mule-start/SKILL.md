@@ -11,42 +11,63 @@ disable-model-invocation: true
 
 停止位置: `--spec-only` なら手順 3 の後で止まる。`--plan-only` なら手順 4 の後で止まる。
 
+## 人に判断を求めるのはここだけ
+
+| いつ | 何を | 回数 |
+|---|---|---|
+| 手順 0.5 | `context/decisions.yaml` の空欄を **1 回にまとめて** 聞く | 開始時 1 回 (最大 4 問 × 2 ラウンド) |
+| 手順 3 | 受け入れ条件の承認 (仮定の一覧つき) | ゴール群につき 1 回 |
+| 手順 8 | PR のマージ | 1 回 |
+| `/mule-deploy` | 本番は常に人 | — |
+| `/mule-learn` | 昇格 PR のマージ | — |
+
+**それ以外では聞かない。** 途中で判断が要る場面は `decisions.yaml` の `defaults` と `policy.when_unsure: assume` に従って自分で決め、
+決めたことを `docs/spec/<name>.md` の「仮定」に 1 行ずつ残す。人は手順 3 の承認時にそれを一覧で見て、直したいものだけ直す。
+人が `decisions.yaml` に先に書いておいた項目は聞かない。
+
 ---
 
 ## 手順 0. 前提を集める (これをやる前に質問を始めない)
 
 **資料が無いまま対話を始めると時間を浪費する。** まず `context/sources.yaml` を読む。
 
-1. `requirements` が空なら、AskUserQuestion で聞く。選択肢は「フォルダに置いた (パスを言う)」「URL がある」「資料は無い。口頭で決める」。
+1. `requirements` が空なら、その所在を **手順 0.5 の一括質問の 1 問** として聞く (ここで単独に聞かない)。選択肢は「フォルダに置いた (パスを言う)」「URL がある」「資料は無い。口頭で決める」。
    - パスを言われたら `context/requirements/` に置いてもらい、`sources.yaml` に書く。
    - URL なら `sources.yaml` に書き、`curl` で取得して要点を `context/requirements/` に落とす。
    - 「無い」なら `note` にそう書いて先へ進む。**空欄のまま進まない。**
 2. `environment` を確認する。`mule_version`、`java_version`、接続先 (DB / Salesforce / SAP の URL と認証方式) が `unknown` なら:
-   - 資料の場所か URL を同じ要領で聞く。
+   - 資料の場所か URL を手順 0.5 の一括質問に含める (単独に聞かない)。
    - **それでも分からなければ自分で調べる。** `anypoint-cli-v4 dx mule runtime` で実際に解決できるランタイム版を確認し、コネクタ版は `anypoint-cli-v4 dx mule describe-connector` か Exchange で確認する。推測した GAV は使わない。
    - 調べた結果を根拠 (実行したコマンドと出力) つきで `context/environment/resolved.md` に書き、`sources.yaml` を更新する。
-3. `deployment` を確認する。デプロイ先が要る場合だけ聞く。`context/deployment/authorizations.yaml` は **人が書くファイル** なので、こちらから書き換えない。中身を読んで、何が許可されているかを人に読み上げて確認する。
-4. `budget.yaml` を読み、上限を人に伝える (「実行エージェント最大 N 回、最大 M 分で止まります」)。変えたいと言われたらファイルを直してもらう。
+3. `deployment` を確認する。聞かない。`context/deployment/authorizations.yaml` は **人が書くファイル** なので、こちらから書き換えない。中身を読んで、何が許可されているかを人に読み上げて確認する。
+4. `budget.yaml` を読み、上限を人に伝える (「実行エージェント最大 N 回、最大 M 分で止まります」)。聞かない。変えたい人はファイルを直す。
+
+## 手順 0.5. 決めごとを 1 回でまとめて聞く
+
+`context/decisions.yaml` を読む。**空欄 (`""` / `unknown`) だけ** を集め、AskUserQuestion **1 回 (最大 4 問)** にまとめて聞く。
+5 問以上残るときだけ 2 ラウンド目を出す。3 ラウンド目は無い。残りは既定で埋めて仮定として記録する。
+
+- 引数で一言もらっていれば `api.purpose` は埋まったものとする。
+- 選択肢は平文にし、専門用語は説明側に隠す。各問に **推奨** を先頭に置き、「分からない」を選んだら推奨で進む。
+- `layer` は `api.caller` と `api.data_source` から判定して聞かない。CLAUDE.md の `layer:` と違えば **判定した方に合わせて CLAUDE.md を直し**、一言だけ伝える。
+- `policy.deploy_sandbox_after_merge` が yes なのに `authorizations.yaml` が denied なら、「allowed にするのは人」と 1 行伝えるだけで止まらない。
+- 答えは `decisions.yaml` に書き戻す。次回以降は聞かれない。
+
+ここが終わったら **手順 3 の承認まで質問しない** と宣言して先へ進む。
 
 ここで集めた内容は手順 2 の grilling が事実として使う。**手順 0 を飛ばさない。**
 
 ---
 
-## 手順 1. 前置き (初心者向け、3 問まで)
-
-AskUserQuestion で次を **選択式** で聞く。専門用語は選択肢の説明に隠し、ラベルは平文にする。引数で一言もらっていれば、それを最初の選択肢の既定にする。
-
-1. 何をする API か (一言。自由記述)
-2. 誰が呼ぶか: 「画面やアプリ」「他の社内システム」「他の API (組み合わせ役)」
-3. データはどこから来るか: 「SAP」「データベース」「Salesforce」「他の API」「まだ決めていない」
-
-ここで層 (system / process / experience) を内部で判定し、CLAUDE.md の `layer:` と一致しているか確認する。違えば一言で理由を説明して、どちらに合わせるか聞く。
+## 手順 1. (廃止。手順 0.5 に吸収)
 
 ## 手順 2. 深掘り (grill-with-docs を借りる)
 
 Skill ツールで `mattpocock-skills:grilling` と `mattpocock-skills:domain-modeling` を呼ぶ。呼ぶ前に、次の **上書き指示** をこのセッションの規則として宣言する。
 
-- 質問は 1 ラウンド **3 問まで**。推奨回答を必ず付け、「そのままで良ければ Enter か『はい』」と添える。
+- 人への質問は `decisions.yaml` の `policy.grilling_rounds` ラウンドまで (既定 1)。1 ラウンド **3 問まで**、AskUserQuestion 1 回にまとめる。推奨回答を必ず付け、「分からない」なら推奨で進む。
+- **`decisions.yaml` と資料で答えが出る問いは聞かない。** ラウンドを使い切ったら残りは `defaults` と `when_unsure: assume` で自分で決め、`docs/spec/<name>.md` の「仮定」に 1 行ずつ残す。人が答えを知らない問いも同じ (聞いても進まない)。
+- 事実確認のための質問 (「〜で合っていますか」) はしない。承認 (手順 3) でまとめて見てもらう。
 - 用語は日本語の平文。ADR、コンテキスト、境界づけられた、などの語を利用者に向けて使わない。ADR を書く判断は内部で行い、書いたら「決めたことを docs/adr/ に残しました」とだけ伝える。
 - 事実 (既存の RAML、フロー、サンプル、コネクタ、Exchange 上の既存 API) は自分で読む。利用者に聞かない。Anypoint 側の事実は `platform-assistant` スキルと MCP `search_asset` で調べる。
 - 用語集 CONTEXT.md は更新するが、利用者に確認は求めない。
@@ -63,10 +84,16 @@ Skill ツールで `mattpocock-skills:grilling` と `mattpocock-skills:domain-mo
 - `src/test/munit/<resource>-test.xml`。samples を流して out と比較する **本物のテスト**。正常系・失敗系・境界の全ケースを書き、**そのゴールで作る flow が 1 つ残らず MUnit から flow-ref される** ようにする (`scripts/coverage-check.sh` が判定)。この時点で `mvn -q test -Dmunit.test=<resource>-test.xml` が **失敗する** ことを確認する (TDD の Red)。実装は実行ループが Green にする。
 - RAML の草稿には MCP `generate_api_spec` を使ってよい。`api-spec-validator` があれば通す。既存 API との重複は MCP `search_asset` か `platform-assistant` で自分で調べる。
 
-そのうえで利用者に **平文で動作を読み上げる**。例:
-「注文番号を渡すと、SAP に問い合わせて注文の状態を返します。番号が無いときは 404 で『注文が見つかりません』を返します。この動きで合っていますか。」
+そのうえで利用者に **平文で動作を読み上げ、続けて仮定を連番で並べる**。例:
+「注文番号を渡すと、SAP に問い合わせて注文の状態を返します。番号が無いときは 404 で『注文が見つかりません』を返します。
 
-承認されるまで実装に進まない。承認されたら `docs/spec/<name>.md` に読み上げた文とファイル一覧を残す。
+決めずに進めた仮定 (直したい番号だけ言ってください):
+  1. 認証は client-id-enforcement (既定)
+  2. 失敗時は {code, message} の JSON (既定)
+  3. タイムアウトは 30 秒 (既定)
+この動きで進めてよいですか。」
+
+**質問はこの 1 回にまとめる。** 仮定を個別に聞かない。番号で直されたら該当箇所だけ直して再度読み上げる。承認されるまで実装に進まない。承認されたら `docs/spec/<name>.md` に読み上げた文、仮定の一覧、ファイル一覧を残す。
 
 ## 手順 4. 台帳を切る (計画ループ)
 
@@ -77,7 +104,7 @@ Skill ツールで `mattpocock-skills:grilling` と `mattpocock-skills:domain-mo
 - `blocked_by` で依存を書く。無いものから着手できる。
 - 先にやるべき下準備 (pom の依存追加、共通エラーハンドラ) があれば T-001 にする。
 
-台帳を表にして利用者に見せる。ここは確認だけで承認は不要。
+台帳を表にして利用者に見せる。ここは確認だけで承認は不要。**聞かずに手順 5 へ進む。**
 
 ## 手順 5〜7. 実行ループを回す
 

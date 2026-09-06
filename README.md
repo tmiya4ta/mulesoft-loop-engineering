@@ -5,6 +5,7 @@ MuleSoft を知らない人でも `/mule-start` の対話だけで、仕様 → 
 
 考え方は [docs/methodology.md](docs/methodology.md)。実装は TDD (Red → Green → Refactor) で進める。
 
+> **v0.4.1** — 人に聞く場面を「最初の 1 回 + 4 つのゲート」に固定 (`context/decisions.yaml`)。途中の判断は既定で進めて承認時に仮定として一覧にする。
 > **v0.4.0** — デプロイのループ (`/mule-deploy`) を追加。マージ後に Sandbox (CloudHub 2.0 / Runtime Fabric) へ置き、`samples/` の期待値で疎通を確かめ、失敗を学習ループに戻す。前版は `v0.3.2` タグ。
 
 ## 導入 (チームの各メンバー)
@@ -100,7 +101,9 @@ export ANYPOINT_REGION=PROD_JP
 3. `budget.yaml` の上限を確認する。
 4. Sandbox にデプロイさせたい場合だけ `context/deployment/authorizations.yaml` の `deploy.sandbox` を `allowed` にし、`context/deployment/sandbox.yaml` に置き場所 (cloudhub2 / rtf、target) を書く。
 
-## 人が押すのは 4 か所だけ
+## 人が判断するのは 5 か所だけ
+
+0. `/mule-start` の最初に `context/decisions.yaml` の空欄を **1 回にまとめて** 聞かれる (先に書いておけば聞かれない)。以降、承認まで質問は無い。途中の判断は既定で進み、承認時に「仮定」として一覧で見せる
 
 1. `/mule-start` が平文で読み上げる動作への「はい」
 2. PR のマージ
