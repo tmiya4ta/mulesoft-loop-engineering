@@ -232,3 +232,144 @@ API を直接叩いて作る場合の必須の形。CLI では作れない組み
 | 利用者アプリの作成 | `POST /exchange/api/v2/organizations/{org}/applications?apiInstanceId=<id>` | `A target apiInstanceId or groupInstanceId is required` |
 
 根拠: 上記すべて実測 (2026-09-06)。
+
+---
+
+# 以下 2026-09-06 追加 (finance-api、System API 1 本を TDD で通した実測)
+
+確認した版: Mule 4.12.2 / MUnit 3.7.4 / APIkit 1.12.6 / mule-db-connector 1.16.3 /
+mule-http-connector 1.10.0 / mule-maven-plugin 4.10.1 / Java 17 / CE。
+
+## `on-error-continue` は「一番内側のスコープ」の直後から再開する
+これが今回いちばん時間を溶かした。`<try>` の中でエラーが起き、既定のエラーハンドラの
+`on-error-continue` が処理すると、**フロー全体が終わるのではなく `<try>` の直後から実行が続く**。
+`try` の後ろに「成功時にしか意味のない変換」を置いていると、それがエラー処理の後で走り、
+本来 404 を返すはずの経路が 502 になる。
+対処は簡単で、**成功時にしか意味のない処理を同じ `try` の中に入れる**。
+根拠: finance-api の `change-address` で実測。`address-not-found` だけが落ちる形で現れた
+(2026-09-06)。同じ罠を別のゴールで踏み直しかけたのを K-004 が食い止めている。
+
+## 共有のエラーハンドラに `on-error-propagate` を足すと、トランザクションを持たないフローが壊れる
+`<configuration defaultErrorHandler-ref="..."/>` は全フローに効く。ロールバックのために
+そこへ `on-error-propagate` を追加すると、`<try>` を持たないフローでは応答を返す前に
+エラーが外へ抜け、それまで通っていたテストが落ちる。
+**巻き戻しが要るフローの `<try>` の中にローカルの `<error-handler>` を閉じ込める。**
+根拠: finance-api で共有側に入れて `name-test.xml` が壊れることを実験で確認し、戻した (2026-09-06)。
+
+## `<try>` の中で `<error-handler>` は最後の子要素にする
+content model が `(processor)*, (error-handler)?` なので、`db:update` などより前に置くと
+`mvn -q clean package -DskipTests` が XML スキーマ検証で落ちる。
+根拠: finance-api で実測 (2026-09-06)。
+
+## コネクタ組み込みのエラー型は `<raise-error>` できない
+`APIKIT:BAD_REQUEST` や `DB:CONNECTIVITY` をテスト用に `raise-error` しようとしても通らない。
+名前空間がアプリのものでないため。**実際にその経路を踏ませて発生させるしかない。**
+`APIKIT:*` を踏ませるには実 HTTP か、型付けした attributes での `flow-ref` が要る。
+根拠: finance-api で `APIKIT:BAD_REQUEST` と `DB:CONNECTIVITY` の両方で確認 (2026-09-06)。
+
+## 独自エラー型は `raise-error` が最低 1 箇所無いとビルドが通らない
+`<on-error-continue type="APP:CUSTOMER_NOT_FOUND">` と書くだけでは
+`Could not find error 'APP:CUSTOMER_NOT_FOUND'` でビルドが落ちる。
+実装前にハンドラだけ先に書くとき (TDD では普通に起きる) は、到達しない分岐に
+`raise-error` を 1 つ置いておく。
+根拠: finance-api の T-001 で実測 (2026-09-06)。
+
+## MUnit は既定でメッセージソース (http:listener) を起動しない
+配線が正しくても、実 HTTP を叩くテストが毎回 `HTTP:CONNECTIVITY ... Connection refused` になる。
+`mvn -q clean package -DskipTests` は成功するので設定ミスに見えるが違う。
+`<munit:enable-flow-sources>` で対象の flow を明示的に有効化する。
+根拠: finance-api の T-001 で実測 (2026-09-06)。
+
+## リポジトリ直下の `api/*.raml` はクラスパスに乗らない
+`InitialisationException: Raml not found at: api/finance-api.raml` になる。
+`src/main/resources` の外にあるので当然だが、APIkit の `api=` の書き方だけを見ていると気づけない。
+pom の `<resources>` に直下の `api/` を足す。
+根拠: finance-api の T-001 で実測 (2026-09-06)。
+
+## APIkit の main flow を `flow-ref` で直叩きするには attributes を型付けする
+`apikit:router` は attributes を `org.mule.extension.http.api.HttpRequestAttributes` として扱う。
+ただの Map を渡すと動かない。DataWeave で
+`... as Object {class: "org.mule.extension.http.api.HttpRequestAttributes"}` と型付けする。
+`headers` と `queryParams` は `org.mule.runtime.api.util.MultiMap` にする。
+カバレッジ検査が main flow の `flow-ref` を要求するときに必要になる。
+根拠: finance-api の T-001 で組み立てて成功 (2026-09-06)。
+
+## `attributes.requestPath` は listener のベースパス込みで返る
+listener が `/api/*` なら `"/api/customers/CUST00013/address"` のようになる。
+RFC 7807 の `instance` に使うと、RAML のリソースパスと食い違う。
+根拠: finance-api で実測 (2026-09-06)。
+
+## `http:request` の応答を `payload as String` すると `Cannot coerce Object to String`
+応答の MIME が JSON 系だと DataWeave が自動で解釈するため、`payload` は String ではない。
+テスト側で本文を文字列として扱いたいときは `http:request` に
+`outputMimeType="application/java"` を付ける。`text/plain` や `application/octet-stream` では直らない。
+根拠: finance-api の T-001 で 3 通り試して確認 (2026-09-06)。
+
+## `db:update` / `db:select` の SQL は属性ではなく子要素
+`sql="..."` の属性で書くと XSD 検証で落ちる。`<db:sql>...</db:sql>` の子要素にする。
+根拠: mule-db-connector 1.16.3、finance-api の T-003 で実測 (2026-09-06)。
+
+## db 操作に `target=` を付けると `mock-when` の値が反映されない
+`target="result"` のように結果を変数へ入れる書き方をすると、モックした値がその変数に入らず、
+後続の分岐が実 DB へ行こうとする。`target` を外して `payload` を直接参照すると解消する。
+原因までは特定していない。症状と対処のみ。
+根拠: finance-api の T-003 で実測 (2026-09-06)。
+
+## APIkit の検証エラーの `error.description` は `/<プロパティ名> ...` で始まる
+```
+/postalCode string [1000001] does not match pattern ^[0-9]{3}-[0-9]{4}$
+```
+複数の項目が同時に落ちると改行で連結される。項目名を取り出して日本語の文言表を引く、
+という組み立てができる。`APIKIT:NOT_ACCEPTABLE` / `UNSUPPORTED_MEDIA_TYPE` はこの形にならないので、
+既定文へのフォールバックを必ず用意する。
+根拠: finance-api の T-004 で原文を採取 (2026-09-06)。
+
+## `p()` は `configuration-properties` の YAML のネストしたキーを動的に引ける
+`p('messages.' ++ fieldName)` の形が効く。エラーハンドラの中で `readUrl` を使うと、
+読み込み失敗が「エラーハンドラの中の 2 つ目のエラー」になり、
+**problem+json を名乗りながら中身が違う応答**を返す道ができる。起動時解決に寄せる。
+根拠: finance-api の T-005 で実測 (2026-09-06)。
+
+## `dw validate` は `p()` を解決できない (フックの誤検知)
+`Unable to resolve reference of: \`p\`` が出るが、`p()` は実行時にランタイムが解決する。
+`.dwl` を検査するフックはこれを実エラーとして扱わないこと。
+根拠: finance-api で `quick-check.sh` が編集をブロックした (2026-09-06)。
+
+## トランザクションの commit / rollback は MUnit では観測できない
+`mock-when` は processor ごと差し替えるため、JDBC のコネクション取得もトランザクション参加も
+発生しない。検証できるのは「巻き戻しの経路を通ったこと」までで、実際に戻ったかではない。
+**テストが緑でも、そこは保証されていない。**限界を明記して残すこと。
+根拠: finance-api の T-005 で確認 (2026-09-06)。
+
+## `affectedRows == 0` を「対象が存在しない」と解釈しない
+Derby は WHERE に一致した行数を返すが、**MySQL の既定は値が変わらなかった UPDATE に 0 を返す**。
+同じ値をもう一度 PUT すると、対象が実在するのに 404 になる。PUT の冪等性が壊れる。
+接続先が決まっていない段階ではとくに危ない。更新直後の読み戻しが空かどうかで判定する。
+根拠: finance-api のレビュー指摘。接続先未定のまま Derby 前提で書かれていた (2026-09-06)。
+
+## `db:select` の結果に `payload[0]` を無防備に取らない
+0 件だと `Cannot coerce Null to String` で落ち、`ANY` を拾うハンドラがあると
+アプリ内部の不整合が「基幹系に接続できません」として報告される。
+select の直後に件数を確認してエラーを上げる。**DataWeave 側に `default` を足して隠さない。**
+空の読み戻しは正常系ではない。
+根拠: finance-api のレビュー指摘 (2026-09-06)。
+
+## `ANY` を接続エラーと同じ枝に入れない
+`type="DB:CONNECTIVITY, DB:*, ANY"` と書くと、DataWeave の失敗やアプリの欠陥まで
+「外部システムに接続できません」として報告される。**内部の欠陥が外部のせいになる。**
+`ANY` は別の枝にして、内部エラー用の種別と 500 を割り当てる。
+根拠: finance-api のレビュー指摘。実際にこの機構で 404 が 502 に化けていた (2026-09-06)。
+
+## フローの分岐を変えたら、既存テストの `behavior` にモックを足す
+早期終了していた分岐が新しい実装では後続処理に到達し、モック不足で実 DB へ行って
+404 が 502 になる。**`assert` は変えない。足すのは `behavior` だけ。**
+根拠: finance-api の T-006 で実測 (2026-09-06)。
+
+## `assert` の式に `default` を付けると、そのテストは何も検証しない
+```xml
+expression="#[vars.updatedRows default 1]"  is="#[MunitTools::equalTo(1)]"
+```
+変数が未設定でも通る。`doc:name` が何を主張していても、検証はされていない。
+**検出方法**: 参照している変数名を存在しないものに差し替えて、テストが通るかを見る。
+通ったら牙が無い。`verify-call` で実際に発行された呼び出しと引数を見る形に置き換える。
+根拠: finance-api でレビューが発見。変数名の差し替えで実際に素通りすることを確認 (2026-09-06)。
