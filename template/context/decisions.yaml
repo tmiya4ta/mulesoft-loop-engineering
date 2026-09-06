@@ -7,6 +7,7 @@ api:
   purpose: ""                 # 何をする API か (一言)
   caller: unknown             # ui | internal-system | other-api   (画面やアプリ / 他の社内システム / 他の API)
   data_source: unknown        # sap | db | salesforce | other-api | none
+  data_model: unknown         # provided | none   (DDL / オブジェクト定義が context/requirements/ にあるか。System 層で none なら grilling で項目を 1 つずつ決める。仮定では作らない)
   auth: unknown               # none | client-id-enforcement | jwt | basic   (呼ぶ側の認証)
   error_style: unknown        # problem-json | simple-json   (失敗時の返し方: RFC 7807 か {code,message})
   gateway: unknown            # proxy-flex | basic-endpoint | none   (ポリシーをどこで効かせるか。basic-endpoint は autodiscovery = EE 必須。分からなければ proxy-flex)

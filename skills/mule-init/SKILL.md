@@ -23,7 +23,7 @@ argument-hint: "[--layer system|process|experience] [--name <api-name>]"
 3ab. **mule-maven-plugin の版を直す。** `bash scripts/fix-plugin-version.sh` を実行する。
    CLI は 4.7.0 を固定するが Mule 4.12 系とは非互換で、`NoSuchMethodError:
    MuleRuntimeFeature.isEnabled` でビルドが通らない。
-3aa. **前提の置き場所を作る。** `context/` (requirements / environment / deployment / `decisions.yaml`)、`budget.yaml`、`context/deployment/authorizations.yaml`、`knowledge/` を配置し、**利用者に「資料をここに置いてください」と具体的なパスを伝える**。URL しか無い場合は `context/sources.yaml` に書いてもらう。
+3aa. **前提の置き場所を作る。** `context/` (requirements / environment / deployment / `decisions.yaml`)、`budget.yaml`、`context/deployment/authorizations.yaml`、`knowledge/` を配置し、**利用者に「資料をここに置いてください」と具体的なパスを伝え、`context/requirements/_template.md` をコピーして埋めればよいこと、System 層ならデータモデル (DDL かオブジェクト定義) が必須であることを添える**。URL しか無い場合は `context/sources.yaml` に書いてもらう。
 3b. **MUnit を足す。** 生成直後の pom には MUnit が無いので `scripts/add-munit.sh` を実行する (設定済みなら何もしない)。
 3c. template/ の各ファイルをコピーする。**既にあるファイルは上書きしない**。CLAUDE.md が既にある場合は末尾に template/CLAUDE.md の内容を追記し、冒頭にマーカー `<!-- mule-loop -->` を付ける。
 4. CLAUDE.md の `layer:` と `name:` を埋める。

@@ -31,7 +31,7 @@ disable-model-invocation: true
 
 **資料が無いまま対話を始めると時間を浪費する。** まず `context/sources.yaml` を読む。
 
-1. `requirements` が空なら、その所在を **手順 0.5 の一括質問の 1 問** として聞く (ここで単独に聞かない)。選択肢は「フォルダに置いた (パスを言う)」「URL がある」「資料は無い。口頭で決める」。
+1. `requirements` が空なら、その所在を **手順 0.5 の一括質問の 1 問** として聞く (ここで単独に聞かない)。選択肢は「フォルダに置いた (パスを言う)」「URL がある」「資料は無い。口頭で決める」。「無い」の場合は `context/requirements/_template.md` を示し、**特にデータモデル (3 節) だけは置いてほしい** と伝える。
    - パスを言われたら `context/requirements/` に置いてもらい、`sources.yaml` に書く。
    - URL なら `sources.yaml` に書き、`curl` で取得して要点を `context/requirements/` に落とす。
    - 「無い」なら `note` にそう書いて先へ進む。**空欄のまま進まない。**
@@ -49,6 +49,7 @@ disable-model-invocation: true
 
 - 引数で一言もらっていれば `api.purpose` は埋まったものとする。
 - 選択肢は平文にし、専門用語は説明側に隠す。各問に **推奨** を先頭に置き、「分からない」を選んだら推奨で進む。
+- **データモデルは一括質問に必ず含める。** `api.data_model` が unknown なら「テーブル定義やオブジェクト定義はありますか」を 1 問にする (選択肢: `context/requirements/` に置いた / 今から貼る / 無いので一緒に決める)。System 層はデータモデルを扱う API なので、**モデルを仮定で作ってはいけない**。無ければ手順 2 で決める。
 - `layer` は `api.caller` と `api.data_source` から判定して聞かない。CLAUDE.md の `layer:` と違えば **判定した方に合わせて CLAUDE.md を直し**、一言だけ伝える。
 - `policy.deploy_sandbox_after_merge` が yes なのに `authorizations.yaml` が denied なら、「allowed にするのは人」と 1 行伝えるだけで止まらない。
 - 答えは `decisions.yaml` に書き戻す。次回以降は聞かれない。
@@ -71,7 +72,9 @@ Skill ツールで `mattpocock-skills:grilling` と `mattpocock-skills:domain-mo
 - 用語は日本語の平文。ADR、コンテキスト、境界づけられた、などの語を利用者に向けて使わない。ADR を書く判断は内部で行い、書いたら「決めたことを docs/adr/ に残しました」とだけ伝える。
 - 事実 (既存の RAML、フロー、サンプル、コネクタ、Exchange 上の既存 API) は自分で読む。利用者に聞かない。Anypoint 側の事実は `platform-assistant` スキルと MCP `search_asset` で調べる。
 - 用語集 CONTEXT.md は更新するが、利用者に確認は求めない。
-- 必ず聞くべき枝: 入力の例、出力の例、失敗するケースとそのときの返し方、認証の有無、既存 API との重複。
+- 必ず聞くべき枝: **データモデル (項目、型、主キー、状態の値、API に出さない項目)**、入力の例、出力の例、失敗するケースとそのときの返し方、認証の有無、既存 API との重複。
+- **データモデルは `when_unsure: assume` の対象外。** 資料に無い項目名や型を勝手に決めない。System 層で `api.data_model` が none なら、grilling のラウンド上限に関係なく、モデルが決まるまで (項目一覧が埋まるまで) 聞く。1 ラウンド 3 問の形は守り、「この項目一覧で合っていますか」の形でまとめて確認する。決まったモデルは `context/requirements/data-model.md` に書き、以後の RAML と samples はそこから作る。
+- 資料に DDL やオブジェクト定義があるときは読んで使い、聞かない。
 
 木が尽きたら手順 3 へ。
 
