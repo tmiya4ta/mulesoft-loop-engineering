@@ -98,7 +98,12 @@ GitHub https://github.com/mulesoft/mulesoft-dx (Apache-2.0)。
 
 導入: `npm i -g anypoint-cli-v4 && anypoint-cli-v4 plugins:install @salesforce/anypoint-cli-dx-mule-plugin`
 
-生成される pom には **MUnit が入っていない**。`template/scripts/add-munit.sh` が munit-runner / munit-tools / munit-maven-plugin を足す (検証済み。Red テストが exit 1 で返る)。
+生成される pom には **MUnit が入っていない**。これは Studio / ACB で作ったプロジェクトも同じで、
+Studio は GUI で MUnit テストを作った時点で初めて追加する。`template/scripts/add-munit.sh` が
+munit-runner / munit-tools / munit-maven-plugin を足す。字下げがタブ (Studio) でもスペース (CLI) でも動き、
+挿入できなければ exit 1 で落ちる。MUnit の版は maven-metadata から最新を取る
+(Mule 4.12 に MUnit 3.4 系を載せると `Cannot create embedded container` で起動しない)。
+検証済み: Studio 生成 finance-api (Mule 4.12.2) と CLI 生成 order-sapi (4.9.0) の両方で Red/Green 成立。
 
 MUnit の絞り込みは `-Dtest=` ではなく **`-Dmunit.test=<テストファイル名>`**。
 
