@@ -5,6 +5,7 @@ MuleSoft を知らない人でも `/mule-start` の対話だけで、仕様 → 
 
 考え方は [docs/methodology.md](docs/methodology.md)。実装は TDD (Red → Green → Refactor) で進める。
 
+> **v0.5.2** — 着手できるゴールを **既定で並列に配る** (`--parallel` は上げる旗ではなく下げる旗)。`mule-run` が止まってよい場所を 4 つに限り、進捗の報告先を対話ではなく台帳にした。根拠は実測 (`docs/methodology.md` の「実測: System API 1 本の 9.67 時間」)。
 > **v0.5.1** — PR #2 の実測を手順に反映: デプロイごとに版を上げる (`bump-version.sh`)、CH2 の公開 URL は API で付ける (`ch2-public-url.sh`)、ポリシーはゲートウェイの型 (`api.gateway`) で手順を分け、同梱スキルを先に読む。
 > **v0.5.0** — 実装の先 (デプロイ、ポリシー) も台帳のゴール (`stage:`) にして同じループで回す。規律 (台帳の外で作業しない / マニュアルを読まない / 3 ブロックで締める) を UserPromptSubmit と Stop の hook に移し、長い会話で薄れないようにした。
 > **v0.4.1** — 人に聞く場面を「最初の 1 回 + 4 つのゲート」に固定 (`context/decisions.yaml`)。途中の判断は既定で進めて承認時に仮定として一覧にする。
@@ -48,7 +49,7 @@ claude
 | `/mule-start` | 実装、レビュー、PR 作成まで (マージは人) |
 | `/mule-run` | 台帳の未完了ゴールだけ回す。中断からの再開 |
 | `/mule-run T-003` | 1 件だけ |
-| `/mule-run --parallel 3` | 3 件まで並列 |
+| `/mule-run --parallel 1` | 直列に落とす (既定は着手できるものを並列に配る。`--parallel` は下げる旗) |
 | `/mule-setup` | 外部スキルと MCP の前提を入れる (初回) |
 | `/mule-tdd` | 実行エージェントが従う Red → Green → Refactor の規律。人が手で実装するときも使える |
 | `/mule-deploy` | マージ後に Sandbox へ置いて `samples/` で疎通確認。`--verify-only <url>` で確認だけ |

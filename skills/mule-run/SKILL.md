@@ -1,19 +1,22 @@
 ---
 name: mule-run
 description: 台帳 tasks/ の未完了ゴールを予算内で実行エージェントに配り、done_when を自分で再実行して確かめ、証拠と試行ログを台帳に書き戻す計画・実行ループ。中断からの再開にも使う。
-argument-hint: "[T-NNN だけ実行] [--parallel N]"
+argument-hint: "[T-NNN だけ実行] [--parallel N (既定は予算が許す最大。1 で直列)]"
 ---
 
 あなたは進捗エージェントです。実装は自分でせず、`mule-executor` に配ります。
 
 ## 配る前に必ず 3 つ確認する
-1. `bash scripts/budget-check.sh` を実行する。**exit 1 なら 1 件も配らずに止まり**、人に残予算と状況を報告する。出力の `max_parallel` が `--parallel` の上限で、引数がそれを超えていたら切り下げる。
+1. `bash scripts/budget-check.sh` を実行する。**exit 1 なら 1 件も配らずに止まり**、人に残予算と状況を報告する。出力の `max_parallel` が **既定の同時実行数**。`--parallel N` はこれを **下げる** ときだけ使う (`--parallel 1` で直列)。引数が `max_parallel` を超えていたら切り下げる。
 2. `context/sources.yaml` が埋まっているか。`requirements` が空で `note` も空なら、`/mule-start` に戻るよう案内して止まる。
 3. ゴールに `done_when` があるか。無ければ止めて報告する。
 
 ## ループ
 1. `tasks/T-*.md` を読み、`status` が `todo` または `failed` (attempts < 3) で、`blocked_by` が全て `passed` のものを取り出す。`stage` が無ければ `impl`。
-2. 各ゴールについて:
+2. **取り出せたゴールは 1 件ずつではなく `max_parallel` 件まで同時に配る。これが既定。**
+   `blocked_by` が解けているゴールは互いに独立なので、戻りを待つ理由が無い。
+   1 つの応答の中に Agent 呼び出しを並べれば同時に走る (`impl` 段のみ。`deploy` は進捗エージェント自身が順に行う)。
+   直列にしたいときだけ `--parallel 1` を渡す。ゴールごとにやることは:
    - `status: running` に更新する。
    - **モデルを選ぶ。** attempts 0〜1 は `sonnet`、attempts 2 (= 3 回目の挑戦) は `opus` に上げる。Agent 呼び出し時の `model` で指定する (frontmatter より呼び出し側が優先)。
    - `bash scripts/run-log.sh dispatch <id> <model>` を実行する。
@@ -22,7 +25,7 @@ argument-hint: "[T-NNN だけ実行] [--parallel N]"
      - `deploy` → 実行エージェントには配れない (デプロイ禁止)。**進捗エージェント自身が `mule-deploy` スキルの手順 1〜5 を実行する。** 先に done_when を 1 回流して失敗を確認する (red)。配置先 URL が決まったら done_when の base-url を書き換えてよい (期待値ではなく所在なので)。
      - `policy` → `authorizations.yaml` の `policy.sandbox` が allowed のときだけ `mule-executor` に配る (worktree 不要、`isolation` 無し)。denied なら blocked にして人に 1 行で伝える。
    - **マニュアルは読まない。** 段を進めるのに足りない事実 (CLI の書式、ポリシー名、API インスタンスの id) は、進捗エージェントが docs を fetch して探すのではなく、実行エージェントに「調べて `knowledge/K-NNN.md` に書いてから使う」よう配る。進捗エージェントが読むのは台帳、context/、knowledge/ だけ。
-   - 配るたびに budget-check を再実行する (並列時も 1 件ごとに数える)。
+   - **1 波を配り終えたら budget-check を再実行する** (並列でも 1 件ずつ数える)。`remaining_runs` を超える分は次の波に回す。
 3. 戻ってきたら diff を取り込み、**`done_when` を自分で実行する**。実行エージェントの自己申告は信じない。
    - `samples/` か `src/test/munit/` の期待値が変更されていたら、**diff を捨てて failed にする**。理由を試行ログに書く。
    - `red` の証拠が無い、または `red` と `green` が別コマンドなら failed にする (deploy / policy 段も同じ。red は着手前の done_when、green は着手後の done_when)。
@@ -48,11 +51,38 @@ argument-hint: "[T-NNN だけ実行] [--parallel N]"
 - テストや samples の期待値を変えて通すこと。
 - `done_when` の無いゴールを実行すること。
 - 予算超過後に配ること。
+- **ゴールが 1 件 passed になるたびに人に確認を取ること。** 台帳に書けば伝わっている。
 - **次の一手を示さずに終わること。**
 
 ---
 
+## このループで止まってよいのは 4 か所だけ
+
+**進捗の報告先は台帳であって、対話ではない。** ゴールが 1 件 `passed` になったことは
+`tasks/T-NNN.md` の `status` と `evidence` に書けば伝わっている。書いたら次のゴールを配る。
+人に見せて「次に進んでよいですか」と聞かない。
+
+| 止まる場所 | 条件 |
+|---|---|
+| ゲート 2 | PR を作ったあとのマージ |
+| blocked | `attempts` が 3 に達した (試行ログ全体を添えて報告) |
+| 予算超過 | `budget-check.sh` が exit 1 |
+| 段の許可 | `deploy` / `policy` 段で `authorizations.yaml` が denied、または人の明示指示がまだ無い |
+
+ゲート 1 (受け入れ条件の承認) は `/mule-start`、ゲート 4 (昇格 PR) は `/mule-learn` の担当で、
+このループには来ない。**上の 4 つ以外では止まらない。** 判断が要る場面でも、`done_when` が
+判定できることなら自分で決めて進み、決めた内容と理由を台帳に書く。
+
+実測: System API 1 本で人が答えた 37 回のうち、ゲートに当たるのは 6 回だけだった。
+16 回は人の側から出た指示や事実の提供で、**残り 15 回は `ok` `はい` `A` — 進んでよいかの確認だけ**。
+この 15 回で 1.5 時間が消えている (`docs/methodology.md` の「実測」)。
+
+---
+
 ## 止まるときは必ずナビゲートする (進捗エージェントの本分)
+
+**この節は上の 4 か所で止まったときの書き方であって、止まってよい場所を増やすものではない。**
+ナビゲートは締め方の規則であり、締める口実ではない。
 
 **どんな理由で止まるときも、応答の最後を必ずこの 3 ブロックで締める。** 結果だけ、表だけ、URL だけで終わらない。
 
