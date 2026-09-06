@@ -128,3 +128,104 @@ mock 経由ではエラー型が写し替わらず、テストだけが赤くな
 `scripts/fix-plugin-version.sh` が app.runtime を見て 4.10 系に上げる。
 根拠: CLI 生成 4.12.2 で 4.7.0 は exit 1、4.10.1 に上げると `ee:transform` 込みで
 Tests run: 1 - Failed: 0 (2026-09-06)。
+
+## MUnit は SQL 文も listener の直列化も検証しない
+`munit-tools:mock-when` は DB の操作ごと差し替えるので、**`db:sql` の中身は
+文字列として組み立てられるだけで一度も実行されない。** 表名やスキーマ修飾を
+間違えても全件緑のまま通る。
+
+listener も同じで、MUnit の器と配備先で Mule の版が違うと応答の形が変わる。
+
+実例: System API 1 本で 2 回起きた。34 件緑・レビュー approve のまま、
+(1) スキーマ修飾の誤りで配備先の全操作が 500、
+(2) 直したあとも全応答が JSON 文字列に二重に包まれていた。
+どちらも配備して手で叩くまで気づかなかった。
+
+対策は `docs/methodology.md` の **段 4 (配備先への契約検査)**。
+`samples/` をそのまま流す。期待値を別形式に書き写すと二重管理になり必ずずれる。
+根拠: System API 1 本の実装で 2 件とも実測 (2026-09-06)。
+
+## CloudHub 2.0 は Exchange 経由でしか配備できない
+jar を直接上げる口が無い。CH1 との一番大きな違い。mule-maven-plugin 経由でも
+`404 Failed to retrieve artifact information from Exchange` で弾かれる。
+
+そのため **`groupId` を組織 ID にする必要がある** (Exchange の資産の要件)。
+`com.mycompany` のままでは公開できない。組織内の既存資産を見れば形が分かる。
+`version` も上げ続ける必要がある。Exchange は同一版を上書きできない。
+根拠: T1 organization への配備で実測 (2026-09-06)。
+
+## CloudHub 2.0 の公開エンドポイントは `--publicEndpoints` では付かない
+`anypoint-cli-v4 runtime-mgr application modify --publicEndpoints <host>` は
+成功を返すが `access: internal` のまま変わらない。ホスト名だけでも
+`https://` 込みの完全な URL でも同じ。
+
+実体は `deploymentSettings.generateDefaultPublicUrl` で、CLI からは立てられない。
+Application Manager の API を直接 PATCH する。
+
+```
+PATCH /amc/application-manager/api/v2/organizations/{org}/environments/{env}/deployments/{id}
+{"target":{"targetId":"...","provider":"MC","replicas":1,
+           "deploymentSettings":{"generateDefaultPublicUrl":true,"http":{"inbound":{"pathRewrite":"/"}}}}}
+```
+根拠: CH2 private space への配備で実測 (2026-09-06)。
+
+## `runtime-mgr application modify` は properties を消す
+`--property` / `--secureProperty` を付けずに `modify` を打つと、既に設定してある
+アプリケーションプロパティが **空になる**。公開エンドポイントやレプリカ数だけを
+変えたつもりが、DB の資格情報ごと飛ぶ。`modify` のたびに付け直す。
+
+版を上げる `--assetVersion` は `Provided GAV is either incomplete or invalid` で
+落ちる。`--groupId` を明示しても同じ。API の PATCH で
+`application.ref.version` を書き換えるのが確実。
+根拠: CH2 への再配備で 2 回とも実測 (2026-09-06)。
+
+## API Manager のポリシーは「適用」だけでは効かない
+ポリシーを適用して 201 が返り、API Manager の一覧にも出るのに、**API は無防備なまま**という
+状態になる。経路にゲートウェイがいないため。API インスタンスの `status` が
+`unregistered` で `deployment` が `null` なら、そのポリシーは何も守っていない。
+
+施行させる道は 2 つ。**どちらを選ぶかで必要な設定がまるごと変わる。**
+
+| 型 | 何が要るか |
+|---|---|
+| **Basic endpoint** | Mule アプリ側に autodiscovery (`api-gateway:autodiscovery`) の設定が要る |
+| **Proxy** | インスタンスの target URL を **アプリの内部エンドポイント** にし、**アプリの公開エンドポイントを消す**。外部からはプロキシに入る |
+
+適用しただけの状態を放置しないこと。**「ポリシーが付いている」という表示と実際の保護が
+食い違うのは、ポリシーが無いより危険。**
+根拠: CloudHub 2.0 の Mule アプリに client-id-enforcement を掛ける過程で実測 (2026-09-06)。
+適用は 201、認証なしのリクエストは 200 のまま通った。
+
+## autodiscovery は EE の成果物が要る
+`com.mulesoft.mule.modules:mule-api-gateway-module` は EE 側にあり、
+Exchange の entitlement が無い環境では **Maven でも解決できない** (1.3.0 / 1.4.0 / 1.5.0 /
+1.6.0 を試して全滅)。`ee:transform` と同じ壁。
+
+EE が使えない環境では Basic endpoint 型は選べない。Proxy 型 (Omni Gateway) を使う。
+根拠: 4 版を `mvn dependency:get` で試して全滅 (2026-09-06)。
+
+## API インスタンスは「その組織で動いている形」に合わせる
+`anypoint-cli-v4 api-mgr api manage --type raml --deploymentType cloudhub2` で作ると
+`technology: mule3` のインスタンスができ、配備が通らない。
+
+**手探りする前に、同じ組織で既に配備されている API インスタンスを読むこと。**
+`GET /apimanager/api/v1/organizations/{org}/environments/{env}/apis/{id}` の
+`technology` `endpoint.apiGatewayVersion` `deployment.type` `deployment.targetName` を
+写せば、その環境で通る形が分かる。
+
+実例では既存 3 本がすべて `flexGateway` / `HY` / `gatewayVersion 1.13.4` / target `ft1` で、
+同じ形にしたら 201 で通った。CH2 プロキシ (`type: CH2`) は同じ組織で 500 のままだった。
+根拠: 3 度作り直してようやく通った (2026-09-06)。
+
+## flexGateway のインスタンス作成と配備の細かい制約
+API を直接叩いて作る場合の必須の形。CLI では作れない組み合わせがある。
+
+| 項目 | 値 | 間違えたときの症状 |
+|---|---|---|
+| `endpoint.muleVersion4OrAbove` | **`null`** | `Argument "muleVersion4OrAbove" is invalid for ... flexGateway` |
+| `endpoint.validation` | **`NOT_APPLICABLE`** | `Validation status is invalid for the provided proxy/mule version` |
+| `gatewayVersion` (配備) | ゲートウェイの版 (例 `1.13.4`)。**ランタイムの版ではない** | `Deployment blocked due to incompatible Proxy Version` |
+| `endpoint.proxyUri` の港 | ゲートウェイが開けている港のみ (例では 8081 / 8082)。**パスで分ける** | `Proxy must be deployed in a port that is available` |
+| 利用者アプリの作成 | `POST /exchange/api/v2/organizations/{org}/applications?apiInstanceId=<id>` | `A target apiInstanceId or groupInstanceId is required` |
+
+根拠: 上記すべて実測 (2026-09-06)。
