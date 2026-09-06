@@ -16,14 +16,14 @@ case "$file" in
       # そのうえで validate は 2 つの誤判定を出す。どちらも Mule の dwl では正常な形。
       #   1. module (--- を持たないファイル) に "Missing Mapping Expression" と言う
       #      → 変換を module に切り出すのは規則 5 が求める形
-      #   2. payload / vars / attributes を "Unable to resolve reference" にする
+      #   2. payload / vars / attributes / p() を "Unable to resolve reference" にする
       #      → 実行時にしかない束縛なので当然
       # module の本物の構文エラーは正しく捕まる (fun f(x) = x + → Missing addition expression) ので、
       # 上の 2 つを除いた残りの [ERROR] があるときだけ弾く。
       dw validate -f "$file" >/tmp/qc.err 2>&1
       real=$(sed 's/\x1b\[[0-9;]*m//g' /tmp/qc.err | grep -E '\[ERROR\]' \
              | grep -vE 'Missing Mapping Expression' \
-             | grep -vE 'Unable to resolve reference of: `(payload|vars|attributes|error|correlationId|authentication|app|flow|server|mule)`')
+             | grep -vE 'Unable to resolve reference of: `(payload|vars|attributes|error|correlationId|authentication|app|flow|server|mule|p)`')
       [ -n "$real" ] && fail "DataWeave の構文エラー: $(printf '%s' "$real" | head -3)"
     fi
     ;;

@@ -2,3 +2,7 @@
 !CLAUDE.md
 !.claude/
 !.claude/settings.json
+
+# ビルド成果物と worktree はコミットしない (初回コミットに 5MB の jar が入りかける)
+target/
+.claude/worktrees/

@@ -7,7 +7,7 @@ argument-hint: "[--layer system|process|experience] [--name <api-name>]"
 `${CLAUDE_PLUGIN_ROOT}/template/` の内容を今のリポジトリ直下に配置します。
 
 ## 手順
-1. `git rev-parse --show-toplevel` でリポジトリ直下を確認する。git 管理外なら `git init` を提案してから進める。
+1. `git rev-parse --show-toplevel` でリポジトリ直下を確認する。git 管理外なら `git init` してから進める (聞かない。取り消せる)。
 2. 引数に `--layer` と `--name` が無ければ、`context/decisions.yaml` の `layer` と `api.purpose` を見る。それも無ければ AskUserQuestion **1 回** で両方まとめて聞く (人に聞くのはここだけ)。
    - layer の選択肢: 「外部システム (SAP / DB / SaaS) を包む → system」「複数の system を組み合わせて業務の 1 手順にする → process」「画面や特定の利用者向けに形を整える → experience」。専門用語より用途の説明を前に出す。
 3. **Mule プロジェクトが無ければ作る。** `pom.xml` が無い場合、Studio / ACB と同じ構成 (mule-maven-plugin、Exchange と MuleSoft のリポジトリ、mule-artifact.json) を持つ骨格を CLI で作る。手で pom を書くと Maven のライブラリ取得に失敗するので、必ずこの経路を使う。
@@ -31,6 +31,7 @@ argument-hint: "[--layer system|process|experience] [--name <api-name>]"
 5aa. `bash scripts/munit-coverage-mode.sh` を実行する。EE ランタイムが取れれば MUnit のカバレッジ 100% ゲートを pom に入れ、取れなければ入れず、`scripts/coverage-check.sh` による構造チェックが保証になることを利用者に伝える。
 5b. `mvn -q clean package -DskipTests` を 1 回流し、ライブラリ取得が通ることを確かめる。失敗したら `~/.m2/settings.xml` の Exchange 認証 (Enterprise コネクタを使う場合) を疑い、docs/mulesoft-tools.md の「プロジェクト作成」を案内する。
 6. `.mcp.json` はコピーしない (MCP はプラグイン側で有効になる)。聞かない。
+6b. **初期コミットを作る。** `git add -A && git commit -m "mule-loop: init"`。worktree 隔離はコミットが 1 つも無いと `Failed to resolve base branch "HEAD"` で起動しない (PR #4)。`.gitignore` に `target/` と `.claude/worktrees/` があることを先に確認する。
 7. 最後に「現在地 / 次にすること / そのあと」の 3 ブロックで締める。次にすることは
    「`context/requirements/` に資料を置く (パスを具体的に示す)」か、資料が無いなら
    「`/mule-start <作りたいこと>`」の 1 つだけにする。

@@ -245,6 +245,7 @@ mule-http-connector 1.10.0 / mule-maven-plugin 4.10.1 / Java 17 / CE。
 `on-error-continue` が処理すると、**フロー全体が終わるのではなく `<try>` の直後から実行が続く**。
 `try` の後ろに「成功時にしか意味のない変換」を置いていると、それがエラー処理の後で走り、
 本来 404 を返すはずの経路が 502 になる。
+仕組みは、`defaultErrorHandler-ref` の既定ハンドラが **error-handler を持たない `<try>` にも適用される** ため。try が自分で処理した扱いになり、直後から続く。
 対処は簡単で、**成功時にしか意味のない処理を同じ `try` の中に入れる**。
 根拠: finance-api の `change-address` で実測。`address-not-found` だけが落ちる形で現れた
 (2026-09-06)。同じ罠を別のゴールで踏み直しかけたのを K-004 が食い止めている。

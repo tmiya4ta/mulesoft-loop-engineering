@@ -10,6 +10,7 @@ argument-hint: "[T-NNN だけ実行] [--parallel N (既定は予算が許す最�
 1. `bash scripts/budget-check.sh` を実行する。**exit 1 なら 1 件も配らずに止まり**、人に残予算と状況を報告する。出力の `max_parallel` が **既定の同時実行数**。`--parallel N` はこれを **下げる** ときだけ使う (`--parallel 1` で直列)。引数が `max_parallel` を超えていたら切り下げる。
 2. `context/sources.yaml` が埋まっているか。`requirements` が空で `note` も空なら、`/mule-start` に戻るよう案内して止まる。
 3. ゴールに `done_when` があるか。無ければ止めて報告する。
+4. `git rev-parse HEAD` が通るか。コミットが 1 つも無いと worktree が作れない。無ければ `git add -A && git commit -m "mule-loop: init"` を作ってから配る。
 
 ## ループ
 1. `tasks/T-*.md` を読み、`status` が `todo` または `failed` (attempts < 3) で、`blocked_by` が全て `passed` のものを取り出す。`stage` が無ければ `impl`。
@@ -24,7 +25,7 @@ argument-hint: "[T-NNN だけ実行] [--parallel N (既定は予算が許す最�
      - `impl` → Agent ツールで `mule-executor` を **`isolation: "worktree"`** で起動する。プロンプトはゴールファイルのパスと「CLAUDE.md と context/ を読んで規則に従うこと」だけ。
      - `deploy` → 実行エージェントには配れない (デプロイ禁止)。**進捗エージェント自身が `mule-deploy` スキルの手順 1〜5 を実行する。** 先に done_when を 1 回流して失敗を確認する (red)。配置先 URL が決まったら done_when の base-url を書き換えてよい (期待値ではなく所在なので)。
      - `policy` → `authorizations.yaml` の `policy.sandbox` が allowed のときだけ `mule-executor` に配る (worktree 不要、`isolation` 無し)。denied なら blocked にして人に 1 行で伝える。
-   - **マニュアルは読まない。** 段を進めるのに足りない事実 (CLI の書式、ポリシー名、API インスタンスの id) は、進捗エージェントが docs を fetch して探すのではなく、実行エージェントに「調べて `knowledge/K-NNN.md` に書いてから使う」よう配る。進捗エージェントが読むのは台帳、context/、knowledge/ だけ。
+   - **マニュアルは読まない。** 段を進めるのに足りない事実 (CLI の書式、ポリシー名、API インスタンスの id) は、進捗エージェントが docs を fetch して探すのではなく、実行エージェントに「gotchas → スキル (platform-assistant) → マニュアルの順で調べて `knowledge/K-<ゴール id>-<連番>.md` に書いてから使う」よう配る。進捗エージェントが読むのは台帳、context/、knowledge/ だけ。
    - **1 波を配り終えたら budget-check を再実行する** (並列でも 1 件ずつ数える)。`remaining_runs` を超える分は次の波に回す。
 3. 戻ってきたら diff を取り込み、**`done_when` を自分で実行する**。実行エージェントの自己申告は信じない。
    - **並列の取り込みは 1 件ずつ、取り込むたびに done_when を流す。** 独立なのは順序だけで、ファイルは独立ではない (pom.xml、global.xml、RAML は複数のゴールが触る)。
@@ -34,7 +35,7 @@ argument-hint: "[T-NNN だけ実行] [--parallel N (既定は予算が許す最�
    - `red` の証拠が無い、または `red` と `green` が別コマンドなら failed にする (deploy / policy 段も同じ。red は着手前の done_when、green は着手後の done_when)。
    - exit 0 → `bash scripts/coverage-check.sh` も確認する。落ちたら failed。
 4. 結果を書き戻す:
-   - 成功 → `status: passed`、`evidence:` にコマンドと日時、`## TDD の証拠` に red / green。`bash scripts/run-log.sh done <id> passed <秒数>`。
+   - 成功 → `status: passed`、`evidence:` にコマンドと日時、`## TDD の証拠` に red / green。`bash scripts/run-log.sh done <id> passed <秒数>`。**報告の `learned` があれば 1 件ずつ `knowledge/failures.jsonl` に追記する** (成功でも)。`knowledge` に書かれた K ファイルが diff に含まれていることを確認し、無ければ failed にはしないが試行ログに「学びの記録なし」と書く。
    - 失敗 → `attempts` +1、`status: failed`、**`## 試行ログ` に 1 件追記する**。追記には実行したコマンド、exit、`error_verbatim` を **原文のまま** (要約も切り詰めもしない)、試したこと、仮説を含める。`run-log.sh done <id> failed <秒数>`。
    - 同時に `knowledge/failures.jsonl` に 1 行追記する (学習ループの元データ)。形式は `/mule-learn` を参照。
 5. `attempts` が 3 に達したら `status: blocked` にし、**試行ログ全体を添えて** 人に報告して止まる。原因が仕様の曖昧さなら `/mule-start` に戻ることを勧める。

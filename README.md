@@ -5,6 +5,7 @@ MuleSoft を知らない人でも `/mule-start` の対話だけで、仕様 → 
 
 考え方は [docs/methodology.md](docs/methodology.md)。実装は TDD (Red → Green → Refactor) で進める。
 
+> **v0.5.5** — PR #4 の 5 点を反映: 初期コミット、K ファイルはゴール id 名、target/ と worktrees を無視、成功時も `learned` を failures.jsonl に、語彙に connector-behavior / loop-ops。実行エージェントは困ったら gotchas → スキル → マニュアルの順で調べ、1 回でも詰まったら K に残す。quick-check の `p()` 誤検知を修正。
 > **v0.5.4** — `context/requirements/_template.md` (要件の雛形) を同梱。データモデルは仮定で作らず、開始時の一括質問と grilling で必ず決める (System 層は必須)。
 > **v0.5.3** — 並列の取り込みで衝突した 1 件だけを failed にして配り直す規則、壁時計の上限を「実行エージェントが動いていた時間」で数える (人を待つ時間はゲートで超過しないように)。
 > **v0.5.2** — 着手できるゴールを **既定で並列に配る** (`--parallel` は上げる旗ではなく下げる旗)。`mule-run` が止まってよい場所を 4 つに限り、進捗の報告先を対話ではなく台帳にした。根拠は実測 (`docs/methodology.md` の「実測: System API 1 本の 9.67 時間」)。

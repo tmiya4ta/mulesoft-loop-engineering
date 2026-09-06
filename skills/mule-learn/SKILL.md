@@ -6,7 +6,7 @@ argument-hint: "[--share 汎用ナレッジをプラグインに PR する]"
 
 ## 元データ
 
-`knowledge/failures.jsonl` — 実行ループとデプロイのループ (`/mule-deploy`) で **失敗が直った瞬間に** 1 行追記される。書くのは進捗エージェントで、人は書かない。
+`knowledge/failures.jsonl` — 実行ループとデプロイのループ (`/mule-deploy`) で **失敗が直った瞬間に** 1 行追記される。ゴールが一発で通ったときも、実行エージェントの報告の `learned` から進捗エージェントが書く。書くのは進捗エージェントで、人は書かない。
 
 ```json
 {"ts":"2026-09-06","task":"T-014","category":"munit-mock-missing","symptom":"http:request が実サーバーに接続しにいった","fix":"munit:behavior に mock-when を追加","scope":"generic"}
@@ -28,6 +28,8 @@ argument-hint: "[--share 汎用ナレッジをプラグインに PR する]"
 | `deploy-config` | デプロイ設定 (groupId、target、vCores、Exchange 認証) の誤り |
 | `deploy-runtime` | 配置先で起動しない (FAILED、properties 不足、Java 版) |
 | `deploy-connectivity` | MUnit では mock で隠れていた接続先の不一致 (smoke-check の mismatch) |
+| `connector-behavior` | コネクタや DB の戻り値の意味を誤解した (affectedRows、target= と mock、MIME の自動解釈) |
+| `loop-ops` | ループ自体の運用 (worktree、K ファイルの衝突、hook の誤検知)。昇格先はプラグインへの PR |
 
 `scope` は `repo` (このリポジトリ固有) か `generic` (どの Mule プロジェクトでも起きる)。
 
