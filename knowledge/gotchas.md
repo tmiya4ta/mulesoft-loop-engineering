@@ -128,3 +128,53 @@ mock 経由ではエラー型が写し替わらず、テストだけが赤くな
 `scripts/fix-plugin-version.sh` が app.runtime を見て 4.10 系に上げる。
 根拠: CLI 生成 4.12.2 で 4.7.0 は exit 1、4.10.1 に上げると `ee:transform` 込みで
 Tests run: 1 - Failed: 0 (2026-09-06)。
+
+## MUnit は SQL 文も listener の直列化も検証しない
+`munit-tools:mock-when` は DB の操作ごと差し替えるので、**`db:sql` の中身は
+文字列として組み立てられるだけで一度も実行されない。** 表名やスキーマ修飾を
+間違えても全件緑のまま通る。
+
+listener も同じで、MUnit の器と配備先で Mule の版が違うと応答の形が変わる。
+
+実例: System API 1 本で 2 回起きた。34 件緑・レビュー approve のまま、
+(1) スキーマ修飾の誤りで配備先の全操作が 500、
+(2) 直したあとも全応答が JSON 文字列に二重に包まれていた。
+どちらも配備して手で叩くまで気づかなかった。
+
+対策は `docs/methodology.md` の **段 4 (配備先への契約検査)**。
+`samples/` をそのまま流す。期待値を別形式に書き写すと二重管理になり必ずずれる。
+根拠: System API 1 本の実装で 2 件とも実測 (2026-09-06)。
+
+## CloudHub 2.0 は Exchange 経由でしか配備できない
+jar を直接上げる口が無い。CH1 との一番大きな違い。mule-maven-plugin 経由でも
+`404 Failed to retrieve artifact information from Exchange` で弾かれる。
+
+そのため **`groupId` を組織 ID にする必要がある** (Exchange の資産の要件)。
+`com.mycompany` のままでは公開できない。組織内の既存資産を見れば形が分かる。
+`version` も上げ続ける必要がある。Exchange は同一版を上書きできない。
+根拠: T1 organization への配備で実測 (2026-09-06)。
+
+## CloudHub 2.0 の公開エンドポイントは `--publicEndpoints` では付かない
+`anypoint-cli-v4 runtime-mgr application modify --publicEndpoints <host>` は
+成功を返すが `access: internal` のまま変わらない。ホスト名だけでも
+`https://` 込みの完全な URL でも同じ。
+
+実体は `deploymentSettings.generateDefaultPublicUrl` で、CLI からは立てられない。
+Application Manager の API を直接 PATCH する。
+
+```
+PATCH /amc/application-manager/api/v2/organizations/{org}/environments/{env}/deployments/{id}
+{"target":{"targetId":"...","provider":"MC","replicas":1,
+           "deploymentSettings":{"generateDefaultPublicUrl":true,"http":{"inbound":{"pathRewrite":"/"}}}}}
+```
+根拠: CH2 private space への配備で実測 (2026-09-06)。
+
+## `runtime-mgr application modify` は properties を消す
+`--property` / `--secureProperty` を付けずに `modify` を打つと、既に設定してある
+アプリケーションプロパティが **空になる**。公開エンドポイントやレプリカ数だけを
+変えたつもりが、DB の資格情報ごと飛ぶ。`modify` のたびに付け直す。
+
+版を上げる `--assetVersion` は `Provided GAV is either incomplete or invalid` で
+落ちる。`--groupId` を明示しても同じ。API の PATCH で
+`application.ref.version` を書き換えるのが確実。
+根拠: CH2 への再配備で 2 回とも実測 (2026-09-06)。
