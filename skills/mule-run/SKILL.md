@@ -27,6 +27,9 @@ argument-hint: "[T-NNN だけ実行] [--parallel N (既定は予算が許す最�
    - **マニュアルは読まない。** 段を進めるのに足りない事実 (CLI の書式、ポリシー名、API インスタンスの id) は、進捗エージェントが docs を fetch して探すのではなく、実行エージェントに「調べて `knowledge/K-NNN.md` に書いてから使う」よう配る。進捗エージェントが読むのは台帳、context/、knowledge/ だけ。
    - **1 波を配り終えたら budget-check を再実行する** (並列でも 1 件ずつ数える)。`remaining_runs` を超える分は次の波に回す。
 3. 戻ってきたら diff を取り込み、**`done_when` を自分で実行する**。実行エージェントの自己申告は信じない。
+   - **並列の取り込みは 1 件ずつ、取り込むたびに done_when を流す。** 独立なのは順序だけで、ファイルは独立ではない (pom.xml、global.xml、RAML は複数のゴールが触る)。
+     取り込みで衝突したら、**その 1 件だけ failed にして** (attempts は +1 しない) 試行ログに衝突したファイルと相手のゴール id を書き、次の波で配り直す。衝突を手で解消しない。
+     衝突が同じ組で 2 回続いたら、共通ファイルを触る部分を切り出した下準備ゴールを作り、両方の `blocked_by` にする。
    - `samples/` か `src/test/munit/` の期待値が変更されていたら、**diff を捨てて failed にする**。理由を試行ログに書く。
    - `red` の証拠が無い、または `red` と `green` が別コマンドなら failed にする (deploy / policy 段も同じ。red は着手前の done_when、green は着手後の done_when)。
    - exit 0 → `bash scripts/coverage-check.sh` も確認する。落ちたら failed。

@@ -3,7 +3,7 @@
 
 per_feature:                 # /mule-start 1 回 (= 1 機能) あたり
   max_agent_runs: 20         # 実行エージェントの起動回数の合計
-  max_wall_clock_min: 90     # 最初の配布からの経過時間
+  max_wall_clock_min: 90     # 実行エージェントが動いていた時間の合計 (人を待っている時間は数えない)
   max_attempts_per_goal: 3   # 1 ゴールあたりの失敗回数。超えたら blocked
 
 parallel:

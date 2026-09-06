@@ -102,7 +102,7 @@ Skill ツールで `mattpocock-skills:grilling` と `mattpocock-skills:domain-mo
 - 1 ゴール = 1 つの MUnit テストクラスで判定できる大きさ。縦に薄く切る (RAML → フロー → 変換 → テスト を 1 本で通す)。横に層で切らない。
 - **`done_when` は必ず書く。** 通常は `mvn -q test -Dmunit.test=<テストファイル名>`。書けないゴールは粒度が間違っているので切り直す。
 - `blocked_by` で依存を書く。無いものから着手できる。
-- 先にやるべき下準備 (pom の依存追加、共通エラーハンドラ) があれば T-001 にする。
+- 先にやるべき下準備 (pom の依存追加、共通エラーハンドラ、RAML の共通型) があれば T-001 にする。**ゴールは既定で並列に配られる**ので、複数のゴールが同じファイル (pom.xml、global.xml、RAML の共通部) を触る形にしない。触るなら下準備に寄せて `blocked_by` で先に通す。
 - **実装の先も台帳に切る。** ループが回るのは done_when があるところだけなので、デプロイとポリシーを台帳の外に置くと、そこで判定者を失いマニュアルと質問に戻る。
   - `decisions.yaml` の `policy.deploy_sandbox_after_merge` が yes なら `stage: deploy` のゴールを 1 件。`done_when: bash scripts/smoke-check.sh <base-url>`、`blocked_by` は全 impl。base-url は `context/deployment/sandbox.yaml` の `public_url` から。空なら `<app>.<region>.cloudhub.io` の形で仮に書き、デプロイ後に進捗エージェントが直す。
   - `api.auth` が none 以外で `api.gateway` が none 以外なら `stage: policy` のゴールを 1 件。`done_when: bash scripts/policy-check.sh <base-url> <client-id|jwt>`、`blocked_by` は deploy。

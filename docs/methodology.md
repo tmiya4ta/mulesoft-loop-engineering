@@ -177,7 +177,7 @@ hook に昇格したものは `knowledge/fixtures/` に最小の入力を置き�
 | 上限 | 既定 | 測り方 |
 |---|---|---|
 | `max_agent_runs` | 20 | run-log.jsonl の dispatch 件数 |
-| `max_wall_clock_min` | 90 | 最初の dispatch からの経過 |
+| `max_wall_clock_min` | 90 | 実行エージェントが動いていた時間の合計 (run-log の done の seconds + 動作中の dispatch の経過)。人を待つ時間は数えない。壁時計で数えるとゲートで人を待った時点で超過する |
 | `max_attempts_per_goal` | 3 | 台帳の attempts |
 
 残予算が 25% を切ると **並列度は強制的に 1 に落ちる**。並列は焼く速度が N 倍になるため。
