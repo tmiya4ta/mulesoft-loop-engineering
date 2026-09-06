@@ -1,0 +1,4 @@
+# 利用者の global gitignore が CLAUDE.md や .claude/ を除外していても、テンプレートは配布物なので必ず追跡する
+!CLAUDE.md
+!.claude/
+!.claude/settings.json

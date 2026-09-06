@@ -26,7 +26,7 @@ GitHub https://github.com/mulesoft/mulesoft-dx (Apache-2.0)。
 | `run_local_mule_application` | 実行 (段 2〜3) | ローカル起動。MUnit より遅いので契約テストや手動確認用 |
 | `search_asset`, `create_and_manage_assets` | 意図 / 計画 | 既存 API との重複確認、Exchange への公開 |
 | `list_api_instances`, `create_and_manage_api_instances`, `manage_api_instance_policy` | ゲート 3 の後 | API Manager 登録とポリシー。人が押した後の作業 |
-| `deploy_mule_application`, `update_mule_application` | **人のゲート 3** | プラグインからは呼ばない。permissions で deny 相当の扱い |
+| `deploy_mule_application`, `update_mule_application` | **人のゲート 3** | プラグインからは呼ばない。Sandbox は `/mule-deploy` が `mvn clean deploy -DmuleDeploy` で置く (pom の diff で追えるため)。本番は人 |
 | `list_applications`, `get_platform_insights`, `get_reuse_metrics` | 維持 | 週次の振り返り |
 | `create_mcp_server` | 別用途 | Mule で MCP サーバーを作るとき |
 | `*_runtime_fabric` | 別用途 | 基盤担当 |

@@ -7,7 +7,7 @@
     {
       "name": "mule-loop",
       "source": "./",
-      "description": "MuleSoft API のループエンジニアリング一式 (/mule-init, /mule-start, /mule-run)"
+      "description": "MuleSoft API のループエンジニアリング一式 (/mule-init, /mule-start, /mule-run, /mule-deploy, /mule-learn)"
     }
   ],
   "description": "MuleSoft API のループエンジニアリング (mule-loop)"

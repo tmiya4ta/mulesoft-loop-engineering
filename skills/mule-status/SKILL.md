@@ -12,6 +12,7 @@ description: 今どこにいて次に何をすればよいかを示す。迷っ�
 3. `knowledge/run-log.jsonl` と `budget.yaml` — 残予算 (`bash scripts/budget-check.sh`)
 4. `git status` と `git log --oneline -3`、`gh pr list --head $(git branch --show-current)` — PR の有無と状態
 5. `knowledge/failures.jsonl` — 2 回以上の指紋があるか
+6. `knowledge/deploy-log.jsonl` と `context/deployment/authorizations.yaml` — Sandbox に置いたか、疎通確認 (smoke) の結果、置いてよいか
 
 ## 出す形 (必ずこの 3 ブロック)
 
@@ -43,6 +44,8 @@ description: 今どこにいて次に何をすればよいかを示す。迷っ�
 | 予算超過 | 残りのゴールを示し、`budget.yaml` を上げるか、ここで打ち切るかを聞く |
 | 全 passed、PR 未作成 | `gh pr create` (コマンドをそのまま出す) |
 | **PR 作成済み** | 下の「PR の後」へ |
+| マージ済み、`deploy.sandbox: allowed`、deploy-log に今の版の記録が無い | `/mule-deploy` |
+| deploy-log に `mismatch` / `unreachable` がある | 原因の仮説を 1 行で示し、`/mule-start` で仕様に戻るか人が環境を直すかを聞く |
 | 2 回以上の失敗指紋がある | `/mule-learn` |
 | 何も残っていない | 次に作る API を聞く。無ければ `bash scripts/metrics.sh` の結果を見せて締める |
 
@@ -62,13 +65,13 @@ PR をレビューしてマージしてください (人のゲート 2)。
 
 ## そのあと
 マージしたら、私に「マージした」と言ってください。
-Sandbox へのデプロイ (authorizations.yaml で許可済みなら) か、
+Sandbox へのデプロイと疎通確認 (/mule-deploy、authorizations.yaml で許可済みなら) か、
 次の機能の /mule-start か、/mule-learn のどれに進むかを案内します。
 ```
 
 マージ後に呼ばれたら、次はこの順で聞く。
 
-1. `context/deployment/authorizations.yaml` の `deploy.sandbox` が `allowed` なら「Sandbox にデプロイしますか」
+1. `context/deployment/authorizations.yaml` の `deploy.sandbox` が `allowed` なら「`/mule-deploy` で Sandbox に置いて samples で疎通確認しますか」。`denied` なら「Sandbox で確かめたい場合は authorizations.yaml の deploy.sandbox を allowed にしてください」と 1 行だけ添える
 2. `knowledge/failures.jsonl` に 2 回以上の指紋があれば「`/mule-learn` で改善しますか」
 3. どちらも無ければ「次に作る API はありますか」
 

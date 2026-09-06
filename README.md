@@ -5,7 +5,7 @@ MuleSoft を知らない人でも `/mule-start` の対話だけで、仕様 → 
 
 考え方は [docs/methodology.md](docs/methodology.md)。実装は TDD (Red → Green → Refactor) で進める。
 
-> **v0.2.0** — 前提の置き場所 (`context/`)、コスト上限 (`budget.yaml`)、試行ログ、4 指標の計測、学習ループ (`/mule-learn`) を追加。前版は `v0.1.0` タグ。
+> **v0.4.0** — デプロイのループ (`/mule-deploy`) を追加。マージ後に Sandbox (CloudHub 2.0 / Runtime Fabric) へ置き、`samples/` の期待値で疎通を確かめ、失敗を学習ループに戻す。前版は `v0.3.2` タグ。
 
 ## 導入 (チームの各メンバー)
 
@@ -48,6 +48,7 @@ claude
 | `/mule-run --parallel 3` | 3 件まで並列 |
 | `/mule-setup` | 外部スキルと MCP の前提を入れる (初回) |
 | `/mule-tdd` | 実行エージェントが従う Red → Green → Refactor の規律。人が手で実装するときも使える |
+| `/mule-deploy` | マージ後に Sandbox へ置いて `samples/` で疎通確認。`--verify-only <url>` で確認だけ |
 | `/mule-learn` | 2 回以上出た失敗を hook / 規則に昇格させる。`--share` で全員に共有 |
 | `/mule-status` | **迷ったらこれ。** 今どこにいて次に何をすればよいかを 1 つだけ示す |
 
@@ -59,6 +60,7 @@ skills/
   mule-setup/     外部依存の導入 (scripts/setup-deps.sh)
   mule-init/      テンプレート配置
   mule-tdd/       TDD の規律 (実行エージェントが必ず従う)
+  mule-deploy/    デプロイのループ (Sandbox に置く → samples で疎通 → 失敗を学習へ)
   mule-learn/     学習ループ (失敗を数えて昇格・共有)
   mule-status/    現在地と次の一手のナビゲーション
   platform-assistant/  MuleSoft 公式メタスキルを同梱 (Apache-2.0)
@@ -96,13 +98,13 @@ export ANYPOINT_REGION=PROD_JP
 1. `context/requirements/` に資料を置く (または URL を `context/sources.yaml` に書く)。**ここが空だと `/mule-start` は始まらない。**
 2. `context/environment/` に Mule 版や接続先の資料を置く。分からなければ空でよい (自動で調べて根拠つきで記録する)。
 3. `budget.yaml` の上限を確認する。
-4. Sandbox にデプロイさせたい場合だけ `context/deployment/authorizations.yaml` の `deploy.sandbox` を `allowed` にする。
+4. Sandbox にデプロイさせたい場合だけ `context/deployment/authorizations.yaml` の `deploy.sandbox` を `allowed` にし、`context/deployment/sandbox.yaml` に置き場所 (cloudhub2 / rtf、target) を書く。
 
 ## 人が押すのは 4 か所だけ
 
 1. `/mule-start` が平文で読み上げる動作への「はい」
 2. PR のマージ
-3. 本番デプロイ (Sandbox は authorizations.yaml + 明示の指示があれば自動)
+3. 本番デプロイ (Sandbox は authorizations.yaml + 明示の指示があれば `/mule-deploy` が置いて疎通確認まで行う)
 4. `/mule-learn` の昇格 PR のマージ
 
 ## コスト制御

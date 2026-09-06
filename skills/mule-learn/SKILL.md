@@ -6,7 +6,7 @@ argument-hint: "[--share 汎用ナレッジをプラグインに PR する]"
 
 ## 元データ
 
-`knowledge/failures.jsonl` — 実行ループで **失敗が直った瞬間に** 1 行追記される。書くのは進捗エージェントで、人は書かない。
+`knowledge/failures.jsonl` — 実行ループとデプロイのループ (`/mule-deploy`) で **失敗が直った瞬間に** 1 行追記される。書くのは進捗エージェントで、人は書かない。
 
 ```json
 {"ts":"2026-09-06","task":"T-014","category":"munit-mock-missing","symptom":"http:request が実サーバーに接続しにいった","fix":"munit:behavior に mock-when を追加","scope":"generic"}
@@ -25,6 +25,9 @@ argument-hint: "[--share 汎用ナレッジをプラグインに PR する]"
 | `xml-namespace` | XSD / 名前空間の不足 |
 | `error-handler` | エラーハンドラ漏れ、握りつぶし |
 | `build-config` | pom / mule-artifact.json の設定 |
+| `deploy-config` | デプロイ設定 (groupId、target、vCores、Exchange 認証) の誤り |
+| `deploy-runtime` | 配置先で起動しない (FAILED、properties 不足、Java 版) |
+| `deploy-connectivity` | MUnit では mock で隠れていた接続先の不一致 (smoke-check の mismatch) |
 
 `scope` は `repo` (このリポジトリ固有) か `generic` (どの Mule プロジェクトでも起きる)。
 

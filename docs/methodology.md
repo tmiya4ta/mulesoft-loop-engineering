@@ -10,6 +10,7 @@
 | 意図ループ | 人 + 進捗エージェント (`/mule-start` 手順 0〜3) | **人** | RAML 差分、サンプルのペア、MUnit 雛形 | 同期 |
 | 計画ループ | 進捗エージェント (`/mule-start` 手順 4、`/mule-run`) | **受け入れ条件** | `tasks/T-*.md` (done_when つき) | 非同期 |
 | 実行ループ | 実行エージェント (`mule-executor`) | **done_when** | コードと証拠 | 非同期 |
+| デプロイのループ | 進捗エージェント (`/mule-deploy`) | **samples/ の期待値 (配置先で)** | deploy-log と failures.jsonl の行 | 同期 |
 
 ```
   人 ──┐
@@ -89,7 +90,25 @@ PR を作って URL を貼るだけで終わるのは進捗管理の失敗 (`ski
 | ゲート 3 の後 | MCP `deploy_mule_application`、Platform MCP と `secure-api` でポリシー |
 | 維持 | MCP `get_platform_insights`、Platform MCP のモニタリング |
 
-## 4 つ目のループ: 学習
+## 4 つ目のループ: デプロイ
+
+PR のマージで実行ループは終わるが、**MUnit は mock の中で通っただけ**で、接続先や properties の差は配置先でしか分からない。
+そこで `/mule-deploy` が Sandbox (CloudHub 2.0 / Runtime Fabric) に置き、実行ループと同じ `samples/` の期待値を配置先に投げて比べる (`scripts/smoke-check.sh`)。
+
+```
+PR マージ ──→ authorizations.yaml が allowed + 人が明示 ──→ mvn clean deploy -DmuleDeploy
+                                                                  │
+                                              samples/*.in.json を配置先へ ──→ out.json と比較
+                                                                  │
+                                            match ──→ 次の API へ        mismatch ──→ failures.jsonl (deploy-*)
+                                                                                          │
+                                                                                     学習ループへ
+```
+
+判定者を実行ループと同じ samples にするのが要点で、「MUnit では通るが配置先では違う」ものだけが残る。
+それが `deploy-config` / `deploy-runtime` / `deploy-connectivity` の指紋として学習ループに入る。本番は人が置く。
+
+## 5 つ目のループ: 学習
 
 実装で繰り返した失敗を数え、閾値を超えたら検証器か規則に昇格させる (`skills/mule-learn`)。
 

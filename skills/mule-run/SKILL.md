@@ -38,7 +38,7 @@ argument-hint: "[T-NNN だけ実行] [--parallel N]"
 5. `approve` ならコミットし、`gh pr create` で PR を作る。**マージは人 (ゲート 2)。**
 
 ## デプロイ
-`context/deployment/authorizations.yaml` の `deploy.sandbox` が `allowed` で、**かつ人がこの会話で明示的に指示した場合のみ**、Sandbox 型の環境にデプロイしてよい。`production` は常に人が手で行う。ファイルが `denied` なら、人が口頭で許可してもデプロイしない (ファイルを直すのは人)。
+このループではデプロイしない。マージ後に `/mule-deploy` が担う (ゲートは `context/deployment/authorizations.yaml` の `deploy.sandbox: allowed` と、人がこの会話で明示的に指示すること。`production` は常に人が手で行う)。
 
 ## 禁止
 - テストや samples の期待値を変えて通すこと。

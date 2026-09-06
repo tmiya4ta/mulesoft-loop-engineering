@@ -1,0 +1,18 @@
+# Sandbox のデプロイ先。書くのは人。エージェントは読むだけ。
+# authorizations.yaml の deploy.sandbox が allowed でなければ、ここが埋まっていてもデプロイしない。
+
+kind: cloudhub2            # cloudhub2 | rtf
+environment: Sandbox       # Anypoint の環境名
+target: Cloudhub-US-East-2 # CH2: 共有スペース名か Private Space 名 / RTF: fabric 名
+mule_version: 4.12.2
+application_name: ""       # 空なら pom の artifactId
+public_url: ""             # 空なら CH2 は <app>.<region>.cloudhub.io、RTF は fabric の Ingress から人が書く
+replicas: 1
+vcores: "0.1"              # CH2 のみ
+cpu_reserved: 500m         # RTF のみ
+memory_reserved: 700Mi     # RTF のみ
+
+# 認証は Connected App (client_credentials)。値はここに書かず環境変数で渡す。
+#   ANYPOINT_CLIENT_ID / ANYPOINT_CLIENT_SECRET
+# アプリの properties (secure でないもの)。secure なものは人が Runtime Manager で入れる。
+properties: {}

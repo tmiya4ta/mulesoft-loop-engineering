@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn -q test*)", "Bash(mvn -q clean test*)", "Bash(mvn -q clean package*)",
+      "Bash(dw *)", "Bash(mulex *)", "Bash(xmllint *)",
+      "Bash(bash scripts/*)",
+      "Bash(git diff *)", "Bash(git status *)", "Bash(git log *)",
+      "Bash(anypoint-cli-v4 dx mule describe-connector*)",
+      "Bash(anypoint-cli-v4 dx mule runtime*)"
+    ],
+    "ask": [
+      "Bash(anypoint-cli-v4 * deploy*)",
+      "Bash(anypoint-cli * deploy*)",
+      "Bash(mvn * deploy*)",
+      "Bash(mvn *muleDeploy*)",
+      "mcp__mulesoft-mcp-server__deploy_mule_application",
+      "mcp__mulesoft-mcp-server__update_mule_application"
+    ]
+  }
+}
