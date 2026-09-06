@@ -10,4 +10,6 @@ parallel:
   max: 3                     # 既定の同時実行数。--parallel はこれを下げるときだけ使う (--parallel 1 で直列)
   # 残り予算が (max_agent_runs の) 25% を切ったら強制的に 1 に落とす
 
-on_exceeded: stop            # stop | ask   stop = 人に報告して止まる
+on_exceeded: stop            # stop = 人に報告して止まる。
+                             # ask は未実装。budget-check.sh は超過で必ず exit 1 を返し、mule-run は必ず止まる。
+                             # 読まれていない設定を「効いている」と書かない (docs/methodology.md の実測 3)。
