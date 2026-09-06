@@ -20,6 +20,8 @@
 `WARNING Coverage is a EE only feature and you've selected to run over CE` が出るだけで素通りする。
 設定してあること自体が「効いている」証拠にならない。EE が無い環境では
 `scripts/coverage-check.sh` の構造チェック (全 flow が MUnit から flow-ref される) が唯一の保証。
+**この構造チェックは flow への到達だけを見る。** `choice` の分岐、`try` の失敗経路、`error-handler` の
+各 error-type は見えないので、100% と出ても分岐が通っていないことがある。分岐は samples のケースで数える。
 `<runtimeProduct>MULE_EE</runtimeProduct>` を EE の認証なしに書くと、逆に全テストが
 `Cannot create embedded container` で落ちる。
 根拠: プラグイン開発時の検証 (2026-09-05)。

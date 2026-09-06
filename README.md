@@ -124,4 +124,4 @@ export ANYPOINT_REGION=PROD_JP
 | `dw` CLI | DataWeave の秒単位検証が段 2 に落ちる |
 | `xmllint` | Mule XML の即時検査が飛ぶ |
 | `gh` | PR 作成が手動になる |
-| MuleSoft Enterprise の Maven 認証 | MUnit のカバレッジ率計測が動かない (EE 限定機能)。`scripts/coverage-check.sh` の構造チェックで代替 |
+| MuleSoft Enterprise の Maven 認証 | MUnit のカバレッジ率計測が動かない (EE 限定機能)。`scripts/coverage-check.sh` が全 flow の到達だけを保証する (flow 内の分岐は見えない) |

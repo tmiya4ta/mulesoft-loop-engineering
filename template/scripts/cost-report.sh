@@ -6,7 +6,10 @@
 set -u
 slug=$(pwd | sed 's#/#-#g')
 dir="$HOME/.claude/projects/$slug"
-[ -d "$dir" ] || dir=$(ls -dt "$HOME"/.claude/projects/* 2>/dev/null | head -1)
+if [ ! -d "$dir" ]; then
+  dir=$(ls -dt "$HOME"/.claude/projects/* 2>/dev/null | head -1)
+  echo "注意: このディレクトリの記録が無いため $dir を読みます (別プロジェクトの可能性)" >&2
+fi
 python3 - "$dir" <<'PY'
 import json,sys,glob,os
 d=sys.argv[1]
