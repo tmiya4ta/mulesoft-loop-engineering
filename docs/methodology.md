@@ -69,7 +69,7 @@ deploy の done_when は `smoke-check.sh`、policy の done_when は `policy-che
 | 1 | xmllint、`dw validate`、層の越境 grep、done_when 有無 | 秒 | hook (`scripts/quick-check.sh`) が自動 | 構文と規約 |
 | 2 | `mvn -q test -Dmunit.test=<対象ファイル>`、mulex | 十秒 | 実行エージェント | **モックを相手にした** 1 スイート |
 | 3 | `mvn -q test` 全体 | 分 | 進捗エージェント (`done_when`) と CI | **モックを相手にした** 全体 |
-| 4 | 配備先への契約検査 | 分 | 人のゲート 3 の後 | **実物** |
+| 4 | 配備先への契約検査 (`scripts/smoke-check.sh`) | 分 | ゲート 2 (PR マージ) の後、Sandbox で。`stage: deploy` のゴールの done_when | **実物** |
 
 ループ 1 周が 1 分を超えると人がループを待たずに手で直し始める。段 1 と 2 を速く保つことが採用率を決める。
 

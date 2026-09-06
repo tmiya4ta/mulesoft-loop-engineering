@@ -9,6 +9,7 @@ api:
   data_source: unknown        # sap | db | salesforce | other-api | none
   auth: unknown               # none | client-id-enforcement | jwt | basic   (呼ぶ側の認証)
   error_style: unknown        # problem-json | simple-json   (失敗時の返し方: RFC 7807 か {code,message})
+  gateway: unknown            # proxy-flex | basic-endpoint | none   (ポリシーをどこで効かせるか。basic-endpoint は autodiscovery = EE 必須。分からなければ proxy-flex)
 
 layer: ""                     # system | process | experience。空なら api.* から判定して聞かない
 

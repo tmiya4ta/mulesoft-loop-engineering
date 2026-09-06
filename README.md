@@ -5,6 +5,7 @@ MuleSoft を知らない人でも `/mule-start` の対話だけで、仕様 → 
 
 考え方は [docs/methodology.md](docs/methodology.md)。実装は TDD (Red → Green → Refactor) で進める。
 
+> **v0.5.1** — PR #2 の実測を手順に反映: デプロイごとに版を上げる (`bump-version.sh`)、CH2 の公開 URL は API で付ける (`ch2-public-url.sh`)、ポリシーはゲートウェイの型 (`api.gateway`) で手順を分け、同梱スキルを先に読む。
 > **v0.5.0** — 実装の先 (デプロイ、ポリシー) も台帳のゴール (`stage:`) にして同じループで回す。規律 (台帳の外で作業しない / マニュアルを読まない / 3 ブロックで締める) を UserPromptSubmit と Stop の hook に移し、長い会話で薄れないようにした。
 > **v0.4.1** — 人に聞く場面を「最初の 1 回 + 4 つのゲート」に固定 (`context/decisions.yaml`)。途中の判断は既定で進めて承認時に仮定として一覧にする。
 > **v0.4.0** — デプロイのループ (`/mule-deploy`) を追加。マージ後に Sandbox (CloudHub 2.0 / Runtime Fabric) へ置き、`samples/` の期待値で疎通を確かめ、失敗を学習ループに戻す。前版は `v0.3.2` タグ。

@@ -26,7 +26,12 @@ model: sonnet
 8. 同じ失敗が 3 回続いたら止まります。無限に回しません。
 
 ## policy 段 (stage: policy のときだけ)
+- **最初に同梱の公式スキルを読みます**: `secure-api`、`apply-policy-to-api-instance`、`platform-assistant`。手探りで API を叩く前に、そこに書いてある手順と項目名を使います (PR #2 の実例では遠回りの 3 件が既にそこに書いてあった)。
 - 対象は Sandbox の API インスタンスへのポリシー適用 (client-id-enforcement、jwt-validation、rate-limiting など)。MUnit は書きません。
+- **ポリシーは適用しただけでは効きません** (201 が返り一覧にも出るが、経路にゲートウェイがいない)。`decisions.yaml` の `api.gateway` で経路を決めます。
+  - `proxy-flex`: 同じ組織で既に配備されている API インスタンスの `technology` / `apiGatewayVersion` / `deployment.type` / `targetName` を読み、同じ形でインスタンスを作る。target URL はアプリの内部エンドポイント。
+  - `basic-endpoint`: Mule アプリに `api-gateway:autodiscovery` を足す (EE の `mule-api-gateway-module` が要る。解決できなければ止まって `proxy-flex` を提案)。
+  - どちらも done_when (`policy-check.sh`: 認証なし 401、あり 2xx) が判定者で、API Manager の表示は証拠にしません。
 - red: 着手前に `done_when` を実行して失敗 (認証なしで 2xx) を確認します。green: 適用後に同じ `done_when` が exit 0。
 - 経路は `anypoint-cli-v4 api-mgr` と MCP `manage_api_instance_policy` / `create_and_manage_api_instances` だけ。Production 名の環境には向けません。
 - 分からない事実 (コマンドの書式、ポリシーの assetId と版、API インスタンスの id) は `--help` と `platform-assistant` スキルで調べ、**分かった時点で `knowledge/K-NNN.md` に「症状 / 手順 / 根拠のコマンド」を書いてから使います。** 次回の実行エージェントはそれを読むので同じ調査をしません。

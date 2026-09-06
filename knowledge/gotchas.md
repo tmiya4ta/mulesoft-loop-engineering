@@ -3,6 +3,9 @@
 実行エージェントとレビューエージェントが毎回読む。`/mule-learn --share` の PR で増える。
 **根拠のない項目を足さない。** 各項目に「何回どこで起きたか」を必ず書く。
 
+**プラットフォーム操作 (API Manager、ポリシー、Exchange) は手探りの前に同梱の公式スキルを読む。**
+`secure-api`、`apply-policy-to-api-instance`、`platform-assistant`。実例で遠回りした落とし穴のうち 3 件は既にそこに書いてあった (PR #2、2026-09-06)。
+
 ---
 
 ## MUnit の絞り込みは `-Dmunit.test=`
