@@ -15,6 +15,17 @@
 テストを実行せず BUILD SUCCESS を返す。判定が空振りする。
 根拠: プラグイン開発時の検証 (2026-09-05)。
 
+## CE で失われるのはカバレッジ計測だけ (機能は動く)
+`mvn test` の MUnit は既定で `MULE_CE` として走る (`Running MULE_CE with version 4.12.2`)。
+しかし埋め込みコンテナには EE のモジュールが入っており、**EE 専用機能もそのまま動く**。
+実測: `ee:transform` (Transform Message) も `batch:job` も CE 実行で成功する
+(ログに `com.mulesoft.mule.runtime.module.batch` が出る)。
+したがって CI/CD で EE 資格情報が無くても **テストの実行そのものは問題ない**。
+CE で失われるのは **カバレッジ計測だけ**。Studio (EE) で通って CI (CE) で落ちる、という
+食い違いは起きない。
+根拠: Studio 生成 finance-api (Mule 4.12.2) で ee:transform と batch:job を CE 実行、
+どちらも Tests run: 1 - Failed: 0 (2026-09-06)。
+
 ## MUnit のカバレッジ計測は Enterprise 限定
 `requiredApplicationCoverage` を設定しても、CE ランタイムでは
 `WARNING Coverage is a EE only feature and you've selected to run over CE` が出るだけで素通りする。

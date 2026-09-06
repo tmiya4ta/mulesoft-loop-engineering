@@ -143,6 +143,10 @@ hook に昇格したものは `knowledge/fixtures/` に最小の入力を置き�
 | レビュー差し戻し回数 | run-log の review イベント |
 | flow カバレッジ | scripts/coverage-check.sh |
 
+CI/CD (`mvn test`) は既定で MULE_CE として走る。EE 専用機能 (`ee:transform`、`batch:job`) も
+CE の埋め込みコンテナで動くため、**テストの実行に EE 資格情報は要らない**。
+CE で失われるのはカバレッジ計測だけで、そこを `coverage-check.sh` が構造的に埋める。
+
 編集ごとの hook タイムスタンプではなく **配布から完了まで** を測る。hook は編集の頻度であって、ゴールが片付く速さではない。
 
 ## チームへの展開
