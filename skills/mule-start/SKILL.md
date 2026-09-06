@@ -13,6 +13,25 @@ disable-model-invocation: true
 
 ---
 
+## 手順 0. 前提を集める (これをやる前に質問を始めない)
+
+**資料が無いまま対話を始めると時間を浪費する。** まず `context/sources.yaml` を読む。
+
+1. `requirements` が空なら、AskUserQuestion で聞く。選択肢は「フォルダに置いた (パスを言う)」「URL がある」「資料は無い。口頭で決める」。
+   - パスを言われたら `context/requirements/` に置いてもらい、`sources.yaml` に書く。
+   - URL なら `sources.yaml` に書き、`curl` で取得して要点を `context/requirements/` に落とす。
+   - 「無い」なら `note` にそう書いて先へ進む。**空欄のまま進まない。**
+2. `environment` を確認する。`mule_version`、`java_version`、接続先 (DB / Salesforce / SAP の URL と認証方式) が `unknown` なら:
+   - 資料の場所か URL を同じ要領で聞く。
+   - **それでも分からなければ自分で調べる。** `anypoint-cli-v4 dx mule runtime` で実際に解決できるランタイム版を確認し、コネクタ版は `anypoint-cli-v4 dx mule describe-connector` か Exchange で確認する。推測した GAV は使わない。
+   - 調べた結果を根拠 (実行したコマンドと出力) つきで `context/environment/resolved.md` に書き、`sources.yaml` を更新する。
+3. `deployment` を確認する。デプロイ先が要る場合だけ聞く。`context/deployment/authorizations.yaml` は **人が書くファイル** なので、こちらから書き換えない。中身を読んで、何が許可されているかを人に読み上げて確認する。
+4. `budget.yaml` を読み、上限を人に伝える (「実行エージェント最大 N 回、最大 M 分で止まります」)。変えたいと言われたらファイルを直してもらう。
+
+ここで集めた内容は手順 2 の grilling が事実として使う。**手順 0 を飛ばさない。**
+
+---
+
 ## 手順 1. 前置き (初心者向け、3 問まで)
 
 AskUserQuestion で次を **選択式** で聞く。専門用語は選択肢の説明に隠し、ラベルは平文にする。引数で一言もらっていれば、それを最初の選択肢の既定にする。
@@ -41,7 +60,7 @@ Skill ツールで `mattpocock-skills:grilling` と `mattpocock-skills:domain-mo
 
 - `api/<name>.raml` の差分 (新規なら全文)。
 - `samples/<resource>/<case>.in.json` と `.out.json` のペア。正常 1 件、失敗 1 件以上。
-- `src/test/munit/<resource>-test.xml`。samples を流して out と比較する **本物のテスト**。この時点で `mvn -q test -Dmunit.test=<resource>-test.xml` が **失敗する** ことを確認する (TDD の Red)。実装は実行ループが Green にする。
+- `src/test/munit/<resource>-test.xml`。samples を流して out と比較する **本物のテスト**。正常系・失敗系・境界の全ケースを書き、**そのゴールで作る flow が 1 つ残らず MUnit から flow-ref される** ようにする (`scripts/coverage-check.sh` が判定)。この時点で `mvn -q test -Dmunit.test=<resource>-test.xml` が **失敗する** ことを確認する (TDD の Red)。実装は実行ループが Green にする。
 - RAML の草稿には MCP `generate_api_spec` を使ってよい。`api-spec-validator` があれば通す。既存 API との重複は MCP `search_asset` か `platform-assistant` で自分で調べる。
 
 そのうえで利用者に **平文で動作を読み上げる**。例:
@@ -69,4 +88,6 @@ Skill ツールで `mattpocock-skills:grilling` と `mattpocock-skills:domain-mo
 全ゴールが `passed` になったら:
 1. `mule-reviewer` エージェントを起動し、`request-changes` なら指摘をゴールに変換して台帳に追加し、手順 5 へ戻る。
 2. `approve` なら `/commit` 相当でコミットし、`gh pr create` で PR を作る。
-3. 利用者に PR の URL と、読み上げた仕様の再掲だけを伝える。**マージは人が押す (人のゲート 2)。**
+3. `bash scripts/metrics.sh` と `bash scripts/cost-report.sh` の表を見せる。
+4. `knowledge/failures.jsonl` に 2 回以上の指紋があれば `/mule-learn` を勧める。
+5. 利用者に PR の URL と、読み上げた仕様の再掲だけを伝える。**マージは人が押す (人のゲート 2)。**

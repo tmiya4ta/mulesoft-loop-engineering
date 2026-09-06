@@ -7,7 +7,7 @@
 
 | ループ | 回す主体 | 判定者 | 出力 | 同期/非同期 |
 |---|---|---|---|---|
-| 意図ループ | 人 + 進捗エージェント (`/mule-start` 手順 1〜3) | **人** | RAML 差分、サンプルのペア、MUnit 雛形 | 同期 |
+| 意図ループ | 人 + 進捗エージェント (`/mule-start` 手順 0〜3) | **人** | RAML 差分、サンプルのペア、MUnit 雛形 | 同期 |
 | 計画ループ | 進捗エージェント (`/mule-start` 手順 4、`/mule-run`) | **受け入れ条件** | `tasks/T-*.md` (done_when つき) | 非同期 |
 | 実行ループ | 実行エージェント (`mule-executor`) | **done_when** | コードと証拠 | 非同期 |
 
@@ -46,7 +46,9 @@
 
 1. **done_when の無いゴールは存在しない。** hook が弾く。
 2. **期待値は変えない。** samples/ と MUnit の期待値を変えて通すのは禁止。実行エージェントがやったら diff を捨てる。
-3. **人のゲートは 3 つだけ。** 受け入れ条件の承認、PR のマージ、本番デプロイ。
+3. **人のゲートは 3 つだけ。** 受け入れ条件の承認、PR のマージ、本番デプロイ (学習ループの昇格 PR を入れて 4 つ)。
+4. **前提が空のまま始めない。** `context/sources.yaml` の requirements が空なら意図ループは動かない。
+5. **予算を超えたら次を配らない。**
 
 ## 検証器は 3 段
 
@@ -65,7 +67,7 @@
 | 名前 | 形 | 判定者 | 書ける |
 |---|---|---|---|
 | 進捗 | `/mule-start` `/mule-run` を実行中のメインセッション | 人 / 受け入れ条件 | 台帳、仕様、用語集 |
-| 実行 | `agents/mule-executor.md` (worktree 隔離) | done_when | src/ のみ |
+| 実行 | `agents/mule-executor.md` (worktree 隔離、`sonnet`、3 回目のみ `opus`) | done_when | src/ のみ |
 | レビュー | `agents/mule-reviewer.md` | 規約 | 書けない |
 
 意図ループの深掘りは自作せず、`mattpocock-skills` の `grilling` (決定の木を 1 ラウンドずつ、推奨回答つき) と `domain-modeling` (用語集を即時更新) を借りる。自前部分は「初心者向けの前置き 3 問」と「MuleSoft 固有の出口 (RAML / samples / MUnit)」だけ。
@@ -81,6 +83,67 @@
 | 段 3 | 公式スキル `generate-bat-tests` (デプロイ後の契約テスト) |
 | ゲート 3 の後 | MCP `deploy_mule_application`、Platform MCP と `secure-api` でポリシー |
 | 維持 | MCP `get_platform_insights`、Platform MCP のモニタリング |
+
+## 4 つ目のループ: 学習
+
+実装で繰り返した失敗を数え、閾値を超えたら検証器か規則に昇格させる (`skills/mule-learn`)。
+
+```
+失敗が直った瞬間に 1 行記録 (knowledge/failures.jsonl)
+        │  category (固定語彙) + symptom で集計
+   2 回以上 ──→ /mule-learn が昇格を提案 ──→ 人が PR で承認
+                        │
+        ┌───────────────┼───────────────┐
+        ▼               ▼               ▼
+   hook の検査     CLAUDE.md /     レビュー観点
+  (機械で弾く)     mule-tdd の規則
+        │
+        ├─ scope: repo    → そのリポジトリの knowledge/
+        └─ scope: generic → プラグインの knowledge/gotchas.md に PR (全員に効く)
+```
+
+低い層から順に選ぶ。**機械で弾けるなら必ず hook**。規則は読まれないことがあるが hook は必ず効く。
+hook に昇格したものは `knowledge/fixtures/` に最小の入力を置き、弾けることをテストする。
+半年ヒットの無い規則は退役させる。増える一方の規則は死んだ規則になる。
+
+## コストと観測
+
+### 予算 (budget.yaml)
+
+`/mule-run` は 1 件配る前に必ず `scripts/budget-check.sh` を実行し、超えていたら **1 件も配らずに止まる**。
+
+| 上限 | 既定 | 測り方 |
+|---|---|---|
+| `max_agent_runs` | 20 | run-log.jsonl の dispatch 件数 |
+| `max_wall_clock_min` | 90 | 最初の dispatch からの経過 |
+| `max_attempts_per_goal` | 3 | 台帳の attempts |
+
+残予算が 25% を切ると `--parallel` は強制的に 1 に落ちる。並列は焼く速度が N 倍になるため。
+
+**停止の粒度は「次の配布の前」** で、実行中のエージェントを途中で止めることはできない。これは正直に言うべき制約で、「上限で必ず止まる」ではなく「上限を超えたら次を配らない」が正しい説明。
+
+### 実コスト
+
+`scripts/cost-report.sh` が Claude Code のトランスクリプトからモデル別の USD を読む。
+セッション要約行の `modelUsage` / `totalCostUSD` を使う。**サブエージェントの行には usage が載らない**ため、
+行単位の積み上げでは実行エージェント分が抜ける。要約行はセッション終了時に書かれるので、
+走行中の判定には使えない。走行中は budget-check、事後は cost-report と役割を分ける。
+
+コストを下げる仕掛けは 2 つ。実行エージェントは `sonnet` 固定で、3 回目の挑戦だけ `opus` に上げる。
+人と話す意図ループと昇格判断だけが強いモデルを使う。
+
+### 4 指標
+
+`scripts/metrics.sh` が run-log.jsonl と tasks/*.md から出す。
+
+| 指標 | 元データ |
+|---|---|
+| ループ 1 周の時間 (中央値) | run-log の dispatch → done の秒数 |
+| 初回で done_when を通った率 | 台帳の attempts <= 1 かつ passed |
+| レビュー差し戻し回数 | run-log の review イベント |
+| flow カバレッジ | scripts/coverage-check.sh |
+
+編集ごとの hook タイムスタンプではなく **配布から完了まで** を測る。hook は編集の頻度であって、ゴールが片付く速さではない。
 
 ## チームへの展開
 

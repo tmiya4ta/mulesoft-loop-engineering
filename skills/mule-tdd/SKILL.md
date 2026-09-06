@@ -17,8 +17,10 @@ description: MuleSoft の実装を TDD (Red → Green → Refactor) で進める
   - `munit:behavior` で外部呼び出し (`http:request`, `db:select`, `sap:*` など) を `mock-when` で固定する。返す値は samples の in から導く。
   - `munit:execution` で対象フローを `flow-ref` する。
   - `munit:validation` で `.out.json` と `payload` を `MunitTools::equalTo` か `MunitTools::withMediaType` で比較する。HTTP ステータスも `attributes.statusCode` で確認する。
+- **カバレッジは 100% を目標にする。** 具体的には、追加した `flow` / `sub-flow` が 1 つ残らずどれかの `munit:test` から `flow-ref` されること。エラーハンドラの分岐も `mock-when` で例外を投げさせて通す。判定は `bash scripts/coverage-check.sh` (exit 0 が条件)。
+  MUnit 本来のカバレッジ率計測は Enterprise ランタイム限定で、CE では設定しても警告が出るだけで素通りする。`scripts/munit-coverage-mode.sh` が EE を取得できるときだけ 100% ゲートを pom に入れる。EE が無い環境ではこの構造チェックが唯一の保証になる。
 - DataWeave の変換が主題なら、まず `dw` CLI で `.in.json` を流して `.out.json` と diff する簡易テストを作る (秒で回る)。
-- **`mvn -q test -Dmunit.test=<resource>-test.xml` を実行し、失敗を確認する。** 失敗しないテストは何も検証していない。失敗の理由が「フローが無い」「変換が無い」であることを確かめてから次へ。
+- **`mvn -q clean test -Dmunit.test=<resource>-test.xml` を実行し、失敗を確認する。** `clean` は必ず付ける (古い成果物のまま素通りするのを防ぐ)。 失敗しないテストは何も検証していない。失敗の理由が「フローが無い」「変換が無い」であることを確かめてから次へ。
 
 ## 2. Green: 通る最小の実装をする
 - 失敗しているテスト 1 つを通すための最小限だけ書く。先回りして他のリソースやエラー処理を書かない。
@@ -38,7 +40,9 @@ description: MuleSoft の実装を TDD (Red → Green → Refactor) で進める
 
 ## 出力のたびに残す証拠
 ```
-red:   mvn -q test -Dmunit.test=order-cancel-test.xml   → exit 1 (期待どおり失敗)
-green: mvn -q test -Dmunit.test=order-cancel-test.xml   → exit 0
-done:  <done_when>                          → exit 0
+red:      mvn -q clean test -Dmunit.test=order-cancel-test.xml → exit 1 (期待どおり失敗)
+green:    mvn -q clean test -Dmunit.test=order-cancel-test.xml → exit 0
+coverage: bash scripts/coverage-check.sh → flow coverage: 4/4 (100%)
+done:     <done_when> → exit 0
 ```
+red と green は **同じコマンド** であること。違うコマンドを並べても TDD の証拠にならない。

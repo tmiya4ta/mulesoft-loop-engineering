@@ -5,6 +5,8 @@ MuleSoft を知らない人でも `/mule-start` の対話だけで、仕様 → 
 
 考え方は [docs/methodology.md](docs/methodology.md)。実装は TDD (Red → Green → Refactor) で進める。
 
+> **v0.2.0** — 前提の置き場所 (`context/`)、コスト上限 (`budget.yaml`)、試行ログ、4 指標の計測、学習ループ (`/mule-learn`) を追加。前版は `v0.1.0` タグ。
+
 ## 導入 (チームの各メンバー)
 
 ```bash
@@ -29,7 +31,8 @@ claude --plugin-dir /path/to/mulesoft-loop-engineering
 ```bash
 cd my-order-sapi           # Mule プロジェクト (新規でも既存でも)
 claude
-> /mule-init               # CLAUDE.md, tasks/, samples/, api/, scripts/ を配置 (1 回だけ)
+> /mule-init               # プロジェクト骨格 + context/, tasks/, budget.yaml を配置 (1 回だけ)
+#   → ここで context/requirements/ に資料を置く (URL でもよい)
 > /mule-start 注文の状態を返す API
 ```
 
@@ -45,6 +48,7 @@ claude
 | `/mule-run --parallel 3` | 3 件まで並列 |
 | `/mule-setup` | 外部スキルと MCP の前提を入れる (初回) |
 | `/mule-tdd` | 実行エージェントが従う Red → Green → Refactor の規律。人が手で実装するときも使える |
+| `/mule-learn` | 2 回以上出た失敗を hook / 規則に昇格させる。`--share` で全員に共有 |
 
 ## 中身
 
@@ -54,6 +58,7 @@ skills/
   mule-setup/     外部依存の導入 (scripts/setup-deps.sh)
   mule-init/      テンプレート配置
   mule-tdd/       TDD の規律 (実行エージェントが必ず従う)
+  mule-learn/     学習ループ (失敗を数えて昇格・共有)
   platform-assistant/  MuleSoft 公式メタスキルを同梱 (Apache-2.0)
   mule-start/     意図 → 計画 → 実行 を通す入口 (進捗エージェントの手順書)
   mule-run/       計画・実行ループだけ (再開用)
@@ -61,7 +66,14 @@ agents/
   mule-executor.md  ゴール 1 件を done_when が通るまで回す (worktree 隔離)
   mule-reviewer.md  読み取り専用レビュー
 hooks/hooks.json  編集のたびに scripts/quick-check.sh (数秒の検証)
-template/         /mule-init が配る: CLAUDE.md, CONTEXT.md, tasks/, samples/, api/, scripts/done.sh, .claude/settings.json
+knowledge/gotchas.md  共有ナレッジ (実行エージェントが毎回読む)
+template/         /mule-init が配る:
+  context/        前提の置き場所 (requirements / environment / deployment) + sources.yaml
+  budget.yaml     コスト上限。/mule-run が配る前に確認
+  context/deployment/authorizations.yaml  デプロイと実システム接続の許可 (人が書く)
+  tasks/          ゴール台帳 (done_when + 試行ログ)
+  scripts/        done.sh, add-munit.sh, budget-check.sh, coverage-check.sh,
+                  munit-coverage-mode.sh, run-log.sh, metrics.sh, cost-report.sh
 .mcp.json         MuleSoft DX MCP Server (stdio) と Platform MCP Server (http)
 docs/methodology.md
 docs/mulesoft-tools.md  公式 MCP / スキルの一覧とループでの位置づけ
@@ -77,11 +89,31 @@ export ANYPOINT_CLIENT_SECRET=...
 export ANYPOINT_REGION=PROD_JP
 ```
 
-## 人が押すのは 3 か所だけ
+## 始める前に人がやること
+
+1. `context/requirements/` に資料を置く (または URL を `context/sources.yaml` に書く)。**ここが空だと `/mule-start` は始まらない。**
+2. `context/environment/` に Mule 版や接続先の資料を置く。分からなければ空でよい (自動で調べて根拠つきで記録する)。
+3. `budget.yaml` の上限を確認する。
+4. Sandbox にデプロイさせたい場合だけ `context/deployment/authorizations.yaml` の `deploy.sandbox` を `allowed` にする。
+
+## 人が押すのは 4 か所だけ
 
 1. `/mule-start` が平文で読み上げる動作への「はい」
 2. PR のマージ
-3. 本番デプロイ (`anypoint-cli deploy` はプラグインが実行しない)
+3. 本番デプロイ (Sandbox は authorizations.yaml + 明示の指示があれば自動)
+4. `/mule-learn` の昇格 PR のマージ
+
+## コスト制御
+
+| 仕組み | 何をするか |
+|---|---|
+| `budget.yaml` | 実行エージェント起動回数と経過時間の上限。**超えたら次を配らない** |
+| `--parallel` の自動抑制 | 残予算 25% 未満で強制的に 1 に落とす |
+| モデル階層 | 実装は `sonnet` 固定、3 回目の挑戦だけ `opus` |
+| `scripts/cost-report.sh` | セッションのモデル別実コスト (USD) |
+| `scripts/metrics.sh` | ループ 1 周の時間、初回通過率、差し戻し、カバレッジ |
+
+停止の粒度は「次の配布の前」。実行中のエージェントは途中で止められない。
 
 ## 必要なツール
 
@@ -92,3 +124,4 @@ export ANYPOINT_REGION=PROD_JP
 | `dw` CLI | DataWeave の秒単位検証が段 2 に落ちる |
 | `xmllint` | Mule XML の即時検査が飛ぶ |
 | `gh` | PR 作成が手動になる |
+| MuleSoft Enterprise の Maven 認証 | MUnit のカバレッジ率計測が動かない (EE 限定機能)。`scripts/coverage-check.sh` の構造チェックで代替 |

@@ -18,10 +18,12 @@ argument-hint: "[--layer system|process|experience] [--name <api-name>]"
    生成物は `<name>/` に入るので、リポジトリ直下に移す (`mv <name>/* <name>/.[!.]* . 2>/dev/null; rmdir <name>`)。
    CLI が無い場合 (`anypoint-cli-v4 dx mule --help` が失敗) は `npm i -g anypoint-cli-v4 && anypoint-cli-v4 plugins:install @salesforce/anypoint-cli-dx-mule-plugin` を案内する。MCP `create_mule_project` でも同じものが作れる。
    コネクタの GAV は推測せず、`anypoint-cli-v4 dx mule describe-connector` か Exchange で確かめる。
+3aa. **前提の置き場所を作る。** `context/` (requirements / environment / deployment)、`budget.yaml`、`context/deployment/authorizations.yaml`、`knowledge/` を配置し、**利用者に「資料をここに置いてください」と具体的なパスを伝える**。URL しか無い場合は `context/sources.yaml` に書いてもらう。
 3b. **MUnit を足す。** 生成直後の pom には MUnit が無いので `scripts/add-munit.sh` を実行する (設定済みなら何もしない)。
 3c. template/ の各ファイルをコピーする。**既にあるファイルは上書きしない**。CLAUDE.md が既にある場合は末尾に template/CLAUDE.md の内容を追記し、冒頭にマーカー `<!-- mule-loop -->` を付ける。
 4. CLAUDE.md の `layer:` と `name:` を埋める。
 5. `mvn -v`、`dw --version`、`xmllint --version`、`anypoint-cli-v4 dx mule --help` の有無を確認し、無いものを表にして知らせる。
+5aa. `bash scripts/munit-coverage-mode.sh` を実行する。EE ランタイムが取れれば MUnit のカバレッジ 100% ゲートを pom に入れ、取れなければ入れず、`scripts/coverage-check.sh` による構造チェックが保証になることを利用者に伝える。
 5b. `mvn -q clean package -DskipTests` を 1 回流し、ライブラリ取得が通ることを確かめる。失敗したら `~/.m2/settings.xml` の Exchange 認証 (Enterprise コネクタを使う場合) を疑い、docs/mulesoft-tools.md の「プロジェクト作成」を案内する。
 6. `.mcp.json` がリポジトリに無ければ、プラグインの `.mcp.json` をコピーするか聞く (MCP はプラグイン側で有効になるので任意)。
 7. 最後に「次は `/mule-start` で作りたい API を対話で決めます」とだけ案内する。

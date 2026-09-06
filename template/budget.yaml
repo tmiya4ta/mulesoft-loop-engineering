@@ -1,0 +1,13 @@
+# ループのコスト上限。/mule-run が 1 件配る前に必ず確認し、超えていたら止める。
+# 停止の粒度は「次の配布の前」。実行中のエージェントを途中で止めることはできない。
+
+per_feature:                 # /mule-start 1 回 (= 1 機能) あたり
+  max_agent_runs: 20         # 実行エージェントの起動回数の合計
+  max_wall_clock_min: 90     # 最初の配布からの経過時間
+  max_attempts_per_goal: 3   # 1 ゴールあたりの失敗回数。超えたら blocked
+
+parallel:
+  max: 3                     # --parallel の上限
+  # 残り予算が (max_agent_runs の) 25% を切ったら強制的に 1 に落とす
+
+on_exceeded: stop            # stop | ask   stop = 人に報告して止まる
