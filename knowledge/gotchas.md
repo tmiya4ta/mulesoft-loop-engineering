@@ -41,3 +41,42 @@ Exchange / MuleSoft のリポジトリ定義、`mule-artifact.json` のどれか
 実在しない版を `--dependencies` に書くと `mvn` が「not found」で落ち、自力では直せない。
 `anypoint-cli-v4 dx mule describe-connector` か Exchange で確認する。
 根拠: 公式スキル build-mule-integration の Step 8 が同じ警告をしている。
+
+## DataWeave の検査は `dw validate -f`。`dw -f` は存在しない
+dw CLI (Command Line V1.0.34) に単体の `-f` は無く、**正しい .dwl でも exit 2** を返す。
+段 1 が全ての .dwl 編集を無条件に弾き、実行ループが進まなくなる。
+さらに `dw validate` は Mule の dwl に 2 つの誤判定を出す。
+
+| 誤判定 | なぜ Mule では正常か |
+|---|---|
+| `Missing Mapping Expression` | 変換を module (`---` を持たないファイル) に切り出すのは規則 5 が求める形 |
+| `Unable to resolve reference of: payload` | `payload` `vars` `attributes` は実行時にしかない束縛 |
+
+**module の本物の構文エラーは正しく捕まる** (`fun f(x) = x +` → `Missing addition expression`) ので、
+この 2 つを除いた残りの `[ERROR]` だけを見れば検証器として使える。ANSI の色コードが混じるので
+grep の前に落とす。`scripts/quick-check.sh` は修正済み。
+根拠: System API 1 本の実装中に 2 段階で露見 (2026-09-06)。1 つ目は最初の .dwl 編集で即座に、
+2 つ目は変換を module に切り出した直後に。module 正常 / module 壊れ / payload 参照 /
+script 壊れ / 素の正常 / 素の壊れ / 実物 2 本の 8 通りで期待どおりを確認。
+
+## `ee:` を 1 つでも書くと MUnit が動かない (CE 環境)
+`<ee:transform>` を 1 つ置くと `target/META-INF/mule-artifact/mule-artifact.json` の
+`requiredProduct` が `MULE` → `MULE_EE` に変わり、MUnit が EE の器を作ろうとする。
+`com.mulesoft.mule.distributions:mule-runtime-impl-no-services-bom:4.9.0` は公開リポジトリに
+**無い** (404。4.10.1 は 200) ので `Cannot create embedded container` で落ちる。
+`<runtimeProduct>MULE_EE</runtimeProduct>` を書いた場合と同じ症状だが、**原因は名前空間 1 つ**で、
+pom には何も書いていないので気づきにくい。
+
+変換は `src/main/resources/dwl/` の module に置き、フローからは `#[dwl::Module::fn(...)]` の
+1 行で呼ぶ。規則 5 が求める形と一致するので、迂回ではなく本来の形に寄る。
+根拠: 3 つの worktree が独立に同じ壁に当たり、進捗エージェントが対照実験で確認 (2026-09-06)。
+`ee:transform` あり → `requiredProduct: MULE_EE` / exit 1、退避 → `MULE` / exit 0。
+
+## `mock-when` は操作に付けた `error-mapping` ごと無効化する
+`<munit-tools:mock-when>` は操作そのものを差し替えるので、その操作に付けた
+`<error-mapping sourceType="..." targetType="..."/>` は効かない。
+mock 経由ではエラー型が写し替わらず、テストだけが赤くなる。
+エラー型の写し替えは操作の外 (`<try>` + `on-error-propagate`) に出す。
+なお `error-mapping` は XSD 上 `db:sql` より前に置く必要があり、順を間違えると
+配備前に `cvc-complex-type.2.4.a` で落ちる。
+根拠: 一意制約違反を 409 に写す実装中に 2 段で露見 (2026-09-06)。
