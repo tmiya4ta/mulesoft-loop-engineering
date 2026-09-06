@@ -26,4 +26,6 @@ argument-hint: "[--layer system|process|experience] [--name <api-name>]"
 5aa. `bash scripts/munit-coverage-mode.sh` を実行する。EE ランタイムが取れれば MUnit のカバレッジ 100% ゲートを pom に入れ、取れなければ入れず、`scripts/coverage-check.sh` による構造チェックが保証になることを利用者に伝える。
 5b. `mvn -q clean package -DskipTests` を 1 回流し、ライブラリ取得が通ることを確かめる。失敗したら `~/.m2/settings.xml` の Exchange 認証 (Enterprise コネクタを使う場合) を疑い、docs/mulesoft-tools.md の「プロジェクト作成」を案内する。
 6. `.mcp.json` がリポジトリに無ければ、プラグインの `.mcp.json` をコピーするか聞く (MCP はプラグイン側で有効になるので任意)。
-7. 最後に「次は `/mule-start` で作りたい API を対話で決めます」とだけ案内する。
+7. 最後に「現在地 / 次にすること / そのあと」の 3 ブロックで締める。次にすることは
+   「`context/requirements/` に資料を置く (パスを具体的に示す)」か、資料が無いなら
+   「`/mule-start <作りたいこと>`」の 1 つだけにする。

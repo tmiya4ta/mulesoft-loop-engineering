@@ -49,6 +49,7 @@ claude
 | `/mule-setup` | 外部スキルと MCP の前提を入れる (初回) |
 | `/mule-tdd` | 実行エージェントが従う Red → Green → Refactor の規律。人が手で実装するときも使える |
 | `/mule-learn` | 2 回以上出た失敗を hook / 規則に昇格させる。`--share` で全員に共有 |
+| `/mule-status` | **迷ったらこれ。** 今どこにいて次に何をすればよいかを 1 つだけ示す |
 
 ## 中身
 
@@ -59,6 +60,7 @@ skills/
   mule-init/      テンプレート配置
   mule-tdd/       TDD の規律 (実行エージェントが必ず従う)
   mule-learn/     学習ループ (失敗を数えて昇格・共有)
+  mule-status/    現在地と次の一手のナビゲーション
   platform-assistant/  MuleSoft 公式メタスキルを同梱 (Apache-2.0)
   mule-start/     意図 → 計画 → 実行 を通す入口 (進捗エージェントの手順書)
   mule-run/       計画・実行ループだけ (再開用)

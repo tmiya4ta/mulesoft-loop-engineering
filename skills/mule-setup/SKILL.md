@@ -8,4 +8,4 @@ description: mule-loop が借りる外部スキル (mattpocock-skills、MuleSoft
 その後:
 1. `ANYPOINT_CLIENT_ID` が無ければ、Connected App の作り方を 3 行で案内する (docs/mulesoft-tools.md の「認証」を読む)。作れるのは組織管理者なので、無ければ誰に頼むかを聞く。
 2. `mvn` が無ければ、それ無しでは検証の段 2, 3 が動かず TDD が成立しないことを明言する。
-3. 最後に「次は `/mule-init`」と案内する。
+3. 最後に「現在地 / 次にすること / そのあと」の 3 ブロックで締める。次にすることは `/mule-init` の 1 つだけ。

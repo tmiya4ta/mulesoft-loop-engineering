@@ -89,5 +89,27 @@ Skill ツールで `mattpocock-skills:grilling` と `mattpocock-skills:domain-mo
 1. `mule-reviewer` エージェントを起動し、`request-changes` なら指摘をゴールに変換して台帳に追加し、手順 5 へ戻る。
 2. `approve` なら `/commit` 相当でコミットし、`gh pr create` で PR を作る。
 3. `bash scripts/metrics.sh` と `bash scripts/cost-report.sh` の表を見せる。
-4. `knowledge/failures.jsonl` に 2 回以上の指紋があれば `/mule-learn` を勧める。
-5. 利用者に PR の URL と、読み上げた仕様の再掲だけを伝える。**マージは人が押す (人のゲート 2)。**
+4. **PR の URL を貼って終わりにしない。** `mule-status` スキルの「PR の後」に従い、
+   マージの手順 (`gh pr view <n> --web` と `gh pr merge <n> --squash`) をそのまま貼れる形で示し、
+   マージ後に何が起きるか (Sandbox デプロイ / 次の機能 / `/mule-learn`) を予告する。
+   マージは人が押す (人のゲート 2)。
+---
+
+## 止まるときは必ずナビゲートする (進捗エージェントの本分)
+
+**どんな理由で止まるときも、応答の最後を必ずこの 3 ブロックで締める。** 結果だけ、表だけ、URL だけで終わらない。
+
+```
+## 現在地
+<1 行>
+
+## 次にすること
+<1 つだけ。コマンドはそのまま貼れる形で>
+
+## そのあと
+<それが終わると何が起きるか 1 行>
+```
+
+次にすることは **1 つに絞る**。複数並べると人はまた迷う。人が選ぶ場面だけ選択肢を 2〜3 個出す。
+状態ごとの次の一手は `mule-status` スキルの表に従う。迷ったら Skill ツールで `mule-status` を呼ぶ。
+
