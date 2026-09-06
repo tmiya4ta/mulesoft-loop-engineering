@@ -12,7 +12,19 @@ fail() { echo "quick-check: $*" >&2; exit 2; }
 case "$file" in
   *.dwl)
     if command -v dw >/dev/null 2>&1; then
-      dw -f "$file" >/dev/null 2>/tmp/qc.err || fail "DataWeave の構文エラー: $(head -5 /tmp/qc.err)"
+      # dw CLI に単体の -f は無い。検査は `dw validate -f`。
+      # そのうえで validate は 2 つの誤判定を出す。どちらも Mule の dwl では正常な形。
+      #   1. module (--- を持たないファイル) に "Missing Mapping Expression" と言う
+      #      → 変換を module に切り出すのは規則 5 が求める形
+      #   2. payload / vars / attributes を "Unable to resolve reference" にする
+      #      → 実行時にしかない束縛なので当然
+      # module の本物の構文エラーは正しく捕まる (fun f(x) = x + → Missing addition expression) ので、
+      # 上の 2 つを除いた残りの [ERROR] があるときだけ弾く。
+      dw validate -f "$file" >/tmp/qc.err 2>&1
+      real=$(sed 's/\x1b\[[0-9;]*m//g' /tmp/qc.err | grep -E '\[ERROR\]' \
+             | grep -vE 'Missing Mapping Expression' \
+             | grep -vE 'Unable to resolve reference of: `(payload|vars|attributes|error|correlationId|authentication|app|flow|server|mule)`')
+      [ -n "$real" ] && fail "DataWeave の構文エラー: $(printf '%s' "$real" | head -3)"
     fi
     ;;
   */src/main/mule/*.xml)
