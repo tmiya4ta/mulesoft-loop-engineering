@@ -17,5 +17,5 @@ model: inherit
 6. **共有ナレッジ**: プラグインの `knowledge/gotchas.md` とこのリポジトリの `knowledge/K-*.md` を読み、既知の落とし穴を踏んでいないか。
 
 ## 出力
-指摘ごとに 1 行、`file:line 観点 内容` の形。指摘が無ければ `LGTM` の 1 行だけ。
+指摘ごとに 1 行、**連番を振って** `1. file:line 観点 内容` の形 (「3 番だけ直して」と言えるように)。指摘が無ければ `LGTM` の 1 行だけ。
 最後に `verdict: approve | request-changes`。
