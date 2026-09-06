@@ -5,6 +5,9 @@ deploy:
   sandbox: denied        # allowed にすると Sandbox 型の環境へデプロイできる
   production: denied     # 常に denied のままにする。本番は人が手で行う
 
+policy:
+  sandbox: denied        # allowed にすると Sandbox の API インスタンスにポリシーを適用してよい (policy 段)
+
 external_systems:        # 開発環境の実システムに触ってよいか
   # 例:
   # dev_db:    read-only     # denied | read-only | read-write

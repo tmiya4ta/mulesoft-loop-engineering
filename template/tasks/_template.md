@@ -1,6 +1,7 @@
 ---
 id: T-000
 goal: <1 文。何ができるようになるか>
+stage: impl            # impl | deploy | policy。段が違っても回し方は同じ (done_when が exit 0 になるまで)
 done_when: mvn -q clean test -Dmunit.test=<resource>-test.xml
 status: todo
 attempts: 0

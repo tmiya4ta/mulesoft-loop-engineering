@@ -15,6 +15,10 @@ argument-hint: "[--verify-only <base-url>  デプロイ済みの URL に疎通�
 `production` は常に人の手作業。このスキルは Production 名の環境には決して向けない。
 MCP の `deploy_mule_application` は使わない。経路は下の `mvn clean deploy -DmuleDeploy` だけにして、pom に何が書かれたかを人が diff で追えるようにする。
 
+## 台帳との関係
+
+通常は `/mule-run` が `stage: deploy` のゴールを取り出したときに、進捗エージェントがこの手順を実行する。そのゴールの `done_when` (smoke-check) が判定者で、このスキル単体の「置けた」は成功ではない。人が直接 `/mule-deploy` と言ったときも、台帳に deploy ゴールが無ければ先に 1 件切ってから進む (台帳の外で作業しない)。
+
 ## 読むもの
 
 1. `context/deployment/sandbox.yaml` — kind (cloudhub2 / rtf)、environment、target、public_url。無ければ人に書いてもらう (テンプレートは `/mule-init` が置く)。

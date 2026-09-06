@@ -12,16 +12,20 @@ argument-hint: "[T-NNN だけ実行] [--parallel N]"
 3. ゴールに `done_when` があるか。無ければ止めて報告する。
 
 ## ループ
-1. `tasks/T-*.md` を読み、`status` が `todo` または `failed` (attempts < 3) で、`blocked_by` が全て `passed` のものを取り出す。
+1. `tasks/T-*.md` を読み、`status` が `todo` または `failed` (attempts < 3) で、`blocked_by` が全て `passed` のものを取り出す。`stage` が無ければ `impl`。
 2. 各ゴールについて:
    - `status: running` に更新する。
    - **モデルを選ぶ。** attempts 0〜1 は `sonnet`、attempts 2 (= 3 回目の挑戦) は `opus` に上げる。Agent 呼び出し時の `model` で指定する (frontmatter より呼び出し側が優先)。
    - `bash scripts/run-log.sh dispatch <id> <model>` を実行する。
-   - Agent ツールで `mule-executor` を **`isolation: "worktree"`** で起動する。プロンプトはゴールファイルのパスと「CLAUDE.md と context/ を読んで規則に従うこと」だけ。
+   - **段で配り先を変える。回し方は同じ (done_when が exit 0 になるまで)。**
+     - `impl` → Agent ツールで `mule-executor` を **`isolation: "worktree"`** で起動する。プロンプトはゴールファイルのパスと「CLAUDE.md と context/ を読んで規則に従うこと」だけ。
+     - `deploy` → 実行エージェントには配れない (デプロイ禁止)。**進捗エージェント自身が `mule-deploy` スキルの手順 1〜5 を実行する。** 先に done_when を 1 回流して失敗を確認する (red)。配置先 URL が決まったら done_when の base-url を書き換えてよい (期待値ではなく所在なので)。
+     - `policy` → `authorizations.yaml` の `policy.sandbox` が allowed のときだけ `mule-executor` に配る (worktree 不要、`isolation` 無し)。denied なら blocked にして人に 1 行で伝える。
+   - **マニュアルは読まない。** 段を進めるのに足りない事実 (CLI の書式、ポリシー名、API インスタンスの id) は、進捗エージェントが docs を fetch して探すのではなく、実行エージェントに「調べて `knowledge/K-NNN.md` に書いてから使う」よう配る。進捗エージェントが読むのは台帳、context/、knowledge/ だけ。
    - 配るたびに budget-check を再実行する (並列時も 1 件ごとに数える)。
 3. 戻ってきたら diff を取り込み、**`done_when` を自分で実行する**。実行エージェントの自己申告は信じない。
    - `samples/` か `src/test/munit/` の期待値が変更されていたら、**diff を捨てて failed にする**。理由を試行ログに書く。
-   - `red` の証拠が無い、または `red` と `green` が別コマンドなら failed にする。
+   - `red` の証拠が無い、または `red` と `green` が別コマンドなら failed にする (deploy / policy 段も同じ。red は着手前の done_when、green は着手後の done_when)。
    - exit 0 → `bash scripts/coverage-check.sh` も確認する。落ちたら failed。
 4. 結果を書き戻す:
    - 成功 → `status: passed`、`evidence:` にコマンドと日時、`## TDD の証拠` に red / green。`bash scripts/run-log.sh done <id> passed <秒数>`。

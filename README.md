@@ -5,6 +5,7 @@ MuleSoft を知らない人でも `/mule-start` の対話だけで、仕様 → 
 
 考え方は [docs/methodology.md](docs/methodology.md)。実装は TDD (Red → Green → Refactor) で進める。
 
+> **v0.5.0** — 実装の先 (デプロイ、ポリシー) も台帳のゴール (`stage:`) にして同じループで回す。規律 (台帳の外で作業しない / マニュアルを読まない / 3 ブロックで締める) を UserPromptSubmit と Stop の hook に移し、長い会話で薄れないようにした。
 > **v0.4.1** — 人に聞く場面を「最初の 1 回 + 4 つのゲート」に固定 (`context/decisions.yaml`)。途中の判断は既定で進めて承認時に仮定として一覧にする。
 > **v0.4.0** — デプロイのループ (`/mule-deploy`) を追加。マージ後に Sandbox (CloudHub 2.0 / Runtime Fabric) へ置き、`samples/` の期待値で疎通を確かめ、失敗を学習ループに戻す。前版は `v0.3.2` タグ。
 
@@ -70,7 +71,8 @@ skills/
 agents/
   mule-executor.md  ゴール 1 件を done_when が通るまで回す (worktree 隔離)
   mule-reviewer.md  読み取り専用レビュー
-hooks/hooks.json  編集のたびに scripts/quick-check.sh (数秒の検証)
+hooks/hooks.json  編集のたびに scripts/quick-check.sh (数秒の検証)、毎ターン scripts/loop-reminder.sh (規律の注入)、
+                  応答の終わりに scripts/stop-guard.sh (3 ブロックで締めていなければ 1 回差し戻す)
 knowledge/gotchas.md  共有ナレッジ (実行エージェントが毎回読む)
 template/         /mule-init が配る:
   context/        前提の置き場所 (requirements / environment / deployment) + sources.yaml
