@@ -1,13 +1,13 @@
-# mule-loop
+# mulesoft-loop-engineering
 
 **Build MuleSoft APIs with Claude Code, through a loop instead of a chat.**
 
 [English](README.md) · [日本語](README.ja.md)
 
-`mule-loop` is a Claude Code plugin and project template. You describe what the API should
-do; it carries that from specification → acceptance criteria → a goal ledger → implementation
-→ pull request, in one console. **You do not need to know MuleSoft to start** — `/mule-start`
-asks what it needs to know.
+This repository is the Claude Code plugin **`mule-loop`** and its project template. You
+describe what the API should do; it carries that from specification → acceptance criteria →
+a goal ledger → implementation → pull request, in one console. **You do not need to know
+MuleSoft to start** — `/mule-start` asks what it needs to know.
 
 Implementation is TDD throughout (Red → Green → Refactor). The reasoning behind the design is
 in [docs/methodology.md](docs/methodology.md).

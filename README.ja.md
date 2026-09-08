@@ -1,12 +1,12 @@
-# mule-loop
+# mulesoft-loop-engineering
 
 **MuleSoft API を、チャットではなく「ループ」で作る Claude Code プラグイン。**
 
 [English](README.md) · [日本語](README.ja.md)
 
-`mule-loop` は Claude Code のプラグイン兼プロジェクトテンプレートです。API に何をさせたいかを
-伝えると、仕様 → 受け入れ条件 → ゴール台帳 → 実装 → PR まで 1 コンソールで運びます。
-**MuleSoft を知らなくても始められます** — `/mule-start` が必要なことを聞いてきます。
+このリポジトリは Claude Code プラグイン **`mule-loop`** とそのプロジェクトテンプレートです。
+API に何をさせたいかを伝えると、仕様 → 受け入れ条件 → ゴール台帳 → 実装 → PR まで 1 コンソール
+で運びます。**MuleSoft を知らなくても始められます** — `/mule-start` が必要なことを聞いてきます。
 
 実装は一貫して TDD（Red → Green → Refactor）です。設計の考え方は
 [docs/methodology.md](docs/methodology.md) にあります。
