@@ -48,7 +48,12 @@
            DELETE /customers/{customerId}          → delete:\customers\(customerId):profile-api-config
 
          受け口の中身はどれも同じ: uriParams / queryParams を vars に立てて実処理へ flow-ref するだけ。
-         実処理の flow は HTTP を知らないので MUnit から直接 flow-ref できる。 -->
+         実処理の flow は HTTP を知らないので MUnit から直接 flow-ref できる。
+
+         **下の 3 つは flow 名の例で、flow-ref の先は自分で書く。** このファイルだけを丸写しすると
+         参照先が無い状態になる。写経元がある先: change-profile → resource-impl.xml (実測済み)、
+         fetch-customer → patterns/http-request.xml、create-customer → patterns/db-operations.xml。
+         list-customers に写経元は無い (一覧は db:select + 変換だけなので resource-impl.xml から起こす)。 -->
     <flow name="get:\customers\(customerId):profile-api-config" doc:name="customer 取得 (受け口)">
         <set-variable variableName="customerId" value="#[attributes.uriParams.customerId]" doc:name="customerId を立てる"/>
         <flow-ref name="fetch-customer" doc:name="fetch-customer を呼ぶ"/>
