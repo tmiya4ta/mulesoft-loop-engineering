@@ -12,7 +12,7 @@ MuleSoft to start** — `/mule-start` asks what it needs to know.
 Implementation is TDD throughout (Red → Green → Refactor). The reasoning behind the design is
 in [docs/methodology.md](docs/methodology.md).
 
-> **v0.6.0** — see [Release notes](#release-notes).
+> **v0.6.1** — see [Release notes](#release-notes).
 
 ---
 
@@ -182,6 +182,29 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.1</b> — Mule apps beyond HTTP APIs: batch, MCP servers, A2A</summary>
+
+`/mule-init` used to open with a system/process/experience layer question, which only makes sense for an HTTP
+API. It now asks `kind` first (`api` / `batch` / `mcp` / `a2a`), and only asks layer when `kind: api`. Picking
+`a2a` stops `mule-init` immediately with a pointer to the `agent-network` and `deploy-agent-network-v1`/`v2`
+skills instead of scaffolding a Maven/MUnit project that wouldn't fit (Agent Network is `agentNetwork.yaml` /
+`.agent` files, not a Mule app). `mule-basics.md` gains a "10. Batch / MCP / A2A" section with the facts the
+user's own `mulesoft-app-development` skill already had (no `<mcp:server>` element, one flow per
+`mcp:tool-listener`, SSE testing; `blockSize`/`maxConcurrency` must stay unquoted numbers for batch), tagged
+`[S]` since none of it has run through this loop yet. `quick-check.sh`'s System-layer connector check is now
+scoped to `kind: api` (a `batch` app hitting a DB directly is normal) and defaults missing `kind:` to `api` so
+every repo initialised before this version keeps behaving exactly as before. `mule-start`'s deploy/policy
+auto-goals (`smoke-check.sh`/`policy-check.sh`) stay `kind: api`-only too, since both assume an HTTP base URL
+that batch and MCP don't have. `mule-init`'s project-scaffolding step no longer hardcodes the HTTP connector
+for every `kind` — it's `kind: api`-only now, `mcp` resolves its own connector GAV via `describe-connector`
+instead of reusing the api default, and `batch` only pulls in the connectors it actually needs.
+
+No action needed on already-initialised repos (e.g. finance-api): with no `kind:` line, the default keeps
+every existing check behaving exactly as it did before this version.
+
+</details>
 
 <details>
 <summary><b>v0.6.0</b> — Mule basics, a reference skeleton, and gotchas by topic</summary>

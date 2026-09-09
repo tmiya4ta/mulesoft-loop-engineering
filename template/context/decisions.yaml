@@ -3,16 +3,18 @@
 # 決めたことは docs/spec/<name>.md の「仮定」に残す。
 # 人が先に埋めておけば、その項目は聞かれない。空欄 ("" / unknown) は /mule-start が最初にまとめて聞く。
 
-api:
-  purpose: ""                 # 何をする API か (一言)
-  caller: unknown             # ui | internal-system | other-api   (画面やアプリ / 他の社内システム / 他の API)
-  data_source: unknown        # sap | db | salesforce | other-api | none
-  data_model: unknown         # provided | none   (DDL / オブジェクト定義が context/requirements/ にあるか。System 層で none なら grilling で項目を 1 つずつ決める。仮定では作らない)
-  auth: unknown               # none | client-id-enforcement | jwt | basic   (呼ぶ側の認証)
-  error_style: unknown        # problem-json | simple-json   (失敗時の返し方: RFC 7807 か {code,message})
-  gateway: unknown            # proxy-flex | basic-endpoint | none   (ポリシーをどこで効かせるか。basic-endpoint は autodiscovery = EE 必須。分からなければ proxy-flex)
+kind: unknown                # api | batch | mcp | a2a  (何を作るか。/mule-init で決める。api 以外は下の api.caller/auth/gateway/error_style を聞かない)
 
-layer: ""                     # system | process | experience。空なら api.* から判定して聞かない
+api:
+  purpose: ""                 # 何を作るか (一言)
+  caller: unknown             # ui | internal-system | other-api   (画面やアプリ / 他の社内システム / 他の API。kind: api のときだけ使う)
+  data_source: unknown        # sap | db | salesforce | other-api | none
+  data_model: unknown         # provided | none   (DDL / オブジェクト定義が context/requirements/ にあるか。System 層 [kind: api] や、DB を直接触る batch で none なら grilling で項目を 1 つずつ決める。仮定では作らない)
+  auth: unknown               # none | client-id-enforcement | jwt | basic   (呼ぶ側の認証。kind: api のときだけ聞く)
+  error_style: unknown        # problem-json | simple-json   (失敗時の返し方: RFC 7807 か {code,message}。kind: api のときだけ聞く)
+  gateway: unknown            # proxy-flex | basic-endpoint | none   (ポリシーをどこで効かせるか。kind: api のときだけ聞く。basic-endpoint は autodiscovery = EE 必須。分からなければ proxy-flex)
+
+layer: ""                     # system | process | experience。kind: api のときだけ使う。空なら api.* から判定して聞かない。batch/mcp/a2a は空のまま
 
 policy:
   when_unsure: assume         # assume | ask。assume = 聞かずに既定で進み仮定として記録 (推奨)

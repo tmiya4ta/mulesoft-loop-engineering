@@ -8,7 +8,7 @@ description: MuleSoft の実装を TDD (Red → Green → Refactor) で進める
 ゴール (tasks/T-NNN.md) を受け取ったら、次の順で **しか** 進めない。順を飛ばしたら最初からやり直す。
 
 ## 0. 受け入れ条件を確認する
-- `${CLAUDE_PLUGIN_ROOT}/knowledge/mule-basics.md` と `${CLAUDE_PLUGIN_ROOT}/template/reference/` を読む。MUnit は `reference/resource-test.xml`、flow は `resource-impl.xml`、エラーハンドラは `global.xml` と同じ形で書く。
+- `${CLAUDE_PLUGIN_ROOT}/knowledge/mule-basics.md` と `${CLAUDE_PLUGIN_ROOT}/template/reference/` を読む。MUnit は `reference/resource-test.xml`、flow は `resource-impl.xml`、エラーハンドラは `global.xml` と同じ形で書く。**この手順と `reference/` は `kind: api` (RAML + APIkit) を前提にしている。** `kind: batch` / `mcp` は samples の代わりに入出力データセットや MCP ツール呼び出しを起点にするが、Red → Green → Refactor 自体は変わらない (`mule-basics.md` 10 節)。
 - `samples/<resource>/<case>.in.json` と `.out.json` を全部読む。これが期待値で、**変えない**。
 - `api/*.raml` の該当リソース、ステータスコード、スキーマを読む。
 - 既存の MUnit (`src/test/munit/`) の書き方に合わせる。

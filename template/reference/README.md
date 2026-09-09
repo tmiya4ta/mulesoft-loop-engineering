@@ -1,5 +1,8 @@
 # reference/ — 通った実装から抜いた写経元
 
+**`kind: api` (RAML + APIkit) 専用。** `batch` / `mcp` / `a2a` にはまだこの形の雛形が無い (`knowledge/mule-basics.md` の
+「10. Batch / MCP / A2A」を参照)。
+
 TDD で 1 本通った System API (finance-api、Mule 4.12.2 / APIkit 1.12.6 / DB 1.16.3 / MUnit 3.7.4) から、
 **どの API でも同じ形になる部分**だけを抜いて名前を一般化したもの。実行エージェントは新しいファイルを
 書く前にここを読み、同じ形で書く。ここに無い部品 (SAP、Salesforce、HTTP request) は `mule-basics.md` の

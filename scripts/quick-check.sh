@@ -31,9 +31,13 @@ case "$file" in
     if command -v xmllint >/dev/null 2>&1; then
       xmllint --noout "$file" 2>/tmp/qc.err || fail "Mule XML が壊れています: $(head -3 /tmp/qc.err)"
     fi
-    # 層の越境: System 層以外から DB / SAP コネクタを直接使っていないか
+    # 層の越境: kind: api で System 層以外から DB / SAP コネクタを直接使っていないか。
+    # kind 行が無い既存リポジトリ (v0.6.0 以前に /mule-init したもの) は api とみなす (後方互換)。
+    # batch は DB を直接触るのが正常な形なので、kind: batch ではこの検査自体をしない。
+    kind=$(sed -n 's/^kind:[[:space:]]*//p' CLAUDE.md 2>/dev/null | head -1)
+    kind=${kind:-api}
     layer=$(sed -n 's/^layer:[[:space:]]*//p' CLAUDE.md 2>/dev/null | head -1)
-    if [ -n "$layer" ] && [ "$layer" != "system" ]; then
+    if [ "$kind" = "api" ] && [ -n "$layer" ] && [ "$layer" != "system" ]; then
       grep -Eq '<db:|<sap:|<salesforce:' "$file" && fail "$layer 層から System コネクタを直接使っています。System API 経由にしてください。"
     fi
     ;;

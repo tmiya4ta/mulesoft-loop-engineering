@@ -50,7 +50,8 @@ disable-model-invocation: true
 - 引数で一言もらっていれば `api.purpose` は埋まったものとする。
 - 選択肢は平文にし、専門用語は説明側に隠す。各問に **推奨** を先頭に置き、「分からない」を選んだら推奨で進む。
 - **データモデルは一括質問に必ず含める。** `api.data_model` が unknown なら「テーブル定義やオブジェクト定義はありますか」を 1 問にする (選択肢: `context/requirements/` に置いた / 今から貼る / 無いので一緒に決める)。System 層はデータモデルを扱う API なので、**モデルを仮定で作ってはいけない**。無ければ手順 2 で決める。
-- `layer` は `api.caller` と `api.data_source` から判定して聞かない。CLAUDE.md の `layer:` と違えば **判定した方に合わせて CLAUDE.md を直し**、一言だけ伝える。
+- **`kind` が `api` 以外 (`batch` / `mcp`) なら、`api.caller` / `api.auth` / `api.gateway` / `api.error_style` は聞かない** (HTTP の呼び出し元やポリシーの前提が無いので意味が無い)。`api.purpose` と `api.data_source` / `api.data_model` は kind によらず聞く。`kind` 自体は `/mule-init` で決め済みなので、ここでは聞かない。
+- `layer` は `kind: api` のときだけ、`api.caller` と `api.data_source` から判定して聞かない。CLAUDE.md の `layer:` と違えば **判定した方に合わせて CLAUDE.md を直し**、一言だけ伝える。`kind` が `batch` / `mcp` なら layer は使わない (空のまま)。
 - `policy.deploy_sandbox_after_merge` が yes なのに `authorizations.yaml` が denied なら、「allowed にするのは人」と 1 行伝えるだけで止まらない。
 - 答えは `decisions.yaml` に書き戻す。次回以降は聞かれない。
 
@@ -106,7 +107,7 @@ Skill ツールで `mattpocock-skills:grilling` と `mattpocock-skills:domain-mo
 - **`done_when` は必ず書く。** 通常は `mvn -q test -Dmunit.test=<テストファイル名>`。書けないゴールは粒度が間違っているので切り直す。
 - `blocked_by` で依存を書く。無いものから着手できる。
 - 先にやるべき下準備 (pom の依存追加、共通エラーハンドラ、RAML の共通型) があれば T-001 にする。**ゴールは既定で並列に配られる**ので、複数のゴールが同じファイル (pom.xml、global.xml、RAML の共通部) を触る形にしない。触るなら下準備に寄せて `blocked_by` で先に通す。
-- **実装の先も台帳に切る。** ループが回るのは done_when があるところだけなので、デプロイとポリシーを台帳の外に置くと、そこで判定者を失いマニュアルと質問に戻る。
+- **実装の先も台帳に切る。** ループが回るのは done_when があるところだけなので、デプロイとポリシーを台帳の外に置くと、そこで判定者を失いマニュアルと質問に戻る。**この節は `kind: api` のときだけ適用する。** `smoke-check.sh` / `policy-check.sh` は HTTP のベース URL を前提にしており、`kind: batch` (ベース URL が無い。検証は「ジョブが走って N 件処理した」の形になる) や `kind: mcp` (SSE プロトコルで REST とは形が違う) にはそのまま使えないため、deploy / policy のゴールは自動では切らない。デプロイ自体は `/mule-deploy` の手順で行ってよいが、疎通確認の方法は人と相談して決める。
   - `decisions.yaml` の `policy.deploy_sandbox_after_merge` が yes なら `stage: deploy` のゴールを 1 件。`done_when: bash scripts/smoke-check.sh <base-url>`、`blocked_by` は全 impl。base-url は `context/deployment/sandbox.yaml` の `public_url` から。空なら `<app>.<region>.cloudhub.io` の形で仮に書き、デプロイ後に進捗エージェントが直す。
   - `api.auth` が none 以外で `api.gateway` が none 以外なら `stage: policy` のゴールを 1 件。`done_when: bash scripts/policy-check.sh <base-url> <client-id|jwt>`、`blocked_by` は deploy。
   - `authorizations.yaml` が denied の段は切らない (人が allowed にしたら `/mule-start --plan-only` で追加できる)。
