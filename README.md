@@ -12,7 +12,7 @@ MuleSoft to start** — `/mule-start` asks what it needs to know.
 Implementation is TDD throughout (Red → Green → Refactor). The reasoning behind the design is
 in [docs/methodology.md](docs/methodology.md).
 
-> **v0.6.5** — see [Release notes](#release-notes).
+> **v0.6.6** — see [Release notes](#release-notes).
 
 ---
 
@@ -141,7 +141,7 @@ template/         What /mule-init distributes:
   budget.yaml     Cost ceilings, checked before /mule-run dispatches
   context/deployment/authorizations.yaml   Deploy + live-system permissions (written by a human)
   tasks/          The goal ledger (done_when + attempt log)
-  scripts/        done.sh, add-munit.sh, budget-check.sh, coverage-check.sh,
+  scripts/        done.sh, add-munit.sh, budget-check.sh, coverage-check.sh, preflight.sh,
                   munit-coverage-mode.sh, run-log.sh, metrics.sh, cost-report.sh
 .mcp.json         MuleSoft DX MCP Server (stdio) + Platform MCP Server (http)
 docs/methodology.md
@@ -182,6 +182,29 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.6</b> — One preflight instead of N executors failing the same way</summary>
+
+When the shared ground is broken — dependencies won't resolve, the Exchange credentials are stale, a guessed
+GAV doesn't exist, the pom was hand-edited — every executor in the wave hits it independently, burns its
+three attempts (escalating to opus on the third), and the orchestrator learns nothing until all of them
+return. The cost is N×3 runs for one root cause. `mule-run` now runs `scripts/preflight.sh` before each
+wave and dispatches nothing if it fails: no goal is marked `running`, no `attempts` are incremented (the
+ground failed, not the goal), a `build-config` line goes to `failures.jsonl`, and the raw output is handed
+to the human.
+
+The check is `mvn -q clean package -DskipTests` — the same command `mule-init` step 5b already validates a
+new project with. It deliberately does **not** run MUnit: mid-loop, a failed goal's red test is sitting in
+the tree by design, so `mvn test` would go red and halt every run at its first goal failure. That also
+means preflight can't catch the failures that only appear when the embedded container boots (the 4.9.0 BOM,
+mule-maven-plugin 4.7.0); `mule-init` 5b and `fix-plugin-version.sh` cover those at init time, and a
+template-shipped canary MUnit is the follow-up if they start showing up mid-run.
+
+Preflight runs **before** the wave is marked `running`, not after: the pickup filter is `todo`/`failed`, so
+a goal stranded in `running` by a halt would never be dispatched again.
+
+</details>
 
 <details>
 <summary><b>v0.6.5</b> — Why the learning loop never noticed the bug v0.6.4 fixed</summary>

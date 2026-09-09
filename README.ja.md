@@ -11,7 +11,7 @@ API に何をさせたいかを伝えると、仕様 → 受け入れ条件 → 
 実装は一貫して TDD（Red → Green → Refactor）です。設計の考え方は
 [docs/methodology.md](docs/methodology.md) にあります。
 
-> **v0.6.5** — [リリースノート](#リリースノート)を参照。
+> **v0.6.6** — [リリースノート](#リリースノート)を参照。
 
 ---
 
@@ -137,7 +137,7 @@ template/         /mule-init が配るもの:
   budget.yaml     コスト上限。/mule-run が配る前に確認
   context/deployment/authorizations.yaml   デプロイと実システム接続の許可（人が書く）
   tasks/          ゴール台帳（done_when + 試行ログ）
-  scripts/        done.sh, add-munit.sh, budget-check.sh, coverage-check.sh,
+  scripts/        done.sh, add-munit.sh, budget-check.sh, coverage-check.sh, preflight.sh,
                   munit-coverage-mode.sh, run-log.sh, metrics.sh, cost-report.sh
 .mcp.json         MuleSoft DX MCP Server（stdio）+ Platform MCP Server（http）
 docs/methodology.md
@@ -176,6 +176,29 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.6</b> — N 体が同じ落ち方をする前に、1 回だけ土台を見る</summary>
+
+土台が壊れているとき（依存が解決しない、Exchange の資格情報が古い、推測した GAV が存在しない、
+pom を手で書き換えた）、波の実行エージェントは**全員が独立に同じ原因を踏み**、それぞれ 3 回まで試し
+（3 回目は opus に上がる）、しかも進捗エージェントは全員が返ってくるまで何も知りません。
+**1 つの原因に N×3 回**燃やすことになります。`mule-run` は波を配る前に `scripts/preflight.sh` を実行し、
+落ちたら **1 件も配りません**。どのゴールも `running` にせず、`attempts` も増やさず
+（ゴールの失敗ではなく土台の失敗なので）、`failures.jsonl` に `build-config` を 1 行書き、
+出力を原文のまま人に渡して止まります。
+
+検査は `mvn -q clean package -DskipTests`。`mule-init` の手順 5b が新規プロジェクトの検証に既に使っている
+のと同じコマンドです。**MUnit は意図的に流しません。** ループの途中では失敗したゴールの red なテストが
+設計どおり木に残っているので、`mvn test` を使うと毎回 1 件目のゴール失敗で全部止まってしまいます。
+その代わり、埋め込みコンテナが起動して初めて出る失敗（4.9.0 の BOM、mule-maven-plugin 4.7.0）は
+preflight では捕まりません。そこは `mule-init` 5b と `fix-plugin-version.sh` が初期化時に見ており、
+走行中に出るようなら雛形同梱のカナリア MUnit を足すのが次の一手です。
+
+preflight は波を `running` にする**前**に走らせます（順序が逆だと、止まったときに `running` のまま
+取り残されたゴールが、取り出し条件 `todo`/`failed` に当たらず二度と配られなくなるため）。
+
+</details>
 
 <details>
 <summary><b>v0.6.5</b> — v0.6.4 のバグを、学習ループがなぜ拾えなかったのか</summary>
