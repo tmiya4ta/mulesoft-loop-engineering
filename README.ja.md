@@ -11,7 +11,7 @@ API に何をさせたいかを伝えると、仕様 → 受け入れ条件 → 
 実装は一貫して TDD（Red → Green → Refactor）です。設計の考え方は
 [docs/methodology.md](docs/methodology.md) にあります。
 
-> **v0.6.3** — [リリースノート](#リリースノート)を参照。
+> **v0.6.4** — [リリースノート](#リリースノート)を参照。
 
 ---
 
@@ -176,6 +176,25 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.4</b> — 実行エージェントに、自分のゴールファイルが無い worktree を配っていた</summary>
+
+`mule-run` は PR を作る直前に**一度しかコミットしていませんでした**。`isolation: "worktree"` の
+worktree は HEAD から作られ、**未コミットの変更を引き継ぎません**。つまり実行エージェントは
+**(a) いま渡されたはずの `tasks/T-NNN.md` そのもの**も、**(b) 前の波で依存ゴールが作った成果**
+(`pom.xml`、`global.xml`、`knowledge/K-*.md`、config) も無い状態で起動し得ました。
+`blocked_by` の意味が反転し、**依存を宣言しているゴールほど壊れる**という状態です。
+finance-api では T-011 と T-012 の 2 回踏んでいて、どちらも `failures.jsonl` に uncategorized のまま
+昇格されずに残っていました。波の全ゴールを `running` にしてから**配る前にコミットする**ようにしました
+(`.gitignore` が `target/` と `.claude/worktrees/` を除外済みなので `git add -A` は安全)。
+
+併せて、利用者の `mulesoft-app-development` スキルのうち未取り込みだった配備まわりの 2 点を昇格:
+RTF のアプリに Flex Gateway から届かせるには `type: LoadBalancer` の Service が要り、その EXTERNAL-IP を
+API インスタンスの Implementation URI に書くこと。Flex Gateway に curl が通らないときは `localhost` が
+`::1` に解決されている場合があり、`curl -4` で通ること。
+
+</details>
 
 <details>
 <summary><b>v0.6.3</b> — JDBC ドライバは pom の 2 箇所に要る</summary>

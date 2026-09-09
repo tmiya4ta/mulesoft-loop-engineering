@@ -18,7 +18,7 @@ mule-http-connector 1.10.0 / mule-maven-plugin 4.10.1 / Java 17 / CE。
 - APIkit と HTTP (3)
 - DB コネクタ (6)
 - DataWeave (3)
-- 配備 (CloudHub 2.0 / Runtime Fabric) (4)
+- 配備 (CloudHub 2.0 / Runtime Fabric) (6)
 - API Manager とポリシー (4)
 
 ---
@@ -410,6 +410,21 @@ PATCH /amc/application-manager/api/v2/organizations/{org}/environments/{env}/dep
 ## RTF はコンソールログが既定で無効
 `kubectl logs` でアプリのログを見るには `KubernetesTemplate` (名前は `mule-application` 固定、namespace `rtf`) で `ENABLE_CONSOLE_LOG: "true"` を立て、再配備する。
 Anypoint Monitoring を使うと自動で無効化されることがある。
+根拠: mulesoft-app-development スキル (利用者の過去の実測)。
+
+## RTF のアプリに Flex Gateway から届かせるには LoadBalancer サービスが要る
+Flex Gateway が RTF 上の Mule アプリへルーティングする経路は、アプリを配備しただけでは通らない。
+`type: LoadBalancer` の Service を立て (`selector` は RTF アプリのラベル、`port`/`targetPort` は
+アプリの listener ポート)、`kubectl get svc` で EXTERNAL-IP を確認し、**API Manager の API インスタンスの
+Implementation URI にその IP を書く** (`http://<EXTERNAL-IP>:8081/`)。
+疎通しないときは配備ではなくここを疑う。
+根拠: mulesoft-app-development スキル (利用者の過去の実測)。
+
+## Flex Gateway に curl が届かないときは IPv6 を疑う (`curl -4`)
+環境によっては `localhost` が IPv6 (`::1`) に解決され、Flex Gateway への接続が失敗する。
+**`curl -4` で IPv4 を明示する**と通る。ゲートウェイの設定によっては `Host` ヘッダーも要る
+(`curl -4 -k -H "Host: mule-dev.com" https://localhost:1443/api/...`)。
+smoke-check が落ちたとき、アプリやポリシーを疑う前にここを 1 回試す。
 根拠: mulesoft-app-development スキル (利用者の過去の実測)。
 
 

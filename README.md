@@ -12,7 +12,7 @@ MuleSoft to start** — `/mule-start` asks what it needs to know.
 Implementation is TDD throughout (Red → Green → Refactor). The reasoning behind the design is
 in [docs/methodology.md](docs/methodology.md).
 
-> **v0.6.3** — see [Release notes](#release-notes).
+> **v0.6.4** — see [Release notes](#release-notes).
 
 ---
 
@@ -182,6 +182,26 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.4</b> — Executors were being dispatched into worktrees that lacked their own goal file</summary>
+
+`mule-run` committed exactly once, at the very end before opening the PR. Every `isolation: "worktree"`
+executor is therefore branched from a HEAD that predates the entire run — and a git worktree does not carry
+uncommitted changes. So an executor could start without **(a)** the `tasks/T-NNN.md` it was just handed, and
+without **(b)** anything a dependency goal produced in an earlier wave (`pom.xml`, `global.xml`,
+`knowledge/K-*.md`, config). That inverts the meaning of `blocked_by`: the goals most likely to break are
+exactly the ones declaring a dependency. finance-api hit this twice, at T-011 and T-012, and both entries
+sat in `failures.jsonl` uncategorised and unpromoted. `mule-run` now marks the whole wave `running` and
+commits before dispatching it; `.gitignore` already excludes `target/` and `.claude/worktrees/`, so
+`git add -A` stays safe.
+
+Also promotes the last two deploy facts from the user's `mulesoft-app-development` skill that hadn't been
+merged: reaching an RTF app from Flex Gateway needs a `type: LoadBalancer` Service whose EXTERNAL-IP goes
+into the API instance's Implementation URI, and a Flex Gateway that refuses `curl` is usually resolving
+`localhost` to `::1` — `curl -4` gets through.
+
+</details>
 
 <details>
 <summary><b>v0.6.3</b> — The JDBC driver needs two entries in the pom, not one</summary>

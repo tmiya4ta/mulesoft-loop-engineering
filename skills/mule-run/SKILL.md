@@ -17,8 +17,22 @@ argument-hint: "[T-NNN だけ実行] [--parallel N (既定は予算が許す最�
 2. **取り出せたゴールは 1 件ずつではなく `max_parallel` 件まで同時に配る。これが既定。**
    `blocked_by` が解けているゴールは互いに独立なので、戻りを待つ理由が無い。
    1 つの応答の中に Agent 呼び出しを並べれば同時に走る (`impl` 段のみ。`deploy` は進捗エージェント自身が順に行う)。
-   直列にしたいときだけ `--parallel 1` を渡す。ゴールごとにやることは:
-   - `status: running` に更新する。
+   直列にしたいときだけ `--parallel 1` を渡す。
+
+   **配る前に、この波の全ゴールを `running` に書き換えたうえで作業ツリーを 1 回コミットする。**
+   ```bash
+   git add -A && git commit -q -m "mule-loop: dispatch T-003 T-004"
+   ```
+   `isolation: "worktree"` の worktree は **HEAD から作られ、未コミットの変更は引き継がれない**。
+   コミットせずに配ると、実行エージェントの worktree に
+   **(a) いま配ろうとしているゴールファイル `tasks/T-NNN.md` そのもの**、
+   **(b) 前の波で取り込んだ依存ゴールの成果 (pom.xml、global.xml、`knowledge/K-*.md`、config)** が無い。
+   `blocked_by` で依存を表現している意味が消えるので、**依存があるゴールほど確実に踏む**。
+   `.gitignore` に `target/` と `.claude/worktrees/` があるので `git add -A` で巻き込まない。
+   (finance-api の T-011 と T-012 で 2 回発生し、どちらも「ゴールファイルが無い」「依存ゴールの成果が無い」で落ちた。)
+
+   ゴールごとにやることは:
+   - `status: running` に更新する (上のコミットに含める)。
    - **モデルを選ぶ。** attempts 0〜1 は `sonnet`、attempts 2 (= 3 回目の挑戦) は `opus` に上げる。Agent 呼び出し時の `model` で指定する (frontmatter より呼び出し側が優先)。
    - `bash scripts/run-log.sh dispatch <id> <model>` を実行する。
    - **段で配り先を変える。回し方は同じ (done_when が exit 0 になるまで)。**
