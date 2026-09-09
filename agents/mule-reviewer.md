@@ -14,7 +14,7 @@ model: inherit
 3. **エラーハンドリング**: `error-handler` の無いフロー、握りつぶし (`on-error-continue` で何も返さない)、上流のエラーをそのまま 500 で返している箇所。
 4. **DataWeave**: null 安全でないアクセス (`payload.a.b` に `default` も `?` も無い)、`output` 宣言漏れ、日付や数値の暗黙変換。
 5. **テスト**: 変更したフローに対応する MUnit が無い (`bash scripts/coverage-check.sh` を実行して確認)、または期待値が実装から逆算されたように見える。
-6. **共有ナレッジ**: プラグインの `knowledge/gotchas.md` とこのリポジトリの `knowledge/K-*.md` を読み、既知の落とし穴を踏んでいないか。
+6. **共有ナレッジ**: プラグインの `knowledge/mule-basics.md` (エラー処理 4 節、DB 6 節、MUnit 7 節) と `knowledge/gotchas.md`、このリポジトリの `knowledge/K-*.md` を読み、既知の落とし穴を踏んでいないか。とくに: `<try>` の後ろに成功時だけの処理、`ANY` と `DB:*` の同居、`affectedRows` での存在判定、`default` 付きの assert、`payload[0]` の無防備な参照。
 
 ## 出力
 指摘ごとに 1 行、**連番を振って** `1. file:line 観点 内容` の形 (「3 番だけ直して」と言えるように)。指摘が無ければ `LGTM` の 1 行だけ。

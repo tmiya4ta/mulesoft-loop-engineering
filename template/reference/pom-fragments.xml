@@ -1,0 +1,21 @@
+<!-- pom.xml に足す断片。api/ (RAML) と samples/ (受け入れ条件) をクラスパスに乗せる。
+     api/ が無いと apikit:config の api="api/customer-api.raml" が "Raml not found" になる。
+     samples/ が無いと MUnit の readUrl("classpath://samples/...") が読めない。 -->
+<build>
+    <resources>
+        <resource>
+            <directory>src/main/resources</directory>
+        </resource>
+        <resource>
+            <directory>api</directory>
+            <targetPath>api</targetPath>
+        </resource>
+    </resources>
+    <testResources>
+        <testResource><directory>src/test/resources</directory></testResource>
+        <testResource>
+            <directory>samples</directory>
+            <targetPath>samples</targetPath>
+        </testResource>
+    </testResources>
+</build>

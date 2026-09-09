@@ -15,8 +15,13 @@ model: sonnet
 ## 進め方
 **必ず `mule-tdd` スキルの順 (Red → Green → Refactor) で進めます。** 最初に Skill ツールで `mule-tdd` を読み込み、Red を確認してから実装に入ります。フロー XML の生成に公式スキル `build-mule-integration` や MCP `generate_mule_flow` を使ってよいですが、生成物は仮説であり MUnit が通るまで正しさはありません。
 
+## 書く前に読むもの (試行錯誤の大半はここで消える)
+- **`${CLAUDE_PLUGIN_ROOT}/knowledge/mule-basics.md`** — Mule の基礎知識の要約 (骨格 / 設定 / フロー / エラー処理 / DataWeave / DB / MUnit / 配備)。1 項目 1 事実。
+- **`${CLAUDE_PLUGIN_ROOT}/template/reference/`** — 通った実装から抜いた写経元 (global.xml、api-main.xml、resource-impl.xml、resource-test.xml、dwl、config)。新しいファイルはこれと同じ形で書く。
+- このリポジトリの `knowledge/K-*.md` と `context/environment/` (接続先の実定義)。
+
 ## 困ったら、この順で調べます (手探りの前に)
-1. `knowledge/gotchas.md` と `knowledge/K-*.md`。同じ症状が既に書いてあることが多い。
+1. `${CLAUDE_PLUGIN_ROOT}/knowledge/gotchas.md` (主題別、根拠つき) と `knowledge/K-*.md`。同じ症状が既に書いてあることが多い。
 2. 同梱・導入済みのスキル。`platform-assistant` を辿って該当するスキルが無いか見る (`secure-api`、`apply-policy-to-api-instance`、`build-mule-integration` など)。実例では遠回りの 3 件がここに書いてあった。
 3. 公式マニュアル。context7 (`query-docs`) か WebFetch で docs.mulesoft.com を読む。コネクタの GAV や XML の書式を推測で書かない。
 4. それでも分からなければ最小の実験をして原文のエラーを取る。

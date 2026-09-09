@@ -8,15 +8,16 @@ description: MuleSoft の実装を TDD (Red → Green → Refactor) で進める
 ゴール (tasks/T-NNN.md) を受け取ったら、次の順で **しか** 進めない。順を飛ばしたら最初からやり直す。
 
 ## 0. 受け入れ条件を確認する
+- `${CLAUDE_PLUGIN_ROOT}/knowledge/mule-basics.md` と `${CLAUDE_PLUGIN_ROOT}/template/reference/` を読む。MUnit は `reference/resource-test.xml`、flow は `resource-impl.xml`、エラーハンドラは `global.xml` と同じ形で書く。
 - `samples/<resource>/<case>.in.json` と `.out.json` を全部読む。これが期待値で、**変えない**。
 - `api/*.raml` の該当リソース、ステータスコード、スキーマを読む。
 - 既存の MUnit (`src/test/munit/`) の書き方に合わせる。
 
 ## 1. Red: 失敗するテストを先に書く
 - `src/test/munit/<resource>-test.xml` に、samples のケースごとに 1 つ `munit:test` を書く。
-  - `munit:behavior` で外部呼び出し (`http:request`, `db:select`, `sap:*` など) を `mock-when` で固定する。返す値は samples の in から導く。
+  - `munit:behavior` で外部呼び出し (`http:request`, `db:select`, `sap:*` など) を `mock-when` で固定する。`processor` + `doc:name` で操作を特定する。返す値は samples の in から導き、**戻り値の形はコネクタごとに違う** (`db:select` は配列、`db:update` は `{affectedRows}`。mule-basics 6 節)。コネクタのエラー型は `then-return` の `<munit-tools:error typeId="DB:CONNECTIVITY"/>` で起こす。
   - `munit:execution` で対象フローを `flow-ref` する。
-  - `munit:validation` で `.out.json` と `payload` を `MunitTools::equalTo` か `MunitTools::withMediaType` で比較する。HTTP ステータスも `attributes.statusCode` で確認する。
+  - `munit:validation` で `.out.json` と `payload` を `MunitTools::equalTo` で比較する (`readUrl("classpath://samples/...")` で読み、書き写さない)。ステータスは `vars.httpStatus`。**assert の式に `default` を付けない** (未設定でも通る牙の無い検証になる)。呼び出しの事実は `verify-call`。
 - **カバレッジは 100% を目標にする。** 具体的には、追加した `flow` / `sub-flow` が 1 つ残らずどれかの `munit:test` から `flow-ref` されること。
   **`coverage-check.sh` が見るのは flow に到達したかだけで、flow の中の分岐は見ない。** `choice` の各分岐、`try` の成功と失敗、`error-handler` の各 error-type は、samples のケースを増やして 1 つずつ通す。ここは機械が保証しないので、テストを書く側が数える。エラーハンドラの分岐も `mock-when` で例外を投げさせて通す。判定は `bash scripts/coverage-check.sh` (exit 0 が条件)。
   MUnit 本来のカバレッジ率計測は Enterprise ランタイム限定で、CE では設定しても警告が出るだけで素通りする。`scripts/munit-coverage-mode.sh` が EE を取得できるときだけ 100% ゲートを pom に入れる。EE が無い環境ではこの構造チェックが唯一の保証になる。

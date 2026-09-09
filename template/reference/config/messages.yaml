@@ -1,0 +1,5 @@
+# 400 (APIkit の入力検証エラー) の detail 文言。キーは RAML の型のプロパティ名 (error.description の先頭 "/<項目名>")。
+# 値は samples/profile/invalid.out.json の detail をそのまま転記する (言い換えない)。
+messages:
+  field1: "field1 の形式が正しくありません"
+  field2: "field2 の形式が正しくありません"

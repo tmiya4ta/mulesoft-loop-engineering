@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 写経元: global.xml。設定の読み込み、listener、APIkit、DB、既定エラーハンドラ。
+     profile / customer / APP:CUSTOMER_NOT_FOUND を実際の名前に置き換える。 -->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit"
+      xmlns:db="http://www.mulesoft.org/schema/mule/db"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd
+        http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <!-- 設定。global-property は configuration-properties より前。YAML の値は全部文字列。
+         複数の configuration-properties を併用できる。秘密は書かない (配備時の secureProperty か -D)。 -->
+    <global-property name="mule.env" value="local"/>
+    <configuration-properties doc:name="接続設定" file="config/app.yaml"/>
+    <configuration-properties doc:name="SQL 定義" file="config/sql.yaml"/>
+    <!-- 400 の文言表。エラーハンドラの中で readUrl すると「ハンドラの中の 2 つ目のエラー」になるので、起動時に読む。 -->
+    <configuration-properties doc:name="400 の detail 文言対応表" file="config/messages.yaml"/>
+
+    <!-- 全 flow と、error-handler を持たない全 <try> の既定になる。 -->
+    <configuration defaultErrorHandler-ref="global-error-handler"/>
+
+    <http:listener-config name="profile-api-httpListenerConfig">
+        <http:listener-connection host="0.0.0.0" port="${http.port}"/>
+    </http:listener-config>
+
+    <!-- api/customer-api.raml はリポジトリ直下。pom の <resources> に api/ を足してクラスパスに乗せる (pom-fragments.xml)。
+         httpStatusVarName / outboundHeadersMapName は api-main.xml の listener の応答と揃える。 -->
+    <apikit:config name="profile-api-config"
+                   api="api/customer-api.raml"
+                   outboundHeadersMapName="outboundHeaders"
+                   httpStatusVarName="httpStatus"/>
+
+    <!-- 接続値はプロパティ参照だけ。MUnit は db:* を mock するので、実在しなくてもテストは通る。 -->
+    <db:config name="crm-db-config" doc:name="crm DB 設定">
+        <db:generic-connection url="${crm.db.url}"
+                                driverClassName="${crm.db.driverClassName}"
+                                user="${crm.db.user}"
+                                password="${crm.db.password}"/>
+    </db:config>
+
+    <!-- ================================================================
+         既定エラーハンドラ。全て on-error-continue: エラーを正常応答扱いにし、
+         vars.httpStatus と payload (problem+json) をここで確定させる。
+         各枝は vars.problemType / problemTitle / problemDetail を立てるだけで、本文は dwl/problem.dwl 1 つに寄せる。
+         title / detail の文言は samples/*/[case].out.json と一致させる。
+         注意: on-error-continue は <try> の直後から実行を続ける。成功時だけの処理は <try> の中に閉じ込める (resource-impl.xml)。
+         ================================================================ -->
+    <error-handler name="global-error-handler">
+
+        <on-error-continue doc:name="入力が RAML の型に合わない (400)"
+                            type="APIKIT:BAD_REQUEST, APIKIT:NOT_ACCEPTABLE, APIKIT:UNSUPPORTED_MEDIA_TYPE">
+            <set-variable variableName="httpStatus" value="#[400]"/>
+            <set-variable variableName="outboundHeaders" value="#[{'content-type': 'application/problem+json'}]"/>
+            <set-variable variableName="problemType" value="#['invalid-request']"/>
+            <set-variable variableName="problemTitle" value="#['入力が正しくありません']"/>
+            <ee:transform doc:name="項目名から文言へ (messages.yaml)">
+                <ee:variables>
+                    <ee:set-variable variableName="problemDetail" resource="dwl/problem-detail.dwl"/>
+                </ee:variables>
+            </ee:transform>
+            <ee:transform doc:name="problem+json に変換 (400)">
+                <ee:message><ee:set-payload resource="dwl/problem.dwl"/></ee:message>
+            </ee:transform>
+        </on-error-continue>
+
+        <on-error-continue doc:name="RAML に無いリソース (404)" type="APIKIT:NOT_FOUND">
+            <set-variable variableName="httpStatus" value="#[404]"/>
+            <set-variable variableName="outboundHeaders" value="#[{'content-type': 'application/problem+json'}]"/>
+            <set-variable variableName="problemType" value="#['resource-not-found']"/>
+            <set-variable variableName="problemTitle" value="#['リソースが見つかりません']"/>
+            <set-variable variableName="problemDetail" value="#['要求されたパスに対応するリソースがありません']"/>
+            <ee:transform doc:name="problem+json に変換 (404 resource)">
+                <ee:message><ee:set-payload resource="dwl/problem.dwl"/></ee:message>
+            </ee:transform>
+        </on-error-continue>
+
+        <on-error-continue doc:name="定義済みリソースに許可されないメソッド (405)" type="APIKIT:METHOD_NOT_ALLOWED">
+            <set-variable variableName="httpStatus" value="#[405]"/>
+            <set-variable variableName="outboundHeaders" value="#[{'content-type': 'application/problem+json'}]"/>
+            <set-variable variableName="problemType" value="#['method-not-allowed']"/>
+            <set-variable variableName="problemTitle" value="#['許可されていないメソッドです']"/>
+            <set-variable variableName="problemDetail" value="#['このリソースは要求されたメソッドを許可していません']"/>
+            <ee:transform doc:name="problem+json に変換 (405)">
+                <ee:message><ee:set-payload resource="dwl/problem.dwl"/></ee:message>
+            </ee:transform>
+        </on-error-continue>
+
+        <!-- 独自エラー型。raise-error が最低 1 箇所 (resource-impl.xml) 無いとビルドが通らない。 -->
+        <on-error-continue doc:name="対象が無い (404)" type="APP:CUSTOMER_NOT_FOUND">
+            <set-variable variableName="httpStatus" value="#[404]"/>
+            <set-variable variableName="outboundHeaders" value="#[{'content-type': 'application/problem+json'}]"/>
+            <set-variable variableName="problemType" value="#['customer-not-found']"/>
+            <set-variable variableName="problemTitle" value="#['顧客が見つかりません']"/>
+            <set-variable variableName="problemDetail" value="#[error.description default '顧客が見つかりません']"/>
+            <ee:transform doc:name="problem+json に変換 (404 entity)">
+                <ee:message><ee:set-payload resource="dwl/problem.dwl"/></ee:message>
+            </ee:transform>
+        </on-error-continue>
+
+        <!-- 接続先の障害だけ。ANY を混ぜない。 -->
+        <on-error-continue doc:name="接続先に届かない、または失敗する (502)"
+                            type="DB:CONNECTIVITY, DB:QUERY_EXECUTION, DB:*">
+            <set-variable variableName="httpStatus" value="#[502]"/>
+            <set-variable variableName="outboundHeaders" value="#[{'content-type': 'application/problem+json'}]"/>
+            <set-variable variableName="problemType" value="#['upstream-unavailable']"/>
+            <set-variable variableName="problemTitle" value="#['crm に接続できません']"/>
+            <set-variable variableName="problemDetail" value="#['crm の応答がありません。時間をおいて再実行してください']"/>
+            <ee:transform doc:name="problem+json に変換 (502)">
+                <ee:message><ee:set-payload resource="dwl/problem.dwl"/></ee:message>
+            </ee:transform>
+        </on-error-continue>
+
+        <!-- ANY は最後の枝で独立させる。DB:* と同じ枝に入れると内部の欠陥が接続先のせいになる。 -->
+        <on-error-continue doc:name="アプリ内部の欠陥 (500)" type="ANY">
+            <set-variable variableName="httpStatus" value="#[500]"/>
+            <set-variable variableName="outboundHeaders" value="#[{'content-type': 'application/problem+json'}]"/>
+            <set-variable variableName="problemType" value="#['internal-error']"/>
+            <set-variable variableName="problemTitle" value="#['内部エラーが発生しました']"/>
+            <set-variable variableName="problemDetail" value="#['リクエストの処理中に予期しないエラーが発生しました。時間をおいて再実行してください']"/>
+            <ee:transform doc:name="problem+json に変換 (500)">
+                <ee:message><ee:set-payload resource="dwl/problem.dwl"/></ee:message>
+            </ee:transform>
+        </on-error-continue>
+
+    </error-handler>
+</mule>

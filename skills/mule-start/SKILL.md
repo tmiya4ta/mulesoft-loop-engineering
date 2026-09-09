@@ -84,7 +84,7 @@ Skill ツールで `mattpocock-skills:grilling` と `mattpocock-skills:domain-mo
 
 - `api/<name>.raml` の差分 (新規なら全文)。
 - `samples/<resource>/<case>.in.json` と `.out.json` のペア。正常 1 件、失敗 1 件以上。
-- `src/test/munit/<resource>-test.xml`。samples を流して out と比較する **本物のテスト**。正常系・失敗系・境界の全ケースを書き、**そのゴールで作る flow が 1 つ残らず MUnit から flow-ref される** ようにする (`scripts/coverage-check.sh` が判定)。この時点で `mvn -q test -Dmunit.test=<resource>-test.xml` が **失敗する** ことを確認する (TDD の Red)。実装は実行ループが Green にする。
+- `src/test/munit/<resource>-test.xml`。`${CLAUDE_PLUGIN_ROOT}/template/reference/resource-test.xml` と同じ形で、samples を流して out と比較する **本物のテスト**。正常系・失敗系・境界の全ケースを書き、**そのゴールで作る flow が 1 つ残らず MUnit から flow-ref される** ようにする (`scripts/coverage-check.sh` が判定)。この時点で `mvn -q test -Dmunit.test=<resource>-test.xml` が **失敗する** ことを確認する (TDD の Red)。実装は実行ループが Green にする。
 - RAML の草稿には MCP `generate_api_spec` を使ってよい。`api-spec-validator` があれば通す。既存 API との重複は MCP `search_asset` か `platform-assistant` で自分で調べる。
 
 そのうえで利用者に **平文で動作を読み上げ、続けて仮定を連番で並べる**。例:

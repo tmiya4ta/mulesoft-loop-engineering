@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 写経元: 受け口。listener + apikit:router と、APIkit が振り分ける flow。
+     エラーハンドラは書かない (global.xml の defaultErrorHandler-ref が効く)。 -->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd">
+
+    <!-- RAML の baseUri (http://localhost:8081/api) に合わせて /api/* で受ける。
+         応答のステータスとヘッダは vars から取る (apikit:config の httpStatusVarName / outboundHeadersMapName と同じ名前)。
+         attributes.requestPath は "/api/..." のようにベースパス込みで返る。 -->
+    <flow name="profile-api-main" doc:name="受け口 (HTTP リスナー + APIkit ルーター)">
+        <http:listener config-ref="profile-api-httpListenerConfig" path="/api/*" doc:name="HTTP リクエスト受信">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="profile-api-config" doc:name="APIkit ルーター"/>
+    </flow>
+
+    <!-- APIkit の flow 名は <method>:\<path>:<mediaType>:<config> の生成名のまま。
+         uriParams を vars に立てて実処理へ flow-ref するだけにする。実処理は HTTP を知らない。 -->
+    <flow name="put:\customers\(customerId)\profile:application\json:profile-api-config"
+          doc:name="profile 更新 (受け口)">
+        <set-variable variableName="customerId" value="#[attributes.uriParams.customerId]" doc:name="customerId を立てる"/>
+        <flow-ref name="change-profile" doc:name="change-profile を呼ぶ"/>
+    </flow>
+
+</mule>

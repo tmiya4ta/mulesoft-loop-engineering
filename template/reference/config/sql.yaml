@@ -1,0 +1,13 @@
+# SQL は 1 プロパティ 1 文。flow からは ${sql.xxx} で参照し、flow の中で SQL を組み立てない。
+# 表名・列名は context/environment/ の実定義通り (推測しない)。MUnit は SQL を一度も実行しないので、
+# ここの誤りは配備後の smoke-check でしか見つからない。
+sql:
+  updateProfile: >-
+    UPDATE CUSTOMERS
+    SET FIELD1 = :field1, FIELD2 = :field2, UPDATED_AT = CURRENT_TIMESTAMP
+    WHERE CUSTOMER_ID = :customerId
+
+  selectProfile: >-
+    SELECT CUSTOMER_ID, FIELD1, FIELD2, UPDATED_AT
+    FROM CUSTOMERS
+    WHERE CUSTOMER_ID = :customerId

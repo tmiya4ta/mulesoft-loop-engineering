@@ -12,7 +12,7 @@ MuleSoft to start** — `/mule-start` asks what it needs to know.
 Implementation is TDD throughout (Red → Green → Refactor). The reasoning behind the design is
 in [docs/methodology.md](docs/methodology.md).
 
-> **v0.5.5** — see [Release notes](#release-notes).
+> **v0.6.0** — see [Release notes](#release-notes).
 
 ---
 
@@ -133,7 +133,9 @@ agents/
 hooks/hooks.json  On every edit: scripts/quick-check.sh (seconds-long validation)
                   Every turn:    scripts/loop-reminder.sh (re-inject the discipline)
                   End of reply:  scripts/stop-guard.sh (bounce once if not closed in 3 blocks)
-knowledge/gotchas.md  Shared knowledge, read by every executor
+knowledge/mule-basics.md  Mule basics distilled from two loops and the user's skill; executors read it before writing
+knowledge/gotchas.md  Shared knowledge by topic, with evidence, read by every executor
+template/reference/   Reference skeleton (global.xml / impl / MUnit / dwl / config) taken from an API that passed
 template/         What /mule-init distributes:
   context/        Where premises live (requirements / environment / deployment) + sources.yaml
   budget.yaml     Cost ceilings, checked before /mule-run dispatches
@@ -180,6 +182,19 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.0</b> — Mule basics, a reference skeleton, and gotchas by topic</summary>
+
+Two APIs took far too long because executors kept rediscovering Mule fundamentals. `knowledge/mule-basics.md`
+distils them (project skeleton, properties, flow structure, error handling, DataWeave, DB connector, MUnit,
+deployment; one fact per line, each with its source). `template/reference/` is a skeleton lifted from an API
+that passed (global.xml with a problem+json error handler, APIkit main, a transactional impl flow, MUnit with
+samples read via `readUrl`, dwl, config, pom fragments). `gotchas.md` is reorganised by topic, three duplicates
+merged, ten entries added from the K files and the user's `mulesoft-app-development` skill. Executors, `mule-tdd`,
+`mule-start` and the reviewer now read basics and reference before writing. Vocabulary: `test-toothless`, `secret-leak`.
+
+</details>
 
 <details>
 <summary><b>v0.5.5</b> — PR #4 follow-ups, and how to look things up when stuck</summary>

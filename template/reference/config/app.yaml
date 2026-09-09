@@ -1,0 +1,10 @@
+# 接続設定。秘密は書かない。既定値は「必ず認証に失敗する値」にして、実値は配備時の secureProperty か
+# ローカルなら -D<key>=<value> (環境変数は読まれない) で上書きする。
+http:
+  port: "8081"
+crm:
+  db:
+    url: "jdbc:derby://localhost:1527/crmdb"
+    driverClassName: "org.apache.derby.jdbc.ClientDriver"
+    user: "SET_CRM_USER"
+    password: "SET_CRM_PASSWORD"

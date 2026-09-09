@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 写経元: MUnit。samples の 1 ケース = 1 munit:test。behavior (mock) → execution (flow-ref) → validation (assert)。
+     入力と期待値は samples から readUrl で読む (書き写さない)。pom の testResources に samples/ を足す (pom-fragments.xml)。 -->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:munit="http://www.mulesoft.org/schema/mule/munit"
+      xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools"
+      xmlns:db="http://www.mulesoft.org/schema/mule/db"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+        http://www.mulesoft.org/schema/mule/munit-tools http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd
+        http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
+
+    <munit:config name="profile-test.xml"/>
+
+    <!-- 正常系。samples/profile/ok.in.json → ok.out.json。
+         mock は processor + doc:name で操作を特定する (同じ processor が複数あるため)。 -->
+    <munit:test name="profile-ok" description="profile を更新し、反映後の値を 200 で返す">
+        <munit:behavior>
+            <munit-tools:mock-when doc:name="profile を更新をモック" processor="db:update">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="profile を更新"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[{affectedRows: 1}]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when doc:name="profile を読み戻すをモック" processor="db:select">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="profile を読み戻す"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <!-- 列名と値の形は context/environment/ の実定義から写す。TIMESTAMP は String。 -->
+                    <munit-tools:payload value="#[[{
+                        CUSTOMER_ID: 'CUST00001',
+                        FIELD1: 'value',
+                        UPDATED_AT: '2026-09-06T12:00:00.000'
+                    }]]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+        </munit:behavior>
+
+        <munit:execution>
+            <set-variable variableName="sample"
+                          value='#[readUrl("classpath://samples/profile/ok.in.json", "application/json")]'/>
+            <set-variable variableName="customerId" value="#[vars.sample.customerId]"/>
+            <set-payload value="#[vars.sample.body]"/>
+            <flow-ref name="change-profile"/>
+        </munit:execution>
+
+        <munit:validation>
+            <set-variable variableName="expected"
+                          value='#[readUrl("classpath://samples/profile/ok.out.json", "application/json")]'/>
+            <munit-tools:assert-that doc:name="本文が ok.out.json と一致する"
+                                     expression="#[payload]" is="#[MunitTools::equalTo(vars.expected.body)]"/>
+            <munit-tools:assert-that doc:name="ステータスが 200"
+                                     expression="#[vars.httpStatus default 200]" is="#[MunitTools::equalTo(vars.expected.status)]"/>
+            <!-- 呼び出しの事実は verify-call で見る。assert の式に default を付けると何も検証しない。 -->
+            <munit-tools:verify-call doc:name="UPDATE はちょうど 1 回、かつ sql.yaml の文そのもの" processor="db:update" times="1">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="profile を更新"/>
+                    <munit-tools:with-attribute attributeName="sql" whereValue="#[p('sql.updateProfile')]"/>
+                </munit-tools:with-attributes>
+            </munit-tools:verify-call>
+        </munit:validation>
+    </munit:test>
+
+    <!-- 対象が無い (404)。読み戻しが [] を返す。分岐を変えたら behavior にモックを足す (assert は変えない)。 -->
+    <munit:test name="profile-not-found" description="顧客が無いとき 404 と problem+json を返す">
+        <munit:behavior>
+            <munit-tools:mock-when doc:name="profile を更新をモック (0 件)" processor="db:update">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="profile を更新"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return><munit-tools:payload value="#[{affectedRows: 0}]"/></munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when doc:name="profile を読み戻すをモック (0 件)" processor="db:select">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="profile を読み戻す"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return><munit-tools:payload value="#[[]]"/></munit-tools:then-return>
+            </munit-tools:mock-when>
+        </munit:behavior>
+        <munit:execution>
+            <set-variable variableName="sample"
+                          value='#[readUrl("classpath://samples/profile/not-found.in.json", "application/json")]'/>
+            <set-variable variableName="customerId" value="#[vars.sample.customerId]"/>
+            <set-payload value="#[vars.sample.body]"/>
+            <flow-ref name="change-profile"/>
+        </munit:execution>
+        <munit:validation>
+            <set-variable variableName="expected"
+                          value='#[readUrl("classpath://samples/profile/not-found.out.json", "application/json")]'/>
+            <munit-tools:assert-that doc:name="本文が not-found.out.json と一致する"
+                                     expression="#[payload]" is="#[MunitTools::equalTo(vars.expected.body)]"/>
+            <munit-tools:assert-that doc:name="ステータスが 404"
+                                     expression="#[vars.httpStatus]" is="#[MunitTools::equalTo(404)]"/>
+        </munit:validation>
+    </munit:test>
+
+    <!-- 接続先の障害 (502)。コネクタのエラー型は raise-error できないので、mock の then-return で起こす。 -->
+    <munit:test name="profile-upstream-error" description="DB に届かないとき 502 と problem+json を返し、ロールバック経路を通る">
+        <munit:behavior>
+            <munit-tools:mock-when doc:name="profile を更新をモック (接続失敗)" processor="db:update">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="profile を更新"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:error typeId="DB:CONNECTIVITY"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+        </munit:behavior>
+        <munit:execution>
+            <set-variable variableName="sample"
+                          value='#[readUrl("classpath://samples/profile/upstream-error.in.json", "application/json")]'/>
+            <set-variable variableName="customerId" value="#[vars.sample.customerId]"/>
+            <set-payload value="#[vars.sample.body]"/>
+            <flow-ref name="change-profile"/>
+        </munit:execution>
+        <munit:validation>
+            <set-variable variableName="expected"
+                          value='#[readUrl("classpath://samples/profile/upstream-error.out.json", "application/json")]'/>
+            <munit-tools:assert-that doc:name="本文が upstream-error.out.json と一致する"
+                                     expression="#[payload]" is="#[MunitTools::equalTo(vars.expected.body)]"/>
+            <munit-tools:assert-that doc:name="ステータスが 502"
+                                     expression="#[vars.httpStatus]" is="#[MunitTools::equalTo(502)]"/>
+            <munit-tools:assert-that doc:name="ロールバック経路を通った"
+                                     expression="#[vars.rollbackTriggered]" is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:verify-call doc:name="読み戻しは呼ばれない" processor="db:select" times="0"/>
+        </munit:validation>
+    </munit:test>
+
+</mule>

@@ -30,6 +30,8 @@ argument-hint: "[--share 汎用ナレッジをプラグインに PR する]"
 | `deploy-connectivity` | MUnit では mock で隠れていた接続先の不一致 (smoke-check の mismatch) |
 | `connector-behavior` | コネクタや DB の戻り値の意味を誤解した (affectedRows、target= と mock、MIME の自動解釈) |
 | `loop-ops` | ループ自体の運用 (worktree、K ファイルの衝突、hook の誤検知)。昇格先はプラグインへの PR |
+| `test-toothless` | 検証しているつもりで何も検証していないテストや検査 (default 付き assert、走っていない検査、手書きの期待値) |
+| `secret-leak` | 資格情報を追跡ファイルやログに書きかけた |
 
 `scope` は `repo` (このリポジトリ固有) か `generic` (どの Mule プロジェクトでも起きる)。
 

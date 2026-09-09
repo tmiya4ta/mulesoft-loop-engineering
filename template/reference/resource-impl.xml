@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 写経元: 実処理の flow (更新系)。入力は vars.customerId と payload、出力は payload と vars.httpStatus。
+     HTTP を知らないので MUnit から flow-ref 直叩きできる。 -->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:db="http://www.mulesoft.org/schema/mule/db"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <flow name="change-profile" doc:name="profile 更新">
+        <!-- problem+json の instance に使う。エラーハンドラが読む。 -->
+        <set-variable variableName="instance" value="#['/customers/' ++ vars.customerId ++ '/profile']"
+                      doc:name="instance を立てる"/>
+
+        <try transactionalAction="ALWAYS_BEGIN" doc:name="トランザクション">
+            <!-- SQL は子要素 <db:sql>、文字列は config/sql.yaml。db:update は UPDATE 専用 (INSERT は db:insert)。
+                 target= を付けると mock-when の値が入らないので payload で受ける。 -->
+            <db:update config-ref="crm-db-config" doc:name="profile を更新">
+                <db:sql>${sql.updateProfile}</db:sql>
+                <db:input-parameters><![CDATA[#[{
+                    customerId: vars.customerId,
+                    field1: payload.field1,
+                    field2: payload.field2
+                }]]]></db:input-parameters>
+            </db:update>
+
+            <!-- 存在判定は affectedRows ではなく読み戻しで行う (DB 製品で affectedRows の意味が違う)。 -->
+            <db:select config-ref="crm-db-config" doc:name="profile を読み戻す">
+                <db:sql>${sql.selectProfile}</db:sql>
+                <db:input-parameters><![CDATA[#[{customerId: vars.customerId}]]]></db:input-parameters>
+            </db:select>
+
+            <!-- 0 件は [] (null ではない)。payload[0] を無防備に取る前に raise-error する。
+                 成功時だけの変換は <try> の中 (otherwise) に閉じ込める。<try> の後ろに置くと、
+                 既定エラーハンドラの on-error-continue が処理したあとも実行が続き、404 が 502 に化ける。 -->
+            <choice doc:name="読み戻せたか">
+                <when expression="#[isEmpty(payload)]">
+                    <raise-error type="APP:CUSTOMER_NOT_FOUND"
+                                 description="#['顧客 ' ++ vars.customerId ++ ' が存在しません']"
+                                 doc:name="顧客が無い (読み戻し 0 件)"/>
+                </when>
+                <otherwise>
+                    <ee:transform doc:name="ProfileResult に変換">
+                        <ee:message><ee:set-payload resource="dwl/profile-result.dwl"/></ee:message>
+                    </ee:transform>
+                </otherwise>
+            </choice>
+
+            <!-- ローカルの error-handler は <try> の最後の子要素。
+                 共有の global-error-handler に on-error-propagate を足すと <try> を持たない flow が壊れるので、ここに閉じ込める。
+                 on-error-propagate は「処理してから再送出」なので、応答は global-error-handler の該当枝が組み立てる。
+                 rollbackTriggered は「巻き戻しの経路を通った」ことを MUnit から見るための印 (commit/rollback 自体は MUnit で観測できない)。 -->
+            <error-handler>
+                <on-error-propagate type="DB:CONNECTIVITY, DB:QUERY_EXECUTION, DB:*, APP:CUSTOMER_NOT_FOUND"
+                                     doc:name="DB 障害と対象不在はロールバックしてから外側へ">
+                    <set-variable variableName="rollbackTriggered" value="#[true]" doc:name="ロールバック経路の印"/>
+                </on-error-propagate>
+            </error-handler>
+        </try>
+    </flow>
+
+</mule>
