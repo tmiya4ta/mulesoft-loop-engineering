@@ -187,13 +187,29 @@ listener も同じで、MUnit の器と配備先で Mule の版が違うと応�
 `<munit:enable-flow-sources>` で対象の flow を明示的に有効化する。
 根拠: finance-api の T-001 で実測 (2026-09-06)。
 
-## APIkit の main flow を `flow-ref` で直叩きするには attributes を型付けする
-`apikit:router` は attributes を `org.mule.extension.http.api.HttpRequestAttributes` として扱う。
-ただの Map を渡すと動かない。DataWeave で
-`... as Object {class: "org.mule.extension.http.api.HttpRequestAttributes"}` と型付けする。
+## APIkit が生成する flow を `flow-ref` で直叩きするには attributes を型付けする
+**main flow だけでなく、APIkit の振り分け flow (`<method>:\<path>[:<mediaType>]:<config name>` という
+名前の、リソースごとの受け口 flow) にも同じ問題が起きる。** `apikit:router` は attributes を
+`org.mule.extension.http.api.HttpRequestAttributes` として扱う。ただの Map を渡すと動かない。
+DataWeave で `... as Object {class: "org.mule.extension.http.api.HttpRequestAttributes"}` と型付けする。
 `headers` と `queryParams` は `org.mule.runtime.api.util.MultiMap` にする。
-カバレッジ検査が main flow の `flow-ref` を要求するときに必要になる。
-根拠: finance-api の T-001 で組み立てて成功 (2026-09-06)。
+カバレッジ検査がこれらの flow の `flow-ref` を要求するときに必要になる。型付けせずに `flow-ref` すると
+`attributes` が無いために `vars` の算出で NPE / 型エラーになり、`global-error-handler` の `ANY` 枝 (500)
+に落ちる — それを「利用」して `httpStatus` が non-null であることだけを assert する手もあるが、
+実際のリクエスト内容による分岐を何も検証しない牙の弱いテストになる (`test-toothless` と同じ構造)。
+型付けして正常応答の中身まで assert する方が同じ手間で堅い。
+根拠: finance-api の T-001 (main flow) で組み立てて成功 (2026-09-06)。inventory2-api で振り分け flow
+側の同じ問題を 6 回再発 (T-002〜T-006、見出しが `main flow` に限定されていたため「別問題」と
+判断されて型付けせず、上記の弱いテストで代替していた。2026-09-09)。
+
+## queryParams が全て任意項目だと、attributes 無しの `flow-ref` が正常完走してしまう
+上の項目の「attributes 無しで NPE / 型エラーになり ANY(500) に落ちる」ことを前提にした確認は、
+振り分け flow のパラメータが**全て任意項目** (RAML の queryParams が `?` 付きのみ) のときは成り立たない。
+`attributes` が無くても DataWeave の null 伝播でエラーにならず、flow がそのまま正常完走する。
+検索系 (一覧・検索 API) の振り分け flow で起きやすい。attributes を型付けするのが本筋の対処だが、
+それをしない場合は「500 に落ちることを前提にした assert」ではなく「既定値 (limit/offset の default 等)
+で正常応答が返ることを assert する」形にする必要がある。
+根拠: inventory2-api の T-003 で実測 (2026-09-09)。
 
 ## db 操作に `target=` を付けると `mock-when` の値が反映されない
 `target="result"` のように結果を変数へ入れる書き方をすると、モックした値がその変数に入らず、
