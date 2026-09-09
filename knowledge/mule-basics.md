@@ -69,6 +69,7 @@ Mule を知らないまま試行錯誤すると、1 本の API に半日かか�
 - TIMESTAMP 列は Mule に入った時点で **DataWeave の String** (`2026-09-05T16:47:13.033`、TZ 無し)。`as String` は恒等変換。[K]
 - `db:*` に `target="x"` を付けると `mock-when` の値が変数に入らず実 DB へ行く。`target` を外して `payload` を直接使う。[G]
 - 列名・表名・スキーマ修飾は **推測しない**。`context/environment/` の定義から写す。MUnit は SQL を一度も実行しないので、間違えても全部緑のまま配備先で 500 になる。[G]
+- JDBC ドライバは pom の **2 箇所**に要る。`<dependency>` (version あり) と、mule-maven-plugin の `<sharedLibraries><sharedLibrary>` (**version なし**)。ドライバは mule-plugin ではない素の jar なので、共有ライブラリに宣言しないとコネクタから見えない。**MUnit は db:* を mock するので片方だけでも緑のまま通り、配備して初めて落ちる。**書き方は `template/reference/pom-fragments.xml`。[G]
 
 ## 7. MUnit
 

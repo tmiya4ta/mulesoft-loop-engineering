@@ -19,9 +19,10 @@
 
     <!-- ================================================================
          1. 接続。ベンダ専用の要素を使うと host / port / database を分けて書けるが、
-         **どの要素を使っても JDBC ドライバの jar が pom.xml に要る** (pom-fragments.xml 参照)。
-         ドライバが無いと起動時に "Cannot load driver class" で落ちる。
-         ../global.xml は generic-connection (URL 直書き) を使っている。 [D]
+         **どの要素を使っても JDBC ドライバを pom.xml の 2 箇所に書く必要がある**
+         (`<dependency>` と mule-maven-plugin の `<sharedLibraries>`。../pom-fragments.xml 参照)。
+         片方だけだと MUnit は緑のまま通り、配備先で初めて落ちる。
+         ../global.xml は generic-connection (URL 直書き) を使っている。 [G][D]
          ================================================================ -->
 
     <!-- 汎用: URL と driverClassName を自分で書く。どの DB でも使える。 [G] -->

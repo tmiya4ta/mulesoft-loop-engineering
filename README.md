@@ -12,7 +12,7 @@ MuleSoft to start** — `/mule-start` asks what it needs to know.
 Implementation is TDD throughout (Red → Green → Refactor). The reasoning behind the design is
 in [docs/methodology.md](docs/methodology.md).
 
-> **v0.6.2** — see [Release notes](#release-notes).
+> **v0.6.3** — see [Release notes](#release-notes).
 
 ---
 
@@ -182,6 +182,20 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.3</b> — The JDBC driver needs two entries in the pom, not one</summary>
+
+v0.6.2 added a driver `<dependency>` fragment and claimed that was what stops `Cannot load driver class`.
+It isn't. A JDBC driver is a plain jar rather than a `mule-plugin`, so the DB connector can't see it unless
+it is *also* declared as a `<sharedLibrary>` under `mule-maven-plugin` — with the version omitted there,
+present in the `<dependency>`. Miss the second entry and MUnit still passes, because `db:*` is mocked and
+the driver is never loaded; it fails on the deployed runtime instead. finance-api's own pom has had this
+since T-009, complete with a comment explaining it, but the finding never reached `knowledge/` or the
+plugin — so every later project would have rediscovered it. `pom-fragments.xml` now carries both entries
+and `mule-basics.md` §6 states the rule, tagged `[G]`.
+
+</details>
 
 <details>
 <summary><b>v0.6.2</b> — Copyable patterns for HTTP request, DB operations, APIkit routing</summary>

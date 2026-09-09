@@ -11,7 +11,7 @@ API に何をさせたいかを伝えると、仕様 → 受け入れ条件 → 
 実装は一貫して TDD（Red → Green → Refactor）です。設計の考え方は
 [docs/methodology.md](docs/methodology.md) にあります。
 
-> **v0.6.2** — [リリースノート](#リリースノート)を参照。
+> **v0.6.3** — [リリースノート](#リリースノート)を参照。
 
 ---
 
@@ -176,6 +176,20 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.3</b> — JDBC ドライバは pom の 2 箇所に要る</summary>
+
+v0.6.2 でドライバの `<dependency>` を足し、これで `Cannot load driver class` が防げると書きましたが、
+**足りませんでした**。JDBC ドライバは `mule-plugin` ではない素の jar なので、`mule-maven-plugin` の
+`<sharedLibraries>` にも宣言しないと DB コネクタから見えません（`sharedLibrary` 側は version を書かず、
+`dependency` 側に書く）。2 つ目を忘れても **MUnit は緑のまま通ります**。`db:*` は mock されドライバが
+一度も読まれないためで、配備先で初めて落ちます。finance-api の pom には T-009 の時点から理由つきの
+コメント入りで入っていたのに、この知見が `knowledge/` にもプラグインにも上がっておらず、
+次のプロジェクトが同じ発見をやり直す状態でした。`pom-fragments.xml` に 2 箇所とも載せ、
+`mule-basics.md` の 6 節に `[G]` として明記しました。
+
+</details>
 
 <details>
 <summary><b>v0.6.2</b> — HTTP request / DB オペレーション / APIkit ルーティングの写経元</summary>
