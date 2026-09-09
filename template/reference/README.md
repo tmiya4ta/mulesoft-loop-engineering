@@ -22,3 +22,19 @@ TDD で 1 本通った System API (finance-api、Mule 4.12.2 / APIkit 1.12.6 / D
 
 例の名前は `customer-api` / リソース `profile` (PUT /customers/{customerId}/profile) / 接続先 `crm` / 表 `CUSTOMERS` / 独自エラー `APP:CUSTOMER_NOT_FOUND`。実際の名前に置き換えて使う。
 `doc:name` は日本語の 1 句で、同じファイル内で一意にする (MUnit の mock がこれで操作を特定する)。
+
+## patterns/ — よく使う部品の型 (**未実測**)
+
+上の表のファイルと違い、`patterns/` は通ったビルドから抜いたものでは**ない**。出所はファイル冒頭に
+ブロック単位で記してある (`[G][K]` = mule-basics.md の実測事実、`[S]` = 利用者の
+`mulesoft-app-development` スキル、`[D]` = 公開ドキュメント、`【未確認】` = **そのまま写さず、
+書く前に `anypoint-cli-v4 dx mule describe-connector` か公式マニュアルで要素名を確かめる**)。
+
+**全部読まない。使うコネクタのファイルだけ読む。**
+
+| ファイル | 読むとき |
+|---|---|
+| `patterns/http-request.xml` | 外部の HTTP / REST を**呼ぶ**とき (Process / Experience 層、SaaS を包む System API)。request-config と認証、uri-params / query-params、responseTimeout、`http:response-validator`、`HTTP:*` のエラー型、`http:request` の MUnit mock |
+| `patterns/db-operations.xml` | DB で `db:update` / `db:select` **以外**を使うとき。INSERT / DELETE / 一括投入 / ストアド、接続プールとベンダ別接続、大量 SELECT + foreach のデッドロック回避、各オペレーションの戻り値の形と MUnit mock |
+
+`db:update` (UPDATE / MERGE) と `db:select` だけで足りるなら `patterns/` は要らない。`resource-impl.xml` に実測済みの形がある。

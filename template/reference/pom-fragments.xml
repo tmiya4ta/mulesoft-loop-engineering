@@ -19,3 +19,20 @@
         </testResource>
     </testResources>
 </build>
+
+<!-- DB コネクタを使うときの JDBC ドライバ。**コネクタ本体とは別に、これが <dependencies> に要る。**
+     無いと起動時に "Cannot load driver class" で落ちる (MUnit は db:* を mock するので緑のまま通り、
+     配備してから気づくことになる)。
+     **版は書いていない。推測で書かない** (このプラグインの「GAV は推測しない」規則。knowledge/gotchas.md)。
+     使う製品の正しい groupId / artifactId / version を Maven Central か
+     `anypoint-cli-v4 dx mule describe-connector` で確かめてから埋める。
+     Derby (テスト用) / MySQL / PostgreSQL / Oracle / SQL Server で座標は全部違う。 -->
+<!--
+<dependencies>
+    <dependency>
+        <groupId>SET_DRIVER_GROUP_ID</groupId>
+        <artifactId>SET_DRIVER_ARTIFACT_ID</artifactId>
+        <version>SET_DRIVER_VERSION</version>
+    </dependency>
+</dependencies>
+-->

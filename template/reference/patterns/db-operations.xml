@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 型: DB コネクタのうち ../resource-impl.xml に無いもの。
+     ../resource-impl.xml (実測済み) が持っているのは db:update (UPDATE) と db:select の 2 つだけ。
+     INSERT / DELETE / 一括投入 / 接続プール / ストリーミング / ベンダ別の接続はここ。
+
+     【このファイルは未実測】 各ブロックの出所を記す:
+       [G][K] = mule-basics.md に載っている、finance-api の実装で実際に確かめた事実
+       [S]    = 利用者の mulesoft-app-development スキルに書かれていた
+       [D]    = コネクタの公開ドキュメントの仕様
+       【未確認】 = 上のどれでもない。**書く前に describe-connector か公式マニュアルで要素名を確かめる**
+     crm / customer / CUSTOMERS を実際の名前に置き換える。 -->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:db="http://www.mulesoft.org/schema/mule/db"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
+
+    <!-- ================================================================
+         1. 接続。ベンダ専用の要素を使うと host / port / database を分けて書けるが、
+         **どの要素を使っても JDBC ドライバの jar が pom.xml に要る** (pom-fragments.xml 参照)。
+         ドライバが無いと起動時に "Cannot load driver class" で落ちる。
+         ../global.xml は generic-connection (URL 直書き) を使っている。 [D]
+         ================================================================ -->
+
+    <!-- 汎用: URL と driverClassName を自分で書く。どの DB でも使える。 [G] -->
+    <db:config name="crm-db-config" doc:name="crm DB 設定 (汎用)">
+        <db:generic-connection url="${crm.db.url}"
+                               driverClassName="${crm.db.driverClassName}"
+                               user="${crm.db.user}"
+                               password="${crm.db.password}">
+            <!-- 接続プール。既定の maxPoolSize は 10。
+                 **並列に走る DB 操作の数より小さいとデッドロックする** (下の 3 節)。 [S] -->
+            <db:pooling-profile maxPoolSize="10" minPoolSize="2"/>
+        </db:generic-connection>
+    </db:config>
+
+    <!-- ベンダ専用の接続要素。属性名は製品ごとに違う (Oracle は instance / serviceName、
+         MySQL・SQL Server は database)。使う前に describe-connector で確かめる。【未確認】
+    <db:config name="crm-db-config">
+        <db:my-sql-connection host="${crm.db.host}" port="${crm.db.port}"
+                              user="${crm.db.user}" password="${crm.db.password}"
+                              database="${crm.db.database}"/>
+    </db:config>
+    <db:config name="crm-db-config">
+        <db:oracle-connection host="${crm.db.host}" port="${crm.db.port}"
+                              user="${crm.db.user}" password="${crm.db.password}"
+                              serviceName="${crm.db.serviceName}"/>
+    </db:config>
+    -->
+
+    <!-- ================================================================
+         2. 書き込み系。**オペレーションと SQL 文の種類は必ず一致させる。**
+         db:update に INSERT を書くと DB:BAD_SQL_SYNTAX (Query type must be one of ...) になる。
+           UPDATE / MERGE / TRUNCATE → db:update   (MERGE = upsert もここ。db:insert では input-parameters が使えない)
+           INSERT                    → db:insert
+           DELETE                    → db:delete
+         戻り値の形もオペレーションごとに違う:
+           db:insert / db:update → {affectedRows: N, generatedKeys: {...}} のオブジェクト (配列に包まれない)
+           db:delete             → 素の整数
+           db:select             → 行の配列 (0 件は null ではなく [])
+         SQL は属性ではなく子要素 <db:sql>。文字列は config/sql.yaml に 1 文 1 プロパティ。 [G][K][S]
+         ================================================================ -->
+    <flow name="create-customer" doc:name="customer を登録">
+        <db:insert config-ref="crm-db-config" doc:name="customer を登録">
+            <db:sql>${sql.insertCustomer}</db:sql>
+            <db:input-parameters><![CDATA[#[{
+                customerId: vars.customerId,
+                name: payload.name,
+                status: payload.status
+            }]]]></db:input-parameters>
+        </db:insert>
+        <!-- 自動採番の列を使うなら payload.generatedKeys から取る。列名は DB 製品で返り方が違うので推測しない。 [D] -->
+    </flow>
+
+    <flow name="remove-customer" doc:name="customer を削除">
+        <db:delete config-ref="crm-db-config" doc:name="customer を削除">
+            <db:sql>${sql.deleteCustomer}</db:sql>
+            <db:input-parameters><![CDATA[#[{customerId: vars.customerId}]]]></db:input-parameters>
+        </db:delete>
+        <!-- 戻りは素の整数。0 なら消す対象が無かった。
+             ただし「消えたか」を数で判定する前に、affectedRows の意味が DB 製品で違う点を思い出すこと (mule-basics 6 節)。 [K] -->
+    </flow>
+
+    <!-- 一括投入。1 件ずつ foreach で db:insert するより桁で速いが、
+         **子要素の名前 (db:bulk-input-parameters) と、payload に配列を渡す形は未確認。**
+         使う前に describe-connector で確かめる。【未確認】
+    <flow name="import-customers">
+        <db:bulk-insert config-ref="crm-db-config" doc:name="customer を一括登録">
+            <db:sql>${sql.insertCustomer}</db:sql>
+            <db:bulk-input-parameters><![CDATA[#[payload]]]></db:bulk-input-parameters>
+        </db:bulk-insert>
+    </flow>
+    -->
+
+    <!-- ストアドプロシージャ。out パラメータの型指定の書き方は未確認。使う前に確かめる。【未確認】
+    <db:stored-procedure config-ref="crm-db-config" doc:name="集計を実行">
+        <db:sql>{ call SP_AGGREGATE(:targetDate, :resultCount) }</db:sql>
+        <db:input-parameters><![CDATA[#[{targetDate: vars.targetDate}]]]></db:input-parameters>
+        <db:output-parameters>
+            <db:output-parameter key="resultCount" type="INTEGER"/>
+        </db:output-parameters>
+    </db:stored-procedure>
+    -->
+
+    <!-- ================================================================
+         3. 大量 SELECT とデッドロック。**batch や夜間処理で必ず踏む。**
+         db:select の結果を foreach で回しながら、その中で同じ config の DB を書くと、
+         ストリーミング戦略によっては 1 件目の接続を握ったまま 2 本目を要求してプールが枯渇する。
+
+           repeatable-file-store-iterable (既定) … 結果をファイルにバッファして接続を解放 → デッドロックしない
+           repeatable-in-memory-iterable        … 結果をメモリにバッファして接続を解放 → デッドロックしない
+           non-repeatable-iterable              … カーソルで逐次読み。イテレート中ずっと接続を保持 → デッドロックする
+
+         つまり **戦略を書かない (既定のまま) のが正解**で、non-repeatable-iterable は
+         メモリに載らない超大量データのときだけ、プールサイズを増やしたうえで使う。
+         scatter-gather で並列に DB を叩く場合も同じで、maxPoolSize を並列ルート数以上にする。
+         テストは maxPoolSize="1" で回すとデッドロックの有無が出る。 [S]
+         ================================================================ -->
+    <flow name="mark-customers-processed" doc:name="未処理の customer を処理済みにする">
+        <!-- 戦略を書かない = repeatable-file-store-iterable。fetchSize は 1 回の取得件数。 [S] -->
+        <db:select config-ref="crm-db-config" fetchSize="100" doc:name="未処理の customer を取得">
+            <db:sql>${sql.selectUnprocessedCustomers}</db:sql>
+        </db:select>
+
+        <foreach doc:name="1 件ずつ処理">
+            <db:update config-ref="crm-db-config" doc:name="処理済みにする">
+                <db:sql>${sql.markProcessed}</db:sql>
+                <db:input-parameters><![CDATA[#[{customerId: payload.customerId}]]]></db:input-parameters>
+            </db:update>
+        </foreach>
+    </flow>
+
+    <!-- ================================================================
+         4. MUnit。db:* は processor="db:select" のようにオペレーション単位で mock する。
+         同じ flow に同じオペレーションが複数あるときは with-attribute の doc:name で特定する
+         (指定しないと最初の 1 つに当たり、残りが実 DB に行く)。
+         返す値は上の「戻り値の形」に合わせる。ここを間違えると実装側が payload[0] を取れずに落ちる。 [G][K]
+
+         MUnit は SQL を一度も実行しない。列名・表名を間違えても全部緑のまま配備先で 500 になるので、
+         SQL は context/environment/ の定義から写す。推測しない。 [G]
+         ================================================================ -->
+    <!--
+        <munit-tools:mock-when processor="db:select">
+            <munit-tools:with-attributes>
+                <munit-tools:with-attribute attributeName="doc:name" whereValue="未処理の customer を取得"/>
+            </munit-tools:with-attributes>
+            <munit-tools:then-return>
+                <munit-tools:payload value="#[[{customerId: 'C001'}, {customerId: 'C002'}]]"/>
+            </munit-tools:then-return>
+        </munit-tools:mock-when>
+
+        db:insert / db:update を mock するときはオブジェクトを返す (配列に包まない):
+            <munit-tools:payload value="#[{affectedRows: 1}]"/>
+        db:delete は素の整数:
+            <munit-tools:payload value="#[1]"/>
+        接続障害を起こす:
+            <munit-tools:then-return><munit-tools:error typeId="DB:CONNECTIVITY"/></munit-tools:then-return>
+    -->
+
+</mule>

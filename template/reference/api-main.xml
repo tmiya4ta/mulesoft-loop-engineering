@@ -34,4 +34,36 @@
         <flow-ref name="change-profile" doc:name="change-profile を呼ぶ"/>
     </flow>
 
+    <!-- flow 名の作られ方。**1 文字でも違うと APIkit が「flow が無い」と言って 404 になる。**
+         規則: <method>:\<path>[:<mediaType>]:<apikit:config の name>
+           - パスの / は \ になる。URI パラメータは (名前) で囲む
+           - **本文を持つメソッド (POST / PUT / PATCH) だけ :<mediaType> が入る。**
+             GET / DELETE には入らない。ここが最も間違えやすい
+           - mediaType の / も \ になる (application\json)
+         例 (RAML の baseUri が http://localhost:8081/api、listener が /api/* のとき):
+
+           GET    /customers/{customerId}          → get:\customers\(customerId):profile-api-config
+           GET    /customers                       → get:\customers:profile-api-config
+           POST   /customers                       → post:\customers:application\json:profile-api-config
+           DELETE /customers/{customerId}          → delete:\customers\(customerId):profile-api-config
+
+         受け口の中身はどれも同じ: uriParams / queryParams を vars に立てて実処理へ flow-ref するだけ。
+         実処理の flow は HTTP を知らないので MUnit から直接 flow-ref できる。 -->
+    <flow name="get:\customers\(customerId):profile-api-config" doc:name="customer 取得 (受け口)">
+        <set-variable variableName="customerId" value="#[attributes.uriParams.customerId]" doc:name="customerId を立てる"/>
+        <flow-ref name="fetch-customer" doc:name="fetch-customer を呼ぶ"/>
+    </flow>
+
+    <flow name="get:\customers:profile-api-config" doc:name="customer 一覧 (受け口)">
+        <!-- クエリは queryParams。RAML で既定値を書いていても、書いていなければ null になるので default を置く。 -->
+        <set-variable variableName="status" value="#[attributes.queryParams.status default 'active']" doc:name="status を立てる"/>
+        <flow-ref name="list-customers" doc:name="list-customers を呼ぶ"/>
+    </flow>
+
+    <flow name="post:\customers:application\json:profile-api-config" doc:name="customer 登録 (受け口)">
+        <!-- 201 のように 200 以外を返すときは、実処理側ではなくここで vars.httpStatus を立ててもよい。
+             どちらで立てるかはリポジトリ内で揃える (CLAUDE.md の命名規約に従う)。 -->
+        <flow-ref name="create-customer" doc:name="create-customer を呼ぶ"/>
+    </flow>
+
 </mule>

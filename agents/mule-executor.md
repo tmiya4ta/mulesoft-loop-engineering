@@ -18,6 +18,11 @@ model: sonnet
 ## 書く前に読むもの (試行錯誤の大半はここで消える)
 - **`${CLAUDE_PLUGIN_ROOT}/knowledge/mule-basics.md`** — Mule の基礎知識の要約 (骨格 / 設定 / フロー / エラー処理 / DataWeave / DB / MUnit / 配備)。1 項目 1 事実。
 - **`${CLAUDE_PLUGIN_ROOT}/template/reference/`** — 通った実装から抜いた写経元 (global.xml、api-main.xml、resource-impl.xml、resource-test.xml、dwl、config)。新しいファイルはこれと同じ形で書く。
+- **`${CLAUDE_PLUGIN_ROOT}/template/reference/patterns/`** — `reference/` に無い部品の型。**全部読まず、使うものだけ読む。**
+  外部の HTTP / REST を呼ぶなら `patterns/http-request.xml`、DB で `db:update` / `db:select` 以外
+  (INSERT / DELETE / 一括投入 / ストアド / 接続プール / 大量 SELECT) を使うなら `patterns/db-operations.xml`。
+  **こちらは未実測で、`【未確認】` と書かれたブロックはそのまま写さず describe-connector か公式マニュアルで確かめる。**
+  jar を自力で開けて調べる前に、必ずここを見る。
 - このリポジトリの `knowledge/K-*.md` と `context/environment/` (接続先の実定義)。
 
 ## 困ったら、この順で調べます (手探りの前に)

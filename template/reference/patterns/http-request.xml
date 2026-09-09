@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 型: 外向きの HTTP 呼び出し (http:request)。Process / Experience 層が System API を呼ぶとき、
+     System API が SaaS の REST を包むときの形。
+
+     【このファイルは未実測】 ../ の reference/*.xml は finance-api の通ったビルドから抜いたものだが、
+     このファイルはそうではない。各ブロックの出所を末尾に記す:
+       [S] = 利用者の mulesoft-app-development スキルに書かれていた
+       [D] = コネクタの公開ドキュメントの仕様
+       【未確認】 = 形は上の 2 つから外れる。書く前に describe-connector か公式マニュアルで確かめる
+     customer / crm を実際の名前に置き換える。 -->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <!-- ================================================================
+         1. 呼び出し先の設定。global.xml に置く (listener-config と同じ場所)。
+         host / port / protocol と basePath を分けて持つと、path 側が RAML のパスと一致して読みやすい。
+         接続値は config/app.yaml のプロパティ参照だけにする (秘密は書かない)。 [D]
+         ================================================================ -->
+    <http:request-config name="crm-http-request-config" basePath="${crm.api.basePath}" doc:name="crm 呼び出し設定">
+        <http:request-connection host="${crm.api.host}"
+                                 port="${crm.api.port}"
+                                 protocol="HTTPS">
+            <!-- 認証。Basic 以外 (OAuth2 client credentials など) は oauth モジュールが別に要るので、
+                 使う前に describe-connector か公式マニュアルで要素名を確かめる。【未確認】 -->
+            <http:authentication>
+                <http:basic-authentication username="${crm.api.user}" password="${crm.api.password}"/>
+            </http:authentication>
+        </http:request-connection>
+    </http:request-config>
+
+    <flow name="fetch-customer" doc:name="crm から customer を取得">
+
+        <!-- ================================================================
+             2. 呼び出し本体。
+             - path の {customerId} は http:uri-params で埋める (文字列連結で組み立てない。エスケープが漏れる)
+             - responseTimeout はミリ秒。既定は無制限ではないが、業務で許せる値を明示的に置く
+             - target= を使うと payload を保ったまま結果を変数に入れられるが、
+               **MUnit の mock-when と併用すると値が入らないことがある** (mule-basics 6 節の db:* と同じ罠)。
+               テストで固定する呼び出しは target を付けず payload で受ける
+             ================================================================ -->
+        <http:request method="GET" path="/customers/{customerId}"
+                      config-ref="crm-http-request-config"
+                      responseTimeout="${crm.api.timeoutMs}"
+                      doc:name="customer を取得">
+            <http:uri-params><![CDATA[#[{customerId: vars.customerId}]]]></http:uri-params>
+            <http:query-params><![CDATA[#[{fields: 'id,name,status'}]]]></http:query-params>
+            <http:headers><![CDATA[#[{'accept': 'application/json'}]]]></http:headers>
+
+            <!-- 既定では 2xx 以外が全部エラーになる。404 を「エラーではなく 0 件」として自分で扱いたい場合だけ
+                 成功扱いの範囲を広げる。広げたら payload と attributes.statusCode を必ず自分で分岐すること。 [D] -->
+            <http:response-validator>
+                <http:success-status-code-validator values="200,404"/>
+            </http:response-validator>
+        </http:request>
+
+        <!-- 200 と 404 を分ける。上で 404 を成功扱いにしたので、ここで自分で判定する。 -->
+        <choice doc:name="見つかったか">
+            <when expression="#[attributes.statusCode == 404]">
+                <raise-error type="APP:CUSTOMER_NOT_FOUND"
+                             description="#['顧客 ' ++ vars.customerId ++ ' が crm に存在しません']"
+                             doc:name="顧客が無い (404)"/>
+            </when>
+            <otherwise>
+                <ee:transform doc:name="CustomerResult に変換">
+                    <ee:message><ee:set-payload resource="dwl/customer-result.dwl"/></ee:message>
+                </ee:transform>
+            </otherwise>
+        </choice>
+    </flow>
+
+    <!-- ================================================================
+         3. エラー型。global.xml の DB:* の枝と同じ形で、接続先の障害だけを 502 にする。
+         ANY と同じ枝に混ぜない (内部の欠陥が接続先のせいになる)。
+         主な型: HTTP:CONNECTIVITY / HTTP:TIMEOUT / HTTP:RETRY_EXHAUSTED (届かない・遅い)
+                 HTTP:BAD_REQUEST / HTTP:UNAUTHORIZED / HTTP:FORBIDDEN / HTTP:NOT_FOUND /
+                 HTTP:METHOD_NOT_ALLOWED / HTTP:NOT_ACCEPTABLE / HTTP:UNSUPPORTED_MEDIA_TYPE /
+                 HTTP:TOO_MANY_REQUESTS (相手が 4xx を返した)
+                 HTTP:INTERNAL_SERVER_ERROR / HTTP:SERVICE_UNAVAILABLE (相手が 5xx を返した)
+                 HTTP:PARSING / HTTP:SECURITY / HTTP:CLIENT_SECURITY
+         この枝は global.xml の <error-handler name="global-error-handler"> の中に足す。 [D]
+         ================================================================ -->
+    <!--
+        <on-error-continue doc:name="crm に届かない、または crm が失敗した (502)"
+                           type="HTTP:CONNECTIVITY, HTTP:TIMEOUT, HTTP:RETRY_EXHAUSTED,
+                                 HTTP:INTERNAL_SERVER_ERROR, HTTP:SERVICE_UNAVAILABLE">
+            <set-variable variableName="httpStatus" value="#[502]"/>
+            <set-variable variableName="outboundHeaders" value="#[{'content-type': 'application/problem+json'}]"/>
+            <set-variable variableName="problemType" value="#['upstream-unavailable']"/>
+            <set-variable variableName="problemTitle" value="#['crm に接続できません']"/>
+            <set-variable variableName="problemDetail" value="#['crm の応答がありません。時間をおいて再実行してください']"/>
+            <ee:transform doc:name="problem+json に変換 (502)">
+                <ee:message><ee:set-payload resource="dwl/problem.dwl"/></ee:message>
+            </ee:transform>
+        </on-error-continue>
+    -->
+
+    <!-- ================================================================
+         4. MUnit。http:request は processor="http:request" で mock する。
+         同じ flow に呼び出しが複数あるときは with-attribute で config-ref か doc:name を指定して特定する
+         (db:* と同じで、指定しないと最初の 1 つに当たって残りが実接続に行く)。
+         MUnit は実際の HTTP を一度も叩かないので、path や query の綴りを間違えても全部緑のまま
+         配備先で落ちる。パスは RAML / 相手の仕様から写す。 [S]
+         ================================================================ -->
+    <!--
+        <munit:test name="fetch-customer-200-test" description="crm が 200 を返したとき">
+            <munit:behavior>
+                <munit-tools:mock-when processor="http:request">
+                    <munit-tools:with-attributes>
+                        <munit-tools:with-attribute attributeName="config-ref" whereValue="crm-http-request-config"/>
+                    </munit-tools:with-attributes>
+                    <munit-tools:then-return>
+                        <munit-tools:payload value="#[readUrl('classpath://samples/customer/found.crm.json','application/json')]"/>
+                        <munit-tools:attributes value="#[{statusCode: 200}]"/>
+                    </munit-tools:then-return>
+                </munit-tools:mock-when>
+            </munit:behavior>
+            <munit:execution>
+                <munit:set-event><munit:variables>
+                    <munit:variable key="customerId" value="C001"/>
+                </munit:variables></munit:set-event>
+                <flow-ref name="fetch-customer"/>
+            </munit:execution>
+            <munit:validation>
+                <munit-tools:assert-that expression="#[payload]"
+                    is="#[MunitTools::equalTo(readUrl('classpath://samples/customer/found.out.json','application/json'))]"/>
+                <munit-tools:verify-call processor="http:request" times="1"/>
+            </munit:validation>
+        </munit:test>
+
+        接続先の障害を起こすときは then-return の代わりにエラーを投げる:
+        <munit-tools:then-return>
+            <munit-tools:error typeId="HTTP:CONNECTIVITY"/>
+        </munit-tools:then-return>
+    -->
+
+</mule>

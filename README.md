@@ -12,7 +12,7 @@ MuleSoft to start** — `/mule-start` asks what it needs to know.
 Implementation is TDD throughout (Red → Green → Refactor). The reasoning behind the design is
 in [docs/methodology.md](docs/methodology.md).
 
-> **v0.6.1** — see [Release notes](#release-notes).
+> **v0.6.2** — see [Release notes](#release-notes).
 
 ---
 
@@ -182,6 +182,31 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.2</b> — Copyable patterns for HTTP request, DB operations, APIkit routing</summary>
+
+An executor was observed unzipping the DB connector jar to work out an operation's XML shape — which is what
+happens when `reference/` only covers the two DB operations finance-api happened to use (`db:update`,
+`db:select`) and nothing at all for outbound HTTP. Adds `template/reference/patterns/` with `http-request.xml`
+(request-config + auth, uri/query params, `responseTimeout`, `http:response-validator`, the `HTTP:*` error
+types wired like `global.xml`'s DB branch, and the `mock-when processor="http:request"` MUnit shape) and
+`db-operations.xml` (`db:insert`/`db:delete`, vendor connection elements, `db:pooling-profile`, the streaming
+strategy that avoids the `foreach` + `db:update` deadlock, per-operation return shapes and their MUnit mocks).
+`api-main.xml` gains three more APIkit flow stubs, since the generated flow name is the thing that silently
+404s — the media-type segment appears for POST/PUT/PATCH but not for GET/DELETE.
+
+`patterns/` is deliberately a **separate directory**: everything directly under `reference/` came out of a
+build that actually passed, and that guarantee is the most useful property the skeleton has. The new material
+is sourced from the user's own `mulesoft-app-development` skill (`[S]`), from measured facts already in
+`mule-basics.md` (`[G][K]`), or from connector documentation (`[D]`), and anything recalled rather than
+sourced is marked `【未確認】` with an instruction to confirm via `describe-connector` before copying it.
+`pom-fragments.xml` gains the JDBC driver dependency that a DB app needs beyond the connector itself — with
+placeholder coordinates rather than a version number, since the plugin's own rule is not to guess a GAV.
+`mule-executor.md` points at one file per connector rather than the directory, and says to look here before
+opening a jar.
+
+</details>
 
 <details>
 <summary><b>v0.6.1</b> — Mule apps beyond HTTP APIs: batch, MCP servers, A2A</summary>

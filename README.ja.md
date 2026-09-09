@@ -11,7 +11,7 @@ API に何をさせたいかを伝えると、仕様 → 受け入れ条件 → 
 実装は一貫して TDD（Red → Green → Refactor）です。設計の考え方は
 [docs/methodology.md](docs/methodology.md) にあります。
 
-> **v0.5.5** — [リリースノート](#リリースノート)を参照。
+> **v0.6.2** — [リリースノート](#リリースノート)を参照。
 
 ---
 
@@ -176,6 +176,54 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.2</b> — HTTP request / DB オペレーション / APIkit ルーティングの写経元</summary>
+
+実行エージェントが DB コネクタの jar を自力で開けて XML の書式を調べていました。`reference/` に
+finance-api がたまたま使った `db:update` と `db:select` しか無く、外向き HTTP に至っては 1 つも
+無かったためです。`template/reference/patterns/` を追加し、`http-request.xml`（request-config と
+認証、uri/query params、`responseTimeout`、`http:response-validator`、`HTTP:*` のエラー型、
+`http:request` の MUnit mock）と `db-operations.xml`（`db:insert`/`db:delete`、ベンダ別の接続要素、
+`db:pooling-profile`、`foreach` + `db:update` のデッドロックを避けるストリーミング戦略、
+オペレーション別の戻り値の形と mock）を置きました。`api-main.xml` には APIkit の flow 名の型を 3 つ追加
+（**本文を持つ POST/PUT/PATCH だけ mediaType の節が入り、GET/DELETE には入らない**。ここを間違えると
+黙って 404 になる）。
+
+`patterns/` を**別ディレクトリにしたのは意図的**です。`reference/` 直下は通ったビルドから抜いたもので、
+その保証がこの骨格の一番の価値だからです。新しい方の出所は利用者の `mulesoft-app-development`
+スキル（`[S]`）、`mule-basics.md` の実測事実（`[G][K]`）、コネクタの公開ドキュメント（`[D]`）で、
+記憶から書いたものは `【未確認】` と明示し、写す前に `describe-connector` で確かめるよう書いてあります。
+`pom-fragments.xml` には、コネクタとは別に要る **JDBC ドライバの依存**を追加（版は書いていません。
+「GAV は推測しない」という自分の規則に従い、座標は placeholder のまま）。`mule-executor.md` は
+ディレクトリではなく**コネクタごとに 1 ファイル**を指すようにし、jar を開ける前にここを見ると明記しました。
+
+</details>
+
+<details>
+<summary><b>v0.6.1</b> — HTTP API 以外の Mule アプリ: batch / MCP サーバー / A2A</summary>
+
+`/mule-init` の最初の質問が system/process/experience の層分けでしたが、これは HTTP API にしか
+当てはまりません。先に `kind`（`api` / `batch` / `mcp` / `a2a`）を聞き、層は `kind: api` のときだけ
+聞くようにしました。`a2a` を選ぶと Maven/MUnit のプロジェクトを作らずに終了し、`agent-network` と
+`deploy-agent-network-v1`/`v2` スキルを案内します（Agent Network は `agentNetwork.yaml` / `.agent`
+ファイルで、pom.xml を持つ Mule アプリではないため）。`mule-basics.md` に「10. Batch / MCP / A2A」を
+追加（`<mcp:server>` という要素は無い、1 tool = 1 flow、SSE の確認方法、batch の `blockSize` /
+`maxConcurrency` はクォートしない、など。すべて `[S]`）。`quick-check.sh` の System 層コネクタ検査は
+`kind: api` 限定にし、`kind:` 行が無い既存リポジトリは `api` とみなすので**これまでのリポジトリは
+何もしなくてそのまま**動きます。
+
+</details>
+
+<details>
+<summary><b>v0.6.0</b> — Mule の基礎知識、写経元の骨格、gotchas の主題別整理</summary>
+
+`knowledge/mule-basics.md` を新設（骨格 / 設定 / フロー / エラー処理 / DataWeave / DB / MUnit /
+配備 / 命名の 9 節。1 行 1 事実、出所つき）。`template/reference/` は通った API から名前を一般化して
+抜いた骨格で、実行エージェントは書く前にここを読みます。`knowledge/gotchas.md` は時系列から主題別に
+並べ替え、重複を統合しました。
+
+</details>
 
 <details>
 <summary><b>v0.5.5</b> — PR #4 の運用 5 点と、困ったときの調べ方</summary>
