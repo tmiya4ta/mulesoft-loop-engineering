@@ -12,7 +12,7 @@ MuleSoft to start** — `/mule-start` asks what it needs to know.
 Implementation is TDD throughout (Red → Green → Refactor). The reasoning behind the design is
 in [docs/methodology.md](docs/methodology.md).
 
-> **v0.6.6** — see [Release notes](#release-notes).
+> **v0.6.7** — see [Release notes](#release-notes).
 
 ---
 
@@ -182,6 +182,33 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.7</b> — A worktree is cut from origin/main, so nothing local reaches the executor</summary>
+
+v0.6.4 claimed that committing before dispatch is what puts the goal file and the previous wave's output
+into an executor's worktree. Three measurements say otherwise: the worktree is branched from **`origin/main`**
+— not local HEAD, and not the current branch's upstream. (1) With one unpushed local commit, the worktree
+sat on origin/main. (2) After pushing, it followed the *new* origin/main, so it isn't pinned at session
+start. (3) Checked out on a feature branch whose upstream was pushed, it still used origin/main — so
+branching doesn't help either. Pushing would, but the only reachable target is `main`, which is precisely
+what gate 2 exists to protect. That block is rewritten rather than annotated: the pre-dispatch commit is a
+checkpoint, and it makes nothing visible to a worktree.
+
+Two changes follow. The dispatch prompt now carries the **goal's full text inline** plus the **absolute
+project root**, with an instruction to `cd` there first — in a monorepo the worktree's working directory is
+the repository root, not the project, which is how a relative `tasks/T-001.md` once resolved into a
+different project and edited unrelated files. And isolation is now conditional: used when there is no remote
+(**unverified** — nothing can be behind, but it hasn't been measured), or when `HEAD == origin/main` with a
+clean tree; otherwise the goal is dispatched without isolation and run serially in the working tree. In
+practice that means **isolation and parallelism apply to the first wave only**, since this wave's own
+dispatch commit puts local ahead. The discriminator is deliberately not `blocked_by` — independent goals
+share `pom.xml`, `global.xml` and the RAML, so they go stale the same way.
+
+Also merges PR #5 (the APIkit gotcha now covers dispatch flows, not just the main flow) and fixes the
+`MUnit` count in the gotchas index, which that PR left at 11.
+
+</details>
 
 <details>
 <summary><b>v0.6.6</b> — One preflight instead of N executors failing the same way</summary>

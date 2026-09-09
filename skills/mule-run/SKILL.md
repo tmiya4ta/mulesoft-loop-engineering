@@ -36,20 +36,49 @@ argument-hint: "[T-NNN だけ実行] [--parallel N (既定は予算が許す最�
    ```bash
    git add -A && git commit -q -m "mule-loop: dispatch T-003 T-004"
    ```
-   `isolation: "worktree"` の worktree は **HEAD から作られ、未コミットの変更は引き継がれない**。
-   コミットせずに配ると、実行エージェントの worktree に
-   **(a) いま配ろうとしているゴールファイル `tasks/T-NNN.md` そのもの**、
-   **(b) 前の波で取り込んだ依存ゴールの成果 (pom.xml、global.xml、`knowledge/K-*.md`、config)** が無い。
-   `blocked_by` で依存を表現している意味が消えるので、**依存があるゴールほど確実に踏む**。
-   `.gitignore` に `target/` と `.claude/worktrees/` があるので `git add -A` で巻き込まない。
-   (finance-api の T-011 と T-012 で 2 回発生し、どちらも「ゴールファイルが無い」「依存ゴールの成果が無い」で落ちた。)
+   このコミットは**チェックポイント**であって、worktree に中身を届ける手段ではない。落ちたときに
+   途中結果が残ること、試行を後から追えること、そして隔離せずに配る場合 (下記) の実行対象がこれになること、
+   の 3 つのためにやる。`.gitignore` に `target/` と `.claude/worktrees/` があるので `git add -A` で巻き込まない。
+
+   **`isolation: "worktree"` の worktree は `origin/main` から新しいブランチを切って作られる。**
+   ローカルの HEAD も、現在チェックアウトしているブランチの upstream も見ない。
+   つまり **`origin/main` に push されていないものは、実行エージェントに一切届かない。**
+   コミットしても push しなければ届かず、届ける先は `origin/main` しか無い。それは
+   「PR を人がマージする」(ゲート 2) と両立しないので、**push で解決しようとしないこと。**
+   (2026-09-09 に 3 回実測。(1) 未 push のローカルコミット 1 つ先 → worktree は origin/main。
+   (2) push して origin/main を進めてから未 push の空コミット → worktree は新しい origin/main に追随。
+   よって「セッション開始時点で固定」ではない。(3) upstream を push 済みの feature ブランチを
+   チェックアウトして実行 → それでも worktree は origin/main。**ブランチを切っても解決しない。**)
 
    ゴールごとにやることは:
    - `status: running` に更新する (上のコミットに含める)。
    - **モデルを選ぶ。** attempts 0〜1 は `sonnet`、attempts 2 (= 3 回目の挑戦) は `opus` に上げる。Agent 呼び出し時の `model` で指定する (frontmatter より呼び出し側が優先)。
    - `bash scripts/run-log.sh dispatch <id> <model>` を実行する。
    - **段で配り先を変える。回し方は同じ (done_when が exit 0 になるまで)。**
-     - `impl` → Agent ツールで `mule-executor` を **`isolation: "worktree"`** で起動する。プロンプトはゴールファイルのパスと「CLAUDE.md と context/ を読んで規則に従うこと」だけ。
+     - `impl` → Agent ツールで `mule-executor` を起動する。**隔離するかどうかは下の判定に従う。**
+
+       **プロンプトには、ゴールファイルの中身を丸ごと貼る。パスを渡すだけにしない。**
+       worktree には `tasks/T-NNN.md` が無いことがあり (上記)、その場合エージェントは何も読めない。
+       併せて**プロジェクト直下の絶対パス**を書き、「まずそこへ `cd` してから作業する」と明示する。
+       monorepo (1 つの git リポジトリに複数プロジェクトが同居) では **worktree の作業ディレクトリは
+       リポジトリ直下であってプロジェクト直下ではない**ので、相対パス `tasks/T-001.md` が
+       別プロジェクトの同名ファイルに解決されて無関係な場所を書き換える。実際に 1 度起きている
+       (inventory2-api の T-001 が `inventory-xe-api/` を誤編集)。渡すのは
+       「ゴールの中身」「プロジェクト直下の絶対パス」「CLAUDE.md と context/ を読んで規則に従うこと」の 3 つ。
+
+       **隔離してよいかの判定 (配る直前に 1 回):**
+
+       | 状態 | 配り方 |
+       |---|---|
+       | remote が無い | `isolation: "worktree"` を使う。**未検証** — 遅れる対象が無いので問題無いはずだが実測していない |
+       | remote があり、`git rev-parse HEAD` == `git rev-parse origin/main` かつ作業ツリーがきれい | `isolation: "worktree"` を使う |
+       | それ以外 (= ローカルが origin/main より進んでいる) | **`isolation` を付けずに配る。作業ツリー上で 1 件ずつ直列に実行する** |
+
+       **実質これは「隔離と並列が効くのは最初の 1 波だけで、以降は直列になる」という意味になる。**
+       2 波目以降はこの波の dispatch コミットで必ずローカルが先行するため。ここを
+       「たいてい並列、たまに直列」と読み替えないこと。`blocked_by` の有無では判定しない —
+       独立なゴールでも pom.xml / global.xml / RAML は共有しており、前の波の成果が無ければ同じように壊れる。
+       直列に落ちたら `max_parallel` どおりの速度は出ないので、予算の消費ペースが変わることを報告に書く。
      - `deploy` → 実行エージェントには配れない (デプロイ禁止)。**進捗エージェント自身が `mule-deploy` スキルの手順 1〜5 を実行する。** 先に done_when を 1 回流して失敗を確認する (red)。配置先 URL が決まったら done_when の base-url を書き換えてよい (期待値ではなく所在なので)。
      - `policy` → `authorizations.yaml` の `policy.sandbox` が allowed のときだけ `mule-executor` に配る (worktree 不要、`isolation` 無し)。denied なら blocked にして人に 1 行で伝える。
    - **マニュアルは読まない。** 段を進めるのに足りない事実 (CLI の書式、ポリシー名、API インスタンスの id) は、進捗エージェントが docs を fetch して探すのではなく、実行エージェントに「gotchas → スキル (platform-assistant) → マニュアルの順で調べて `knowledge/K-<ゴール id>-<連番>.md` に書いてから使う」よう配る。進捗エージェントが読むのは台帳、context/、knowledge/ だけ。
