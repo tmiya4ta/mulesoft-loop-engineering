@@ -44,6 +44,22 @@ argument-hint: "[T-NNN だけ実行] [--parallel N (既定は予算が許す最�
    `.gitignore` に `target/` と `.claude/worktrees/` があるので `git add -A` で巻き込まない。
    (finance-api の T-011 と T-012 で 2 回発生し、どちらも「ゴールファイルが無い」「依存ゴールの成果が無い」で落ちた。)
 
+   **monorepo (1 つの git リポジトリの中に複数の Mule プロジェクトが同居する構成) では、コミットしても
+   なお worktree の HEAD がセッション開始時点の古いコミットに固定されることがある。** これは上の
+   「コミットせずに配った」場合とは別の症状で、`git add -A && git commit` を毎回きちんと実行していても
+   起きる。`isolation: "worktree"` の worktree 作成がベースコミットをセッション単位で解決しており、
+   Agent 呼び出しのたびには更新されないためと見られる (ツール側の挙動。プラグイン側では直せない)。
+   **最初の 1 波を isolation: "worktree" で配ったら、戻ってきた結果に自己検証を仕込んでおく**
+   (プロンプトに「最初に `git rev-parse HEAD` と `pwd` を確認し、配布時点の期待 HEAD と不一致なら
+   即中断して報告すること」を 1 行足す)。不一致が確認できたら、**以降のゴールは全て isolation を
+   使わない直列実行に切り替える** (`mule-executor` を isolation なしで直接作業ツリー上に呼ぶ。同一
+   セッション内で 2 回目の worktree を試しても、同じ古いコミットに固定されたままなので意味が無い)。
+   直列に落ちると `parallel.max` を無視した速度になるので、それも台帳か報告に書いて予算消費のペースが
+   変わることを分かるようにしておく。
+   (inventory2-api の T-001 で 2 回発生。1 回目は monorepo 内の別プロジェクトの `tasks/T-001.md` を
+   誤編集した (worktree ブランチのみ、main には未マージで実害なし)。2 回目は絶対パス化と自己検証を
+   足して再配布したが、worktree の HEAD は 1 回目と全く同じ古いコミットのままだった。)
+
    ゴールごとにやることは:
    - `status: running` に更新する (上のコミットに含める)。
    - **モデルを選ぶ。** attempts 0〜1 は `sonnet`、attempts 2 (= 3 回目の挑戦) は `opus` に上げる。Agent 呼び出し時の `model` で指定する (frontmatter より呼び出し側が優先)。
