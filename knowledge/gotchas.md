@@ -330,9 +330,30 @@ INSERT は `<db:insert>`、DELETE は `<db:delete>`。MERGE (upsert) は `db:upd
 | `db:update` / `db:insert` | `{affectedRows: N, generatedKeys: {...}}` のオブジェクト (配列に包まれない) | `affectedRows: 0` |
 | `db:delete` | 素の整数 (`1`) | `0` |
 
-TIMESTAMP 列は Mule に入った時点で DataWeave の `String` (`2026-09-05T16:47:13.033`、TZ 無し)。`as String` は恒等変換。
+TIMESTAMP 列は DB 製品で扱いが違う。**Derby は Mule に入った時点で DataWeave の `String`**
+(`2026-09-05T16:47:13.033`、TZ 無し) で `as String` は恒等変換だが、**Oracle は素の `Object` として
+渡り `as String` が `Cannot coerce Object to String` で落ちる**。SQL 側 (`TO_CHAR(col,
+'YYYY-MM-DD"T"HH24:MI:SS.FF3')`) で文字列化してから DataWeave に渡すのが確実。MUnit の
+`mock-when` はどちらの DB でもプレーンな文字列を返せてしまうため、この差はローカルの MUnit だけでは
+検知できず、配備先で初めて踏む。
 `isEmpty(payload)` は `null` でも `[]` でも真なので、0 件判定にはこれを使う。
-根拠: finance-api T-010 で実 Derby に対して 5 操作を実測 (2026-09-07)。
+根拠: finance-api T-010 で実 Derby に対して 5 操作を実測 (2026-09-07)。inventory2-api T-011 で
+実 Oracle (Sandbox、Autonomous/XE) に対して実測、`Cannot coerce Object to String` を確認し
+`TO_CHAR` で解決 (2026-09-10)。
+
+## Oracle の接続文字列は SID/Service Name/PDB のどれを指しているか取り違えやすい
+`jdbc:oracle:thin:@host:port:SID` (コロン) と `jdbc:oracle:thin:@host:port/ServiceName`
+(スラッシュ) は別形式。XE/PDB 構成 (Oracle Database XE 21c 等) では通常 Service Name (スラッシュ)
+を使う。コロン形式で SID として繋ごうとすると `ORA-12505: SID 'x' is not registered with the
+listener` になる (listener 自体は応答しており、パスワード検証にすら到達していない)。
+さらに 1 インスタンスに複数の PDB (Pluggable Database) を持てるため、**同じホスト・ポート・
+ユーザー名でも Service Name (PDB 名) が違うと別のスキーマ空間になる**。「接続は成功するが
+`ORA-00942: table or view does not exist`」は、テーブルが本当に無い場合と、**単に違う PDB に
+繋いでいる場合**の両方で起きる。後者は接続エラーにならないため、DDL 適用状況を疑う前に
+まず JDBC 直結で `SELECT table_name FROM user_tables` などで実際に見えるオブジェクトを確認する。
+根拠: inventory2-api T-010/T-011 で2回実測 (2026-09-09〜10)。1回目は形式違い (コロン→スラッシュ)
+で `ORA-12505` を解消、2回目は Service Name の値自体の違い (`mule` サービスには DDL が適用されて
+おらず、実際のデータは `XEPDB1` サービス側にあった) で `ORA-00942` を解消。
 
 ## `affectedRows` の意味は DB 製品で違う (Derby は一致行数、MySQL は変更行数)
 Derby は WHERE に一致した行数を返す (値を変えない UPDATE でも 1)。MySQL の既定は値が変わった行数を返す (同じ値の UPDATE は 0)。
