@@ -7,12 +7,30 @@ argument-hint: "[--verify-only <base-url>  デプロイ済みの URL に疎通�
 実行ループの出口 (PR マージ) と学習ループの入口をつなぐのがこのループの役目です。
 「デプロイして終わり」ではなく、**samples/ の期待値が配置先でも成り立つか** を確かめ、成り立たなければその指紋を `knowledge/failures.jsonl` に残すところまでが 1 周です。
 
-## ゲート (両方満たすときだけ動く)
+## ゲート (両方満たすときだけ動く。判定するのは人ではなく hook)
 
 1. `context/deployment/authorizations.yaml` の `deploy.sandbox` が `allowed`。`denied` なら人が口頭で許可しても動かない (ファイルを直すのは人)。
-2. 人が **この会話で** 明示的に「Sandbox にデプロイして」と言った。`/mule-status` が提示した番号を人が選んだ場合はこれに当たる。
+2. 台帳に `stage: deploy` のゴールがある。無ければ先に 1 件切ってから進む (台帳の外で作業しない)。
 
-`production` は常に人の手作業。このスキルは Production 名の環境には決して向けない。
+この 2 つが揃っていれば **デプロイのたびに人へ確認を取らない**。許可はもともと 1 のファイルに
+書いてあり、会話で聞き直すのは同じことを二度確かめているだけだから。判定者を人から機械へ移す
+のはこのリポジトリの他のループと同じ作りで、`done_when` が実装の判定者であるように、
+`authorizations.yaml` がデプロイの判定者になる。
+
+判定は `scripts/deploy-guard.sh` (PreToolUse hook)。`mvn ... deploy` / `-DmuleDeploy` /
+`anypoint-cli ... deploy` を捕まえて、次を見て allow か deny を返す。
+
+| 見るもの | deny になる条件 |
+|---|---|
+| `authorizations.yaml` の `deploy.sandbox` | `allowed` でない |
+| `sandbox.yaml` の `environment` と `pom.xml` の `<environment>` | どちらかが Production 系の名前 |
+| 同上 | 両方とも空 (Sandbox だと確かめられない) |
+
+deny のときコマンドは実行されず、理由が返る。**deny を回避する経路 (別コマンド、MCP、pom の
+直接編集) を探さない。** 止まったら理由をそのまま人に伝えて終わる。ファイルを直すのは人。
+
+`production` は常に人の手作業。実際に `mvn` が使う環境名は pom に入るので、hook は
+sandbox.yaml だけでなく pom の `<environment>` も見る。
 MCP の `deploy_mule_application` は使わない。経路は下の `mvn clean deploy -DmuleDeploy` だけにして、pom に何が書かれたかを人が diff で追えるようにする。
 
 ## 台帳との関係
@@ -71,3 +89,4 @@ MCP の `deploy_mule_application` は使わない。経路は下の `mvn clean d
 - smoke-check を通すために samples の期待値を変えること。
 - 秘密 (client secret、パスワード) を pom / 会話 / ログに書くこと。
 - 結果だけ書いて終わること。**必ず次の一手を書く。**
+- `deploy-guard.sh` の deny を回避すること (別経路を探す、pom を直接書き換える、hook を外す)。

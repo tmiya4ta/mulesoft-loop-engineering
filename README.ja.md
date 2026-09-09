@@ -77,7 +77,7 @@ claude
 | **0** | 開始時に `/mule-start` が `context/decisions.yaml` の空欄を **1 回にまとめて**聞く。先に書いておけば聞かれない。以降、承認まで質問は無い |
 | **1** | `/mule-start` が平文で読み上げる動作への「はい」 |
 | **2** | PR のマージ |
-| **3** | 本番デプロイ（Sandbox は `authorizations.yaml` と明示の指示があれば `/mule-deploy` が行う） |
+| **3** | 本番デプロイ（Sandbox は `authorizations.yaml` に `allowed` と書いてあれば `/mule-deploy` が聞かずに行う。可否は `deploy-guard.sh` が hook で判定する） |
 | **4** | `/mule-learn` の昇格 PR のマージ |
 
 ---
@@ -128,7 +128,8 @@ skills/
 agents/
   mule-executor.md  ゴール 1 件を done_when が通るまで回す（worktree 隔離）
   mule-reviewer.md  読み取り専用レビュー
-hooks/hooks.json  編集のたび: scripts/quick-check.sh（数秒の検証）
+hooks/hooks.json  デプロイの前: scripts/deploy-guard.sh（authorizations.yaml を読んで allow/deny）
+                  編集のたび: scripts/quick-check.sh（数秒の検証）
                   毎ターン:   scripts/loop-reminder.sh（規律の注入）
                   応答の最後: scripts/stop-guard.sh（3 ブロックで締めていなければ 1 回差し戻す）
 knowledge/gotchas.md  共有ナレッジ（実行エージェントが毎回読む）
@@ -176,6 +177,49 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.8</b> — デプロイの承認は毎回押すものではなく、ファイルに 1 回書くもの</summary>
+
+デプロイのたびに人の承認を取っていました。二段階あって、`template/.claude/settings.json` の
+`ask` に `Bash(mvn * deploy*)` があるので**コマンドのたびに**プロンプトが出て、さらに
+`mule-deploy` のゲート 2 が「人が**この会話で**明示的に指示すること」を求めるので**会話のたびに**
+言い直しが要りました。許可はもともと `context/deployment/authorizations.yaml` に書いてあるのに、
+同じことを二度確かめていたわけです。判定者を人から機械に移すのがこのリポジトリの作り方なのに、
+デプロイだけ人の Enter に頼っていたのは筋が通っていませんでした。
+
+`scripts/deploy-guard.sh` を PreToolUse hook として追加しました。`mvn ... deploy` /
+`-DmuleDeploy` / `anypoint-cli ... deploy` を捕まえ、`authorizations.yaml` の
+`deploy.sandbox` が `allowed` で、環境名が Production 系でなければ **allow を返して
+プロンプトを出しません**。環境名は `sandbox.yaml` だけでなく **`pom.xml` の `<environment>`**
+も見ます。実際に `mvn` が使うのは pom なので、sandbox.yaml が Sandbox でも pom が Production を
+指していれば止まります。両方空のときも止めます（空を通すと本番に向く事故を検出できないため）。
+`settings.json` の `ask` から `mvn` / `anypoint-cli` の deploy を外し、判定を hook に一本化しました。
+ゲート 2 は「台帳に `stage: deploy` のゴールがあること」に置き換えています（台帳の外で作業しない、
+という既存の規律と同じもの）。`template/CLAUDE.md` の同じ記述も直しました（CLAUDE.md は毎セッション
+読まれ SKILL.md より強いので、ここが古いままだと結局聞かれ続けます）。
+
+`authorizations.yaml` は **hook 入力の `cwd` から git ルートまで遡って**探します。相対パスで開くと、
+monorepo や worktree で作業ディレクトリがプロジェクト直下でないときに見つけられず、**無言で素通り
+（＝無防備なデプロイ）** になります。v0.6.7 で実際に踏んだ相対パス解決の事故と同じ形です。
+コマンドが絶対パスへ `cd` してから走る形（`/mule-run` が実行エージェントに配る形）なら、その `cd` 先を
+起点にします。遡っても見つからなければ mule-loop のリポジトリではないので、何も言わずに通常の判定に返します。
+
+**本番の防波堤は弱くなっていません。**むしろ文章から機械に変わりました。以前の「Production 名の
+環境には決して向けない」は SKILL.md の文であって、守るかどうかは書き手の注意力に依存していました。
+今は hook が deny を返し、コマンド自体が実行されません。
+
+捕まえる形は `mvn clean deploy` だけでなく `mvn mule:deploy` / `mvn deploy:deploy` も含みます
+（`:` の後ろでも deploy と読む）。Production 系の判定には `prd` も入れました（Anypoint でよく使う略記で、
+`prod` に含まれません）。
+
+**end-to-end で実測しました。** `--permission-mode default` の実セッションで、許可リストに無い
+`touch` を含むコマンドが `allowed` のときは**プロンプト無しで実行され**、`denied` のときは
+**hook の deny で実行されず理由が返る**ことを確認しています。スクリプト単体は 17 ケース
+（denied のまま / 非デプロイコマンドの素通り / `deploy:` と `policy:` の同名キーの取り違え /
+Production 名 / `PRD` / pom だけ Production / 環境名が空 / `mvn mule:deploy` / anypoint-cli /
+`cd` 前置き / 深い階層からの遡り / mule-loop 以外のリポジトリでは介入しない、など）。
+</details>
 
 <details>
 <summary><b>v0.6.7</b> — worktree は origin/main から切られるので、ローカルのものは実行エージェントに届かない</summary>

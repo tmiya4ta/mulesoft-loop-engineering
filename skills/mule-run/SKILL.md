@@ -108,7 +108,7 @@ argument-hint: "[T-NNN だけ実行] [--parallel N (既定は予算が許す最�
 5. `approve` ならコミットし、`gh pr create` で PR を作る。**マージは人 (ゲート 2)。**
 
 ## デプロイ
-このループではデプロイしない。マージ後に `/mule-deploy` が担う (ゲートは `context/deployment/authorizations.yaml` の `deploy.sandbox: allowed` と、人がこの会話で明示的に指示すること。`production` は常に人が手で行う)。
+このループではデプロイしない。マージ後に `/mule-deploy` が担う (ゲートは `context/deployment/authorizations.yaml` の `deploy.sandbox: allowed` と、台帳に `stage: deploy` のゴールがあること。会話での言い直しは要らず、実際の可否は `deploy-guard.sh` が hook で判定する。`production` は常に人が手で行う)。
 
 ## 禁止
 - テストや samples の期待値を変えて通すこと。
@@ -131,7 +131,7 @@ argument-hint: "[T-NNN だけ実行] [--parallel N (既定は予算が許す最�
 | blocked | `attempts` が 3 に達した (試行ログ全体を添えて報告) |
 | 予算超過 | `budget-check.sh` が exit 1 |
 | 土台の破損 | `preflight.sh` が exit 0 でない (配る前の共通検査。出力の原文を添えて報告) |
-| 段の許可 | `deploy` / `policy` 段で `authorizations.yaml` が denied、または人の明示指示がまだ無い |
+| 段の許可 | `deploy` / `policy` 段で `authorizations.yaml` が denied (deploy 段はこの判定を `deploy-guard.sh` が hook で行う。deny の理由をそのまま人に伝えて止まる) |
 
 ゲート 1 (受け入れ条件の承認) は `/mule-start`、ゲート 4 (昇格 PR) は `/mule-learn` の担当で、
 このループには来ない。**上の 5 つ以外では止まらない。** 判断が要る場面でも、`done_when` が

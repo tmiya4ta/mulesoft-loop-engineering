@@ -78,7 +78,7 @@ approval time.
 | **0** | At the start, `/mule-start` asks for the blanks in `context/decisions.yaml` — **all at once, one time**. Fill it in beforehand and you are not asked at all. After this, no questions until approval |
 | **1** | "Yes" to the plain-language behaviour `/mule-start` reads back to you |
 | **2** | Merging the PR |
-| **3** | Production deployment (Sandbox is handled by `/mule-deploy` given `authorizations.yaml` and an explicit instruction) |
+| **3** | Production deployment (Sandbox is handled by `/mule-deploy` without asking, given `allowed` in `authorizations.yaml`; `deploy-guard.sh` decides in a hook) |
 | **4** | Merging the promotion PR from `/mule-learn` |
 
 ---
@@ -130,7 +130,8 @@ skills/
 agents/
   mule-executor.md  Drives one goal until done_when passes (worktree-isolated)
   mule-reviewer.md  Read-only review
-hooks/hooks.json  On every edit: scripts/quick-check.sh (seconds-long validation)
+hooks/hooks.json  Before a deploy: scripts/deploy-guard.sh (reads authorizations.yaml, answers allow/deny)
+                  On every edit: scripts/quick-check.sh (seconds-long validation)
                   Every turn:    scripts/loop-reminder.sh (re-inject the discipline)
                   End of reply:  scripts/stop-guard.sh (bounce once if not closed in 3 blocks)
 knowledge/mule-basics.md  Mule basics distilled from two loops and the user's skill; executors read it before writing
@@ -182,6 +183,50 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.8</b> — Deploy permission is written once in a file, not pressed every time</summary>
+
+Every deploy asked a human twice. `template/.claude/settings.json` had `Bash(mvn * deploy*)`
+under `ask`, so **every command** raised a prompt, and `mule-deploy`'s gate 2 demanded an
+explicit instruction **in that conversation**, so every conversation needed it restated.
+The permission was already written in `context/deployment/authorizations.yaml`; the two
+prompts were confirming the same thing twice. Moving the judge from a human to a machine is
+how the rest of this repo works, so leaving deploy on a human's Enter key was inconsistent.
+
+`scripts/deploy-guard.sh` is now a PreToolUse hook. It catches `mvn ... deploy` /
+`-DmuleDeploy` / `anypoint-cli ... deploy` and returns **allow with no prompt** when
+`deploy.sandbox` is `allowed` and the environment name is not production-ish. It reads the
+environment from `pom.xml`'s `<environment>` as well as `sandbox.yaml` — the pom is what
+`mvn` actually uses, so a sandbox.yaml saying Sandbox does not save you if the pom points at
+Production. Both empty is also a deny (an unverifiable target cannot be waved through).
+The `mvn` / `anypoint-cli` deploy entries are gone from `ask`; the hook is the only decider.
+Gate 2 became "a `stage: deploy` goal exists in the ledger" — the same never-work-outside-the-
+ledger rule that already governs everything else. `template/CLAUDE.md` carried the old wording
+too and was fixed; CLAUDE.md is loaded every session and outranks SKILL.md, so leaving it stale
+would have kept the asking alive.
+
+`authorizations.yaml` is located by walking up from the hook input's `cwd` to the git root.
+Opening it by relative path would miss it whenever the working directory is not the project
+root — monorepos, worktrees — and a miss is a **silent fall-through, i.e. an unguarded deploy**.
+That is the same relative-path resolution accident v0.6.7 documents. If the command `cd`s to an
+absolute path first (the shape `/mule-run` dispatches), that target is the starting point.
+Nothing found by the git root means this is not a mule-loop repo, and the guard stays silent.
+
+**The production guard got stronger, not weaker.** "Never point this at an environment named
+Production" used to be a sentence in SKILL.md, enforced by the writer's attention. It is now a
+hook returning deny, and the command does not run.
+
+It catches `mvn mule:deploy` and `mvn deploy:deploy` as well as `mvn clean deploy`, and the
+production test includes `prd` — a common Anypoint abbreviation that does not contain `prod`.
+
+**Verified end-to-end.** In a real `--permission-mode default` session, a command containing a
+`touch` that no allowlist covers ran **with no prompt** when `allowed`, and was **blocked with the
+hook's reason** when `denied`. The script itself is covered by 17 cases (still-denied, non-deploy
+commands passing through, the `deploy:` vs `policy:` same-key mix-up, a Production name, `PRD`, a
+pom-only Production, an empty environment, `mvn mule:deploy`, anypoint-cli, a `cd` prefix, a deep
+subdirectory walking up, and staying out of non-mule-loop repos).
+</details>
 
 <details>
 <summary><b>v0.6.7</b> — A worktree is cut from origin/main, so nothing local reaches the executor</summary>

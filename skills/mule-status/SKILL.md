@@ -71,7 +71,7 @@ Sandbox へのデプロイと疎通確認 (/mule-deploy、authorizations.yaml �
 
 マージ後に呼ばれたら、次はこの順で聞く。
 
-1. `context/deployment/authorizations.yaml` の `deploy.sandbox` が `allowed` なら「`/mule-deploy` で Sandbox に置いて samples で疎通確認しますか」。`denied` なら「Sandbox で確かめたい場合は authorizations.yaml の deploy.sandbox を allowed にしてください」と 1 行だけ添える
+1. `context/deployment/authorizations.yaml` の `deploy.sandbox` が `allowed` なら「`/mule-deploy` で Sandbox に置いて samples で疎通確認しますか」(許可はファイルで済んでいるので、これは順番の確認であって許可の確認ではない。選ばれたらデプロイのたびに聞き直さない)。`denied` なら「Sandbox で確かめたい場合は authorizations.yaml の deploy.sandbox を allowed にしてください」と 1 行だけ添える
 2. `knowledge/failures.jsonl` に 2 回以上の指紋があれば「`/mule-learn` で改善しますか」
 3. どちらも無ければ「次に作る API はありますか」
 
