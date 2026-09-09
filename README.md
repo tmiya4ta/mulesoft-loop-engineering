@@ -12,7 +12,7 @@ MuleSoft to start** — `/mule-start` asks what it needs to know.
 Implementation is TDD throughout (Red → Green → Refactor). The reasoning behind the design is
 in [docs/methodology.md](docs/methodology.md).
 
-> **v0.6.4** — see [Release notes](#release-notes).
+> **v0.6.5** — see [Release notes](#release-notes).
 
 ---
 
@@ -182,6 +182,27 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.5</b> — Why the learning loop never noticed the bug v0.6.4 fixed</summary>
+
+The worktree defect had been recorded twice and still went unpromoted, so this release fixes the pipeline
+rather than another fact. Four things were wrong. The vocabulary had no escape hatch, so the orchestrator
+invented `uncategorized` — 13 times in finance-api — and an invented value aggregates as its own bucket
+forever; `other` is now a defined category whose presence explicitly means the vocabulary is short. Step 1
+counted by the `(category, symptom)` string pair, so one cause written two ways scored 1 and 1 instead of
+2 — exactly what happened to the worktree entries ("the goal file wasn't there" / "the dependency's output
+wasn't there") — so counting is now by cause. Nothing ever revisited old entries after the vocabulary grew,
+which is why entries predating `loop-ops` stayed stranded; a new step 0 re-triages `other` on every run,
+regardless of count, and mandates a re-read whenever the vocabulary is extended. And all three promotion
+targets (`quick-check.sh`, `CLAUDE.md`, `mule-reviewer`) are repo-local, leaving `loop-ops` findings with
+nowhere to go — that row now points at a PR against the plugin's own `skills/`/`hooks/`/`scripts/`, and
+says a `gotchas.md` append does not fix a defect in a procedure.
+
+The vocabulary lives in one file, but the agents that *write* the field are in others, so `mule-run` and
+`mule-deploy` now state the fallback inline — that's the edit that actually reaches the writer.
+
+</details>
 
 <details>
 <summary><b>v0.6.4</b> — Executors were being dispatched into worktrees that lacked their own goal file</summary>

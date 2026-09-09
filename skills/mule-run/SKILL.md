@@ -52,6 +52,9 @@ argument-hint: "[T-NNN だけ実行] [--parallel N (既定は予算が許す最�
    - 成功 → `status: passed`、`evidence:` にコマンドと日時、`## TDD の証拠` に red / green。`bash scripts/run-log.sh done <id> passed <秒数>`。**報告の `learned` があれば 1 件ずつ `knowledge/failures.jsonl` に追記する** (成功でも)。`knowledge` に書かれた K ファイルが diff に含まれていることを確認し、無ければ failed にはしないが試行ログに「学びの記録なし」と書く。
    - 失敗 → `attempts` +1、`status: failed`、**`## 試行ログ` に 1 件追記する**。追記には実行したコマンド、exit、`error_verbatim` を **原文のまま** (要約も切り詰めもしない)、試したこと、仮説を含める。`run-log.sh done <id> failed <秒数>`。
    - 同時に `knowledge/failures.jsonl` に 1 行追記する (学習ループの元データ)。形式は `/mule-learn` を参照。
+     **`category` は `/mule-learn` の固定語彙から選ぶ。当てはまるものが無ければ `other`。自分で言葉を作らない。**
+     自作の値は集計で別物になり、数えられず昇格もされない (`uncategorized` が 13 件溜まった実例がある)。
+     ループ自体の運用でつまずいたとき (worktree、配布、K ファイルの衝突、hook の誤検知) は `loop-ops`。
 5. `attempts` が 3 に達したら `status: blocked` にし、**試行ログ全体を添えて** 人に報告して止まる。原因が仕様の曖昧さなら `/mule-start` に戻ることを勧める。
 6. 取り出せるゴールが無くなるまで 1 に戻る。
 

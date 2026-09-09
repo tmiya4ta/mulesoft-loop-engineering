@@ -42,7 +42,7 @@ MCP の `deploy_mule_application` は使わない。経路は下の `mvn clean d
 4. **待つ。** `anypoint-cli-v4 runtime-mgr application describe <app> --environment <env> -o json` の `status` が `RUNNING`/`APPLIED` になるまで 30 秒間隔で最大 10 分。`FAILED` ならログを `runtime-mgr application logs` で取り、手順 6 へ。
 5. **疎通を確かめる。** `bash scripts/smoke-check.sh <base-url>`。samples の全ケースを配置先に投げて out.json と比較する。要求が `POST /<resource>` でないケースには `<case>.req.json` (method / path / headers) を隣に置く。samples の期待値は変えない。結果は `knowledge/deploy-log.jsonl` に 1 ケース 1 行。
    - ここで **MUnit は通るのに配置先では違う** ものが本命の収穫。mock で隠れていた接続先、properties の差、`api.autodiscovery`、TLS など。
-6. **失敗を学習ループに戻す。** 落ちた原因が分かった (直った) 瞬間に `knowledge/failures.jsonl` に 1 行。category は `/mule-learn` の固定語彙から `deploy-config` / `deploy-runtime` / `deploy-connectivity` を使う。`scope` はこのリポジトリの環境固有なら `repo`、CH2 / RTF なら誰でも踏むものなら `generic`。
+6. **失敗を学習ループに戻す。** 落ちた原因が分かった (直った) 瞬間に `knowledge/failures.jsonl` に 1 行。category は `/mule-learn` の固定語彙から `deploy-config` / `deploy-runtime` / `deploy-connectivity` を使う。この 3 つに当てはまらなければ語彙の他の値を見て、それでも無ければ `other`。**自分で言葉を作らない** (自作の値は数えられず昇格もされない)。`scope` はこのリポジトリの環境固有なら `repo`、CH2 / RTF なら誰でも踏むものなら `generic`。
 7. **締める。** 必ず「現在地 / 次にすること / そのあと」の 3 ブロック。次にすることは 1 つ。
    - 全ケース match → 「次に作る API はありますか」か、`failures.jsonl` に 2 回以上の指紋があれば `/mule-learn`。
    - mismatch がある → 原因の仮説を 1 行で示し、`/mule-start` で仕様に戻るか、人が環境 (properties / 接続先) を直すかを番号で聞く。
