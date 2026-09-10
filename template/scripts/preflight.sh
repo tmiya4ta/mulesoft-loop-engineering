@@ -14,6 +14,23 @@ set -u
 
 [ -f pom.xml ] || { echo "preflight: pom.xml が無い (/mule-init が済んでいない)" >&2; exit 2; }
 
+# **git であることを最初に確かめる。** このループの仕掛けの多くは git が無いと
+# エラーも警告も出さずに no-op になる。実測 (2026-09-10): inventory2-api は 6 ゴールを回して
+# knowledge/ と tasks/ が揃っているのに git リポジトリではなく、下の 4 つが全部黙って効いていなかった。
+# **黙って効かない検査は、無い検査より悪い** (効いていると思って進むため)。
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  {
+    echo "preflight: ここは git リポジトリではない。この波は 1 件も配らない。"
+    echo "git が無いと、次の 4 つが**エラーも出さずに何もしなくなる**:"
+    echo "  - 実行エージェントの worktree 隔離 (並列ゴールが同じ木を踏み合う)"
+    echo "  - wave-guard.sh の追記型ファイルの分担 (git が無いと素通りする設計)"
+    echo "  - 「K ファイルが diff に含まれているか」の確認 (diff が取れない)"
+    echo "  - /mule-learn --share の PR (昇格が共有されない)"
+    echo "直し方: git init && git add -A && git commit -m 'initial'"
+  } >&2
+  exit 2
+fi
+
 cmd="mvn -q clean package -DskipTests"
 out=$($cmd 2>&1); rc=$?
 if [ "$rc" -ne 0 ]; then

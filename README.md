@@ -192,6 +192,30 @@ export ANYPOINT_REGION=PROD_JP
 ## Release notes
 
 <details>
+<summary><b>v0.6.18</b> — Without git, four mechanisms silently become no-ops. Stop the wave in preflight</summary>
+
+While redistributing the scripts to existing projects, **`inventory2-api` turned out not to be a git
+repository**. It has `knowledge/`, it has `tasks/`, it has six goals of history. And yet:
+
+- executor **worktree isolation** — cannot be created, so parallel goals share one tree
+- **`wave-guard.sh`'s file-ownership split** — designed to pass through when git is absent (so it never
+  misfires inside a worktree)
+- the **"is a K file in the diff" check** — no diff, no answer
+- **`/mule-learn --share` PRs** — promotions never get shared
+
+All four were doing **nothing, with no error and no warning**. That is the opposite of everything else
+here: `deploy-guard` returns a deny, `wave-guard` returns a deny, `coverage-check` returns exit 1.
+**A check that silently does nothing is worse than no check** — you proceed believing it held.
+
+`scripts/preflight.sh` now verifies git first and **exits 2, dispatching nothing**, if it is absent (the
+same treatment as a missing `pom.xml`). The failure names all four mechanisms and prints the one-line
+`git init` remedy, so nobody has to guess why the wave stopped.
+
+Teeth verified: exit 2 in a non-git directory; after `git init` it proceeds to the next check (mvn package).
+
+</details>
+
+<details>
 <summary><b>v0.6.17</b> — Stop hand-holding the numbers in the index (v0.6.15 broke them exactly as its own note warned)</summary>
 
 The v0.6.15 index tables carried line counts, written **before** the per-file headers were compressed by
