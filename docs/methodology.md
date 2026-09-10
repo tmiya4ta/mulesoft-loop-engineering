@@ -87,22 +87,26 @@ deploy の done_when は `smoke-check.sh`、policy の done_when は `policy-che
 | 4 | 書き込みの前 (hook) | `secret-guard.sh` | その書き込みを **deny** | 秘密の**値そのもの**が入っていたら deny (値は出力しない) |
 | 5 | 書き込みの前 (hook) | `wave-guard.sh` | その書き込みを **deny** | 波で他ゴールに宣言した追記型ファイルなら deny |
 | 6 | 書き込みのたび (hook) | `quick-check.sh` → `mule-xml-shape.sh` | その場で差し戻す | 0 = ok / 2 = 構文、層の越境、`done_when` 欠け、XSD で落ちる形 |
-| 7 | Bash の前 (hook) | `deploy-guard.sh` | そのコマンドを **deny** | `authorizations.yaml` と `sandbox.yaml` で allow/deny。本番名は常に deny |
+| 7 | Bash の前 (hook) | `deploy-guard.sh` | そのコマンドを **deny** | `authorizations.yaml` と `sandbox.yaml` で allow/deny。本番名は常に deny。**許可があっても target/ の jar が漏れていれば deny** (16 の呼び忘れの保険) |
+| 7b | Bash の前 (hook、プラグイン本体のみ) | `promote-guard.sh` | `gh pr create` を **deny** | 19 と 20 が通っていなければ PR を開かせない |
 | 8 | ゴール 1 件の中 | `mvn test -Dmunit.test=<file>` (段 2) | Green にならない | red → green を同じコマンドで示す |
 | 9 | ゴール 1 件の中 | `coverage-check.sh` | 取り込まない | 0 = 追加した全 flow が MUnit から `flow-ref` されている |
 | 10 | ゴール 1 件の中 | `teeth-check.sh` | 牙が無いテストを残さない | 0 = 牙あり / 2 = 細工が当たらない、落ちない、別の case が落ちた |
 | 11 | ゴール 1 件の中 | `done_when` | `passed` にしない | 0 = 達成 |
 | 12 | 取り込み | `mvn -q clean test` 全体 (段 3) | 取り込まない | 全スイート緑 |
 | 13 | 取り込み | `mule-reviewer` → `spec-check.sh` | 指摘を台帳に戻す | 読み取りだけ。RAML の必須項目の未参照は**警告** (通過型では正常) |
-| 14 | 止まる前 | `goal-state.sh` | — | 0 = 全て passed / 1 = **まだ進められる** / 2 = 進められるものが無く未完了 (**人の判断待ち**) |
+| 14 | 止まる前 (**hook**) | `stop-guard.sh` → `goal-state.sh` | **止まらせない** | 0 = 全て passed / 1 = **まだ進められる → 差し戻す** / 2 = 人の判断待ち → **通す (待つのを邪魔しない)** |
 | 15 | 配る前 | `deploy-config.sh` → `bump-version.sh` | 置かない | pom に設定と `businessGroupId`、版を上げる |
-| 16 | 配る前 | `jar-leak-check.sh` | **置かない** | 0 = ok / 2 = git が無視しているファイルが jar に入っている |
+| 16 | **`mvn clean package` の後、`mvn deploy` の前** | `jar-leak-check.sh` | **publish しない** | 0 = ok / 2 = git が無視しているファイルが jar に入っている。**publish 後では取り返せない** |
 | 17 | 置いたあと | `smoke-check.sh` (段 4) | 完了にしない | 0 = 全ケースで status と body が一致 |
 | 18 | ポリシー適用後 | `policy-check.sh` | 効いたと言わない | 認証なし 401 / あり 2xx |
 | 19 | 昇格の PR の前 (プラグイン側) | `knowledge-index-check.sh` | PR を開かない | 0 = 索引と実体が一致 (件数まで) |
 | 20 | 昇格の PR の前 (プラグイン側) | `fixtures-check.sh` | 昇格したと言わない | 0 = 弾くべきものを弾き、**正しい形を弾かない** |
 
-**4、5、7 は hook で、エージェントが忘れても走ります。** それ以外は手順書が呼びます。
+**4、5、7、7b、14 は hook で、エージェントが忘れても走ります。** それ以外は手順書が呼びます。
+**「呼び忘れても気付けない」ものを hook に寄せる**のが方針で、寄せた順に 14 (止まる判断)、
+7b (昇格の PR)、7 の jar 検査 (配る直前) を移しました。16 のように**位置が後ろだと防げない**
+検査もあるので、表には「いつ」を必ず書きます (v0.6.27 は 16 を publish の後ろに置いていました)。
 **14 は「止まってよいか」を答える唯一の検査です** — `/goal` の条件は「ぜんぶ pass」ではなく
 「`goal-state.sh` が exit 0 か exit 2」と書きます (前者だけだと、人の許可待ちで正当に止まっている
 ときも未達と読まれ、同じ報告を繰り返しても再発火します)。

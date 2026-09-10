@@ -133,11 +133,13 @@ agents/
   mule-reviewer.md  Read-only review
 hooks/hooks.json  Before a deploy: scripts/deploy-guard.sh (reads authorizations.yaml, answers allow/deny)
                   Before a write:  scripts/secret-guard.sh (denies a secret's own value entering a file)
+                  Before a PR:     scripts/promote-guard.sh (denies gh pr create until the index and fixtures pass)
                   Before an edit:  scripts/wave-guard.sh (keeps the dispatcher off files it assigned to a goal)
                   On every edit: scripts/quick-check.sh (seconds-long validation)
                               └ scripts/mule-xml-shape.sh (shapes that fail XSD; ledger fingerprints only)
                   Every turn:    scripts/loop-reminder.sh (re-inject the discipline)
-                  End of reply:  scripts/stop-guard.sh (bounce once if not closed in 3 blocks)
+                  End of reply:  scripts/stop-guard.sh (bounce once if not closed in 3 blocks,
+                                 or if a goal can still advance per goal-state.sh)
 knowledge/fixtures/  Minimal inputs proving each hook actually denies (bash scripts/fixtures-check.sh)
 knowledge/mule-basics.md  Index over basics/; executors read the index, then the one topic they touch
 knowledge/basics/*.md  Mule basics distilled from two loops and the user's skill, one file per topic (10)
@@ -197,6 +199,55 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.29</b> — Move the "forgettable" checks into hooks. One of them was placed too late to prevent anything</summary>
+
+Ordering the 20 checks in v0.6.28 made one thing visible at a glance: **only 3 were hooks; the other 17
+are invoked by the procedure docs** — and a procedure-invoked check that is forgotten is a check nobody
+misses. Sorted by what happens when it *is* forgotten, three moved into hooks.
+
+**First, the ordering exposed one of my own errors.** v0.6.27 placed `jar-leak-check.sh` **after** the
+publish. Checking a jar that ignores `.gitignore` *after* it reaches Exchange **cannot undo anything** —
+at that point the whole org can read it.
+
+```
+v0.6.27:  mvn clean deploy → mvn deploy -DmuleDeploy → jar-leak-check   ← too late
+v0.6.29:  mvn clean package → jar-leak-check → mvn deploy → mvn deploy -DmuleDeploy
+```
+
+**A check placed too late prevents nothing.** So the ordered table now always states *when*, and row 16
+reads "after `mvn clean package`, before `mvn deploy`".
+
+**The three that moved:**
+
+**14 → `stop-guard.sh` now calls `goal-state.sh`.** Whether a goal can still advance is machine-decidable,
+yet it was a procedure-invoked check. **The moment before stopping is the only place a hook can act**, so
+it acts there. It bounces only on exit 1 (can advance) and **passes exit 2 (waiting on a human) and exit 0
+(done)** — so it never obstructs correct waiting. Measured three ways: a todo → bounce; all passed → pass;
+`status: blocked` → pass.
+
+**7b → `promote-guard.sh` (new).** In the plugin repo, `gh pr create` requires
+`knowledge-index-check.sh` and `fixtures-check.sh` to pass. Forgetting them is nasty: a drifted index
+makes readers conclude "no row matches" and never open the file, so **the item is read by nobody**
+(v0.6.15 got 19 numbers wrong; PR #2 left a count at 11). A toothless hook passes everything while looking
+like a guard. **Both only bite after a merge**, so opening the PR is the last gate. Measured four ways:
+passing → silent; drifted index → deny with the raw output; a non-`gh pr create` command → ignored;
+**a user project without the check scripts → does nothing**.
+
+**7 → `deploy-guard.sh` also inspects the jar.** If step 16 is skipped but `target/` holds a leaking jar,
+the deploy command is denied. With no jar it says nothing (one is about to be built). Measured two ways:
+leak → deny, naming the file; removed and rebuilt → allow.
+
+**What did not move**, for the record: forcing `preflight` / `budget-check` from a PreToolUse hook on the
+`Agent` tool was **rejected** — `Agent` serves more than executors, and **the false positives would cost
+more than the forgetting**. Rows 8–12 (checks inside a single goal) have no tool boundary to hook, so the
+procedure and `mule-tdd`'s evidence block carry those.
+
+`mule-status`'s "what to do next" table now keys off `goal-state.sh`'s exit code too — counting states by
+eye gets it wrong every time, because `blocked` carries two meanings.
+
+</details>
 
 <details>
 <summary><b>v0.6.28</b> — A machine answers "is it OK to stop", and the 20 checks are ordered</summary>

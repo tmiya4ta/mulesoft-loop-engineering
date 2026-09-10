@@ -131,11 +131,13 @@ agents/
   mule-reviewer.md  読み取り専用レビュー
 hooks/hooks.json  デプロイの前: scripts/deploy-guard.sh（authorizations.yaml を読んで allow/deny）
                   書き込みの前: scripts/secret-guard.sh（秘密の値そのものがファイルに入るのを弾く）
+                  PR の前:     scripts/promote-guard.sh（索引と fixtures が通っていなければ gh pr create を弾く）
                   編集の前:   scripts/wave-guard.sh（波で他ゴールに宣言したファイルを進捗エージェントに触らせない）
                   編集のたび: scripts/quick-check.sh（数秒の検証）
                               └ scripts/mule-xml-shape.sh（XSD で落ちる形。台帳の指紋だけ）
                   毎ターン:   scripts/loop-reminder.sh（規律の注入）
-                  応答の最後: scripts/stop-guard.sh（3 ブロックで締めていなければ 1 回差し戻す）
+                  応答の最後: scripts/stop-guard.sh（3 ブロックで締めていない、または
+                              まだ進められるゴールがある(goal-state.sh)なら 1 回差し戻す）
 knowledge/fixtures/  hook が本当に弾くかを確かめる最小の入力（bash scripts/fixtures-check.sh）
 knowledge/mule-basics.md  索引。実行エージェントは索引を読み、これから触る主題だけを開く
 knowledge/basics/*.md  Mule の基礎知識（主題別 10 ファイル、1 項目 1 事実）
@@ -192,6 +194,55 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.29</b> — 「呼び忘れても気付けない」検査を hook に寄せる。1 つは位置が後ろで何も防いでいなかった</summary>
+
+v0.6.28 で検査 20 件を走る順に並べたら、**hook は 3 つだけで残り 17 件は手順書が呼ぶ**ことが
+一覧で見えました。手順書が呼ぶものは**呼び忘れても誰も気付きません**。忘れたときに何が起きるかで
+仕分けて、3 つを hook に寄せました。
+
+**まず、並べたことで自分の誤りが 1 つ見えました。** v0.6.27 で入れた `jar-leak-check.sh` を
+**publish のあと**に書いていました。`.gitignore` を見ない jar が Exchange に上がった後に検査しても、
+**取り返せません** (その時点で組織の全員から見えます)。
+
+```
+v0.6.27:  mvn clean deploy → mvn deploy -DmuleDeploy → jar-leak-check   ← 手遅れ
+v0.6.29:  mvn clean package → jar-leak-check → mvn deploy → mvn deploy -DmuleDeploy
+```
+
+**検査があっても、位置が後ろなら何も防ぎません。** だから並びの表には「いつ」を必ず書くことにし、
+16 の行は「`mvn clean package` の後、`mvn deploy` の前」と位置で書きました。
+
+**hook に寄せた 3 つ:**
+
+**14 → `stop-guard.sh` が `goal-state.sh` を呼ぶ。** 「進められるゴールがあるか」は機械が判定できる
+のに、手順書が呼ぶ検査でした。**止まる直前は hook が効く唯一の場所**なので、そこで見ます。
+exit 1 (進められる) のときだけ差し戻し、**exit 2 (人の判断待ち) と exit 0 (完了) は通します** —
+待つのが正しい動作を邪魔しないためです。3 通り実測: todo あり → 差し戻す / 全部 passed → 通す /
+`status: blocked` → 通す。
+
+**7b → `promote-guard.sh` (新)。** プラグイン本体で `gh pr create` を打つ前に
+`knowledge-index-check.sh` と `fixtures-check.sh` を通します。忘れたときに起きることが厄介です:
+索引がずれると読む側は「合う行が無い」と判断してそのファイルを開かず、**書いた項目が誰にも
+読まれません** (v0.6.15 は 19 個ずらし、PR #2 は件数を 11 のまま残しました)。hook の牙が無いと
+弾いているつもりで素通りします。**どちらもマージ後に効いてくる**ので、PR を開く前が最後の関所です。
+4 通り実測: 通っている → 素通り / 索引をずらす → deny (理由に原文) / `gh pr create` 以外 → 見ない /
+**利用者のプロジェクト (検査スクリプトが無い) → 何もしない**。
+
+**7 → `deploy-guard.sh` が jar の混入も見る。** 手順書の 16 を呼び忘れても、
+`target/` に jar があって漏れていれば deploy コマンドを deny します。jar が無ければ何も言いません
+(これから作るので)。2 通り実測: 混入あり → deny (どのファイルかを名指し) / 消して作り直す → allow。
+
+**寄せなかったもの**も書いておきます。`Agent` ツールの PreToolUse で `preflight` / `budget-check` を
+強制する案は**採りませんでした**。`Agent` は実行エージェント以外にも使われるので、
+**関係ない呼び出しを止める誤検知の方が高くつきます。** 8〜12 (ゴール 1 件の中の検査) も、
+ツールの境界が無いので hook にできません。そこは手順書と `mule-tdd` の証拠ブロックが受け持ちます。
+
+`mule-status` の「次の一手を決める表」も `goal-state.sh` の exit で引くようにしました
+(状態を目で数えると、`blocked` が 2 つの意味を兼ねているので必ず取り違えます)。
+
+</details>
 
 <details>
 <summary><b>v0.6.28</b> — 「止まってよいか」を機械が答える。検査 20 件を走る順に並べ直す</summary>

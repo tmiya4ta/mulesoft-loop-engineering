@@ -50,11 +50,17 @@ MCP の `deploy_mule_application` は使わない。経路は下の `mvn clean d
 2. **pom にデプロイ設定を入れる。** `bash scripts/deploy-config.sh`。sandbox.yaml から `cloudhub2Deployment` か `runtimeFabricDeployment` と Exchange の `distributionManagement` を入れる。認証は `${env.*}` 参照なので秘密は pom に残らない。
    - `groupId` が組織 ID (UUID) でないと止まる。CH2 / RTF は Exchange 経由でしか置けず、Exchange のアセットは組織 ID を groupId にする決まり。`dx mule project create --group-id <組織 ID>` で作っていれば通る。
    - `~/.m2/settings.xml` に `<server><id>anypoint-exchange-v3</id>` (Connected App の `~~~Client~~~` / `<id>~~~Secret~~~` 形式) が無いと `mvn deploy` が 401 になる。docs/mulesoft-tools.md を案内する。
-3. **置く。** 先に `bash scripts/bump-version.sh` で pom の版を上げる (Exchange は同一版を上書きできないので 2 回目から落ちる)。開始時刻を控えて、**2 段階に分けて**打つ:
+3. **置く。** 先に `bash scripts/bump-version.sh` で pom の版を上げる (Exchange は同一版を上書きできないので 2 回目から落ちる)。開始時刻を控えて、**4 つに分けて**打つ:
    ```bash
-   mvn clean deploy              # 1 段目: Exchange に publish するだけ
-   mvn deploy -DmuleDeploy       # 2 段目: publish 済みのアセットを配置する
+   mvn clean package                # 1) 作る
+   bash scripts/jar-leak-check.sh   # 2) 混入を見る。**exit 0 でなければ publish しない**
+   mvn deploy                       # 3) Exchange に publish する
+   mvn deploy -DmuleDeploy          # 4) publish 済みのアセットを配置する
    ```
+   **2 を 3 より前に置くこと。** `-DattachMuleSources` はプロジェクト全体を丸ごと jar に入れ
+   `.gitignore` を見ないので、**publish したあとに気付いても取り返せません** (Exchange に上がった
+   時点で組織の全員から見えます)。v0.6.27 はこの検査を publish の**あと**に書いていました。
+   **検査があっても、位置が後ろなら何も防ぎません。** 詳細は `knowledge/gotchas/build.md`。
    **1 コマンドにまとめない。** `mvn clean deploy -DmuleDeploy` は
    `Failed to retrieve artifact information from Exchange. Reason: 404 There is no asset matching
    given parameters.` で**必ず**落ちます。`muleDeploy` が、まだ publish されていないアセットを
@@ -65,10 +71,6 @@ MCP の `deploy_mule_application` は使わない。経路は下の `mvn clean d
    出力の末尾に配置先の URL か status が出る。RTF は Ingress の URL が sandbox.yaml の `public_url` になる。
    CH2 で `public_url` が空なら `bash scripts/ch2-public-url.sh <app> <environment>` で既定の公開 URL を付けて取る。`runtime-mgr application modify --publicEndpoints` は成功を返すが効かず、`modify` は properties を消す (`knowledge/gotchas/deploy.md`)。取れた URL を sandbox.yaml の `public_url` と deploy ゴールの `done_when` に書く。
    終わったら `bash scripts/run-log.sh deploy <kind> <environment> ok|failed <秒>` を記録する。
-3b. **jar に秘密が混入していないか見る。** `bash scripts/jar-leak-check.sh` (exit 0 が条件)。
-   `-DattachMuleSources` を付けると **プロジェクト全体がファイルシステムから丸ごと** `META-INF/mule-src/`
-   に入り、**`.gitignore` は見られません**。実測では `.gitignore` 済みの平文パスワードを持つファイルが
-   そのまま jar に入りました (inventory2-api)。**git で無視されているファイルが jar に入っていたら止めます。**
 
 4. **待つ。** `anypoint-cli-v4 runtime-mgr application describe <app> --environment <env> -o json` の `status` が `RUNNING`/`APPLIED` になるまで 30 秒間隔で最大 10 分。`FAILED` ならログを `runtime-mgr application logs` で取り、手順 6 へ。
 5. **疎通を確かめる。** `bash scripts/smoke-check.sh <base-url>`。samples の全ケースを配置先に投げて out.json と比較する。要求が `POST /<resource>` でないケースには `<case>.req.json` (method / path / headers) を隣に置く。samples の期待値は変えない。結果は `knowledge/deploy-log.jsonl` に 1 ケース 1 行。

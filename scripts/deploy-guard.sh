@@ -75,4 +75,20 @@ done
 "デプロイ先の環境名が context/deployment/sandbox.yaml にも pom.xml にも無く、Sandbox かどうか確かめられません。
 sandbox.yaml の environment を書いてから流してください (空のまま通すと本番に向く事故が止められません)。"
 
+# 許可はある。最後に **jar に秘密が混入していないか**見る。
+# `-DattachMuleSources` はプロジェクト全体を丸ごと jar に入れ `.gitignore` を見ないので、
+# **publish したあとに気付いても取り返せない** (Exchange に上がった時点で組織の全員から見える)。
+# 手順書は `mvn clean package` の直後に `jar-leak-check.sh` を呼ぶが、**呼び忘れても
+# 気付けない**ので、jar が既にあるならここでも見る。無ければ何も言わない (これから作るので)。
+if [ -f "$root/scripts/jar-leak-check.sh" ] && ls "$root"/target/*.jar >/dev/null 2>&1; then
+  leak=$(cd "$root" && bash scripts/jar-leak-check.sh 2>&1); lrc=$?
+  [ "$lrc" -eq 2 ] && say deny \
+"target/ にある jar に **git が無視しているファイル** が入っています。publish すると Exchange に上がり、組織の全員から見えます。
+
+$leak
+
+秘密を持つファイルはプロジェクトの外 (例: ~/<app>-credential、パーミッション 600) に置き、jar を削除して作り直してください。
+**.gitignore は jar には効きません** (-DattachMuleSources はファイルシステムを丸ごと入れる)。"
+fi
+
 say allow "deploy.sandbox: allowed / 環境「${env_pom:-$env_sb}」。$auth の許可で通しました。"

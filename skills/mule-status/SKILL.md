@@ -42,8 +42,9 @@ description: 今どこにいて次に何をすればよいかを示す。迷っ�
 |---|---|
 | `context/sources.yaml` の requirements が空 | 資料を `context/requirements/` に置くか URL を伝える。置き場所のパスを具体的に示す |
 | 台帳が無い | `/mule-start <作りたいこと>` |
-| todo / failed のゴールがある | `/mule-run` |
-| blocked のゴールがある | 試行ログの要点を 3 行で示し、`/mule-start` で仕様に戻るか、人が手で直すかを聞く |
+| `goal-state.sh` が **exit 1** (進められるゴールがある) | `/mule-run`。**止まる理由を説明できないなら続ける** |
+| `goal-state.sh` が **exit 2** (進められるものが無く未完了) | 出力の「止まっている」の行をそのまま示す。理由が `authorizations.yaml` の許可欠けなら**人が書く**もので、こちらから書き換えない。`attempts` 3 回や `status: blocked` なら試行ログの要点を 3 行で示し、`/mule-start` で仕様に戻るか人が手で直すかを聞く |
+| `goal-state.sh` が **exit 0** (全て passed) | 下の PR / デプロイの行へ |
 | 予算超過 | 残りのゴールを示し、`budget.yaml` を上げるか、ここで打ち切るかを聞く |
 | 全 passed、PR 未作成 | `gh pr create` (コマンドをそのまま出す) |
 | **PR 作成済み** | 下の「PR の後」へ |
