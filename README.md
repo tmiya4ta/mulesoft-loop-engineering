@@ -146,7 +146,8 @@ template/         What /mule-init distributes:
   scripts/        done.sh, add-munit.sh, budget-check.sh, coverage-check.sh, preflight.sh,
                   munit-coverage-mode.sh, run-log.sh, metrics.sh, cost-report.sh,
                   schema-index.sh (~/.m2 の jar からコネクタ定義と XSD を抜く),
-                  plugin-root.sh (プラグインとスキルの場所をパスに解決する)
+                  plugin-root.sh (プラグインとスキルの場所をパスに解決する),
+                  k-new.sh (K ファイルの名前を機械が決める)
 .mcp.json         MuleSoft DX MCP Server (stdio) + Platform MCP Server (http)
 docs/methodology.md
 docs/mulesoft-tools.md
@@ -186,6 +187,52 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.13</b> — Stop letting K filenames be chosen by hand (1 of the 2 open loop-ops rows)</summary>
+
+After v0.6.12's reclassification made `loop-ops` the largest cluster at 10, the breakdown showed the
+worktree base (v0.6.4/0.6.7), the initial commit (`/mule-init` 6b) and the double-logged ledger
+(v0.6.5) were already handled — **two rows were still open**.
+
+**First: the K-file number collision.** Parallel executors independently picked the same
+`K-NNN.md` and collided on integration. Putting the goal id in the name was already documented in
+some places, but **two conventions were running side by side inside the plugin**:
+
+| Where | What it said |
+|---|---|
+| `template/CLAUDE.md` (loaded every session) | `K-NNN.md` ← the colliding form |
+| `skills/mule-learn/SKILL.md` | `K-NNN.md` ← same |
+| `agents/mule-executor.md`, `skills/mule-run/SKILL.md` | `K-<goal id>-<seq>.md` |
+
+Real projects had drifted into **four** shapes (`K-001.md` / `K-009-1.md` / `K-T-001-1.md` /
+`K-T-003-1.md`), and `K-001.md` existed in both projects. **Chosen by hand, these never converge.**
+
+`scripts/k-new.sh` now decides the name:
+
+```bash
+bash scripts/k-new.sh T-003   # → knowledge/K-T-003-1.md (-2 if it exists)
+bash scripts/k-new.sh learn   # → knowledge/K-learn-1.md  (for /mule-learn promotions)
+```
+
+The goal id in the name makes collisions **structurally impossible across goals**. Five documents
+were unified onto the one convention and every `K-NNN.md` is gone. The K file's **contents had two
+shapes too** (`mule-learn` wanted promotion target and counts; `executor` wanted the evidence command
+and where you looked), so they are now one, with promotion target and counts marked as
+`/mule-learn`-only.
+
+**It prints a path and does not create the file.** An empty K file showing up in a diff would make
+`/mule-run`'s "is a K file in the diff" check report "learning recorded" — a toothless check.
+
+**The second row (the dispatcher breaking its own declared file ownership) stays a rule.**
+`/mule-run`'s forbidden list now says the progress agent must not touch an append-type file it
+assigned to a goal in the current wave, and that completion appends happen once, after every
+parallel goal is integrated. **It is not enforced mechanically.** It has happened once, and
+`/mule-learn`'s own rule is to promote only what occurs twice or more. Building machinery from a
+single incident — without even knowing which file it was — grows the plumbing, and that is itself
+how new `loop-ops` rows appear. A second occurrence will identify the file; that is when it becomes
+a hook.
+</details>
 
 <details>
 <summary><b>v0.6.12</b> — Reclassifying changed which cluster is first (recovering 13 uncategorized rows)</summary>

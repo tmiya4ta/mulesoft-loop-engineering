@@ -23,8 +23,9 @@ name: __NAME__
 - フロー生成に MCP `generate_mule_flow` や公式スキル `build-mule-integration` (`--skill` で在否を確かめる。外部スキルなので無いことがある) を使ってよい。生成物は MUnit が通るまで仮説。
 - ゴールは `tasks/T-*.md`。`done_when` の無いゴールは作らない。
 - **台帳の外で作業しない。** 実装もデプロイもポリシーも `tasks/T-*.md` のゴール (stage: impl | deploy | policy) にしてから動く。done_when が無い作業は始めない。
-- 実行エージェントは書く前にプラグインの `knowledge/mule-basics.md` と `template/reference/`、それに `reference/mule-schema/INDEX.md` (コネクタの要素名と操作名の地の情報) を読み、同じ形で書く。プラグイン内のパスは `bash scripts/plugin-root.sh <相対パス>` で解決する。困ったら gotchas → スキル (platform-assistant) → マニュアルの順で調べ、1 回でも詰まったことは `knowledge/K-<ゴール id>-<連番>.md` に残す。
-- **進捗エージェントはマニュアルを読まない。** 読むのは台帳、context/、knowledge/ だけ。足りない事実は実行エージェントに調べさせ、`knowledge/K-NNN.md` に書かせてから使う。
+- 実行エージェントは書く前にプラグインの `knowledge/mule-basics.md` と `template/reference/`、それに `reference/mule-schema/INDEX.md` (コネクタの要素名と操作名の地の情報) を読み、同じ形で書く。プラグイン内のパスは `bash scripts/plugin-root.sh <相対パス>` で解決する。困ったら gotchas → スキル (platform-assistant) → マニュアルの順で調べ、1 回でも詰まったことは K ファイルに残す。
+- **進捗エージェントはマニュアルを読まない。** 読むのは台帳、context/、knowledge/ だけ。足りない事実は実行エージェントに調べさせ、K ファイルに書かせてから使う。
+- **K ファイルの名前は手で決めない。** `bash scripts/k-new.sh <ゴール id>` が出したパスを使う (`knowledge/K-T-003-1.md` の形)。並列の実行エージェントが同じ番号を独立に選んで衝突した実例があり、名前にゴール id が入っていれば構造的に起きない。
 - 止まるときは必ず「現在地 / 次にすること / そのあと」の 3 ブロックで締め、次にすることは 1 つ。
 - 人に判断を求めるのは `context/decisions.yaml` の空欄を最初に 1 回まとめて聞くときと、受け入れ条件の承認、PR マージ、本番、昇格 PR だけ。途中で迷ったら `decisions.yaml` の `defaults` で決めて `docs/spec/<name>.md` の「仮定」に残す。
 - デプロイは `/mule-deploy` だけが行い、`context/deployment/authorizations.yaml` の `deploy.sandbox` が `allowed` で、台帳に `stage: deploy` のゴールがあるときに限る。**会話での言い直しは求めない** (許可はファイルに書いてあり、二度確かめない)。可否は `deploy-guard.sh` が hook で判定するので、deny が返ったら理由をそのまま人に伝えて止まる。回避経路を探さない。本番は人が行う。

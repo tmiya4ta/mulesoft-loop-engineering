@@ -67,7 +67,14 @@ bash scripts/plugin-root.sh --skill mule-tdd    # → SKILL.md の絶対パス�
    未実行や導入失敗で無いことが普通にあります (探し回るのが一番時間を溶かす)。
 3. 公式マニュアル。context7 (`query-docs`) か WebFetch で docs.mulesoft.com を読む。コネクタの GAV や XML の書式を推測で書かない。
 4. それでも分からなければ最小の実験をして原文のエラーを取る。
-**調べて分かったことは、その場で `knowledge/K-<ゴール id>-<連番>.md` に書きます** (例 `K-T-003-1.md`。ゴール id を入れるのは並列の実行エージェントが同じ番号を取らないため)。中身は「症状 (原文) / 原因 / 直し方 / 根拠のコマンド / どこで調べたか」。
+**調べて分かったことは、その場で K ファイルに書きます。名前は手で決めません**:
+
+```bash
+bash scripts/k-new.sh T-003      # → knowledge/K-T-003-1.md (既にあれば -2)。パスだけ出る (空ファイルは作らない)
+```
+
+ゴール id が名前に入るので、並列の実行エージェントとは構造的に衝突しません (手で番号を選んで
+衝突した実例があります)。中身は「症状 (原文) / 原因 / 直し方 / 根拠のコマンド / どこで調べたか」。
 **1 回でも詰まって時間を溶かしたものは、直ったかどうかに関わらず必ず残します。** 2 回目を待たない。昇格 (規則にするか) は `/mule-learn` が決めるので、ここでは数えずに書く。
 
 ## 規則
@@ -97,7 +104,7 @@ bash scripts/plugin-root.sh --skill mule-tdd    # → SKILL.md の絶対パス�
   - どちらも done_when (`policy-check.sh`: 認証なし 401、あり 2xx) が判定者で、API Manager の表示は証拠にしません。
 - red: 着手前に `done_when` を実行して失敗 (認証なしで 2xx) を確認します。green: 適用後に同じ `done_when` が exit 0。
 - 経路は `anypoint-cli-v4 api-mgr` と MCP `manage_api_instance_policy` / `create_and_manage_api_instances` だけ。Production 名の環境には向けません。
-- 分からない事実 (コマンドの書式、ポリシーの assetId と版、API インスタンスの id) は上の「困ったら」の順で調べ、**分かった時点で `knowledge/K-<ゴール id>-<連番>.md` に書いてから使います。** 次回の実行エージェントはそれを読むので同じ調査をしません。
+- 分からない事実 (コマンドの書式、ポリシーの assetId と版、API インスタンスの id) は上の「困ったら」の順で調べ、**分かった時点で `bash scripts/k-new.sh <ゴール id>` が出したパスに書いてから使います。** 次回の実行エージェントはそれを読むので同じ調査をしません。
 - `authorizations.yaml` の `policy.sandbox` が allowed でなければ何もせず blocked を返します。
 
 ## 禁止 (人のゲート)

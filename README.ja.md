@@ -142,7 +142,8 @@ template/         /mule-init が配るもの:
   scripts/        done.sh, add-munit.sh, budget-check.sh, coverage-check.sh, preflight.sh,
                   munit-coverage-mode.sh, run-log.sh, metrics.sh, cost-report.sh,
                   schema-index.sh (~/.m2 の jar からコネクタ定義と XSD を抜く),
-                  plugin-root.sh (プラグインとスキルの場所をパスに解決する)
+                  plugin-root.sh (プラグインとスキルの場所をパスに解決する),
+                  k-new.sh (K ファイルの名前を機械が決める)
 .mcp.json         MuleSoft DX MCP Server（stdio）+ Platform MCP Server（http）
 docs/methodology.md
 docs/mulesoft-tools.md
@@ -180,6 +181,50 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.13</b> — K ファイルの名前を手で決めさせない (loop-ops の未対応 2 件のうち 1 件)</summary>
+
+v0.6.12 の分類し直しで 1 位になった `loop-ops` 10 件を見ると、worktree の基点 (v0.6.4/0.6.7)、
+初期コミット (`/mule-init` 6b)、台帳の二重記録 (v0.6.5) は手当て済みで、**未対応は 2 件**でした。
+
+**1 件目: K ファイルの番号衝突。** 並列の実行エージェントが同じ `K-NNN.md` を独立に選び、
+取り込みで衝突した記録です。名前にゴール id を入れる対処は既に一部の文書に入っていましたが、
+**プラグインの中で 2 つの流儀が並走していました**:
+
+| 場所 | 書かれていた形 |
+|---|---|
+| `template/CLAUDE.md` (毎セッション読まれる) | `K-NNN.md` ← 衝突する形 |
+| `skills/mule-learn/SKILL.md` | `K-NNN.md` ← 同じ |
+| `agents/mule-executor.md`、`skills/mule-run/SKILL.md` | `K-<ゴール id>-<連番>.md` |
+
+実際のプロジェクトでは **4 通りに散っていました** (`K-001.md` / `K-009-1.md` / `K-T-001-1.md` /
+`K-T-003-1.md`)。しかも `K-001.md` は 2 つのプロジェクトの両方にありました。
+**手で選ばせる限り揃いません。**
+
+`scripts/k-new.sh` を追加し、名前を機械に決めさせました。
+
+```bash
+bash scripts/k-new.sh T-003   # → knowledge/K-T-003-1.md (既にあれば -2)
+bash scripts/k-new.sh learn   # → knowledge/K-learn-1.md  (/mule-learn の昇格の記録)
+```
+
+ゴール id が名前に入るので**別のゴールとは構造的に衝突しません**。文書 5 か所を 1 つの流儀に
+揃え、`K-NNN.md` を残らず消しました。K ファイルの**中身の形も 2 通りあった**ので
+(`mule-learn` は昇格先と件数、`executor` は根拠のコマンドと調べた場所) 1 つにし、
+昇格先と件数は `/mule-learn` の K に限ると明記しました。
+
+**ファイルは作らずパスだけ出します。** 空の K ファイルが diff に現れると、`/mule-run` の
+「K ファイルが diff に含まれているか」の確認が「学びの記録あり」と誤判定するためです
+(牙の無い検査を作らない)。
+
+**2 件目 (進捗エージェントが自分で宣言した分担を破る) は規則に留めました。** `/mule-run` の禁止に
+「波の中で『このゴールが触る』と宣言した追記型ファイルを進捗エージェント自身が触ること」を足し、
+完了処理の追記は全ゴールを取り込み終えてからまとめて行うことにしました。**機械では弾いていません。**
+まだ 1 回しか出ておらず、`/mule-learn` の「2 回以上のものだけを候補にする」に反するからです。
+1 回の事故で機械を作ると、どのファイルが対象かも分からないまま配管が増えます (それ自体が
+新しい `loop-ops` になる)。2 回目が出ればファイルが特定できるので、そのとき hook にします。
+</details>
 
 <details>
 <summary><b>v0.6.12</b> — 分類し直したら 1 位が変わった (uncategorized 13 件の回収)</summary>

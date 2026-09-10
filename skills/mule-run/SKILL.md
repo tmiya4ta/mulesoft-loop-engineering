@@ -81,7 +81,7 @@ argument-hint: "[T-NNN だけ実行] [--parallel N (既定は予算が許す最�
        直列に落ちたら `max_parallel` どおりの速度は出ないので、予算の消費ペースが変わることを報告に書く。
      - `deploy` → 実行エージェントには配れない (デプロイ禁止)。**進捗エージェント自身が `mule-deploy` スキルの手順 1〜5 を実行する。** 先に done_when を 1 回流して失敗を確認する (red)。配置先 URL が決まったら done_when の base-url を書き換えてよい (期待値ではなく所在なので)。
      - `policy` → `authorizations.yaml` の `policy.sandbox` が allowed のときだけ `mule-executor` に配る (worktree 不要、`isolation` 無し)。denied なら blocked にして人に 1 行で伝える。
-   - **マニュアルは読まない。** 段を進めるのに足りない事実 (CLI の書式、ポリシー名、API インスタンスの id) は、進捗エージェントが docs を fetch して探すのではなく、実行エージェントに「gotchas → スキル (platform-assistant) → マニュアルの順で調べて `knowledge/K-<ゴール id>-<連番>.md` に書いてから使う」よう配る。進捗エージェントが読むのは台帳、context/、knowledge/ だけ。
+   - **マニュアルは読まない。** 段を進めるのに足りない事実 (CLI の書式、ポリシー名、API インスタンスの id) は、進捗エージェントが docs を fetch して探すのではなく、実行エージェントに「gotchas → スキル (platform-assistant) → マニュアルの順で調べて、`bash scripts/k-new.sh <ゴール id>` が出したパスに書いてから使う」よう配る。進捗エージェントが読むのは台帳、context/、knowledge/ だけ。
    - **1 波を配り終えたら budget-check を再実行する** (並列でも 1 件ずつ数える)。`remaining_runs` を超える分は次の波に回す。
 3. 戻ってきたら diff を取り込み、**`done_when` を自分で実行する**。実行エージェントの自己申告は信じない。
    - **並列の取り込みは 1 件ずつ、取り込むたびに done_when を流す。** 独立なのは順序だけで、ファイルは独立ではない (pom.xml、global.xml、RAML は複数のゴールが触る)。
@@ -115,6 +115,12 @@ argument-hint: "[T-NNN だけ実行] [--parallel N (既定は予算が許す最�
 - `done_when` の無いゴールを実行すること。
 - 予算超過後に配ること。
 - **ゴールが 1 件 passed になるたびに人に確認を取ること。** 台帳に書けば伝わっている。
+- **波の中で「このゴールが触る」と宣言した追記型ファイル (config の yaml、追記する md) を、
+  進捗エージェント自身が触ること。** 完了処理の追記は、**並行している全ゴールを取り込み終えてから
+  まとめて**行う。分担を宣言した側が破ったので、宣言は守られる前提で書かない。
+  (実例 1 件: `failures.jsonl` の `progress-agent-broke-own-file-ownership`。**まだ 1 回なので
+  機械では弾いていない。**2 回目が出たらどのファイルかが分かるので、そのとき hook にする。
+  `/mule-learn` の 2 回ルールに従う。)
 - **次の一手を示さずに終わること。**
 
 ---
