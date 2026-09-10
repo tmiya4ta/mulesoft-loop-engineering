@@ -22,7 +22,7 @@ mule-http-connector 1.10.0 / mule-maven-plugin 4.10.1 / Java 17 / CE。
 
 | 主題 | ファイル | 件 | こういう症状のとき |
 |---|---|---|---|
-| プロジェクトとビルド | `gotchas/build.md` | 13 | 依存が取れない、起動しない、`requiredProduct`、Maven 401、JDK 違い、RAML がクラスパスに乗らない、JDBC jar が fat でない、**jar に秘密が混入**、**入れた hook がその日は効かない** |
+| プロジェクトとビルド | `gotchas/build.md` | 14 | 依存が取れない、起動しない、`requiredProduct`、Maven 401、JDK 違い、RAML がクラスパスに乗らない、JDBC jar が fat でない、**jar に秘密が混入**、**入れた hook がその日は効かない**、**group-id を他プロジェクトから写す** |
 | 設定とプロパティ | `gotchas/config.md` | 3 | `${x.y}` を上書きできない、YAML の値の型、`p()` |
 | MUnit | `gotchas/munit.md` | 14 | `mock-when` が効かない、カバレッジ、`target=`、`default` で牙が無い、**モックが型の不一致を隠す**、APIkit の振り分け flow 直叩き、**main flow は flow-ref で振り分けられない** |
 | エラー処理 | `gotchas/error-handling.md` | 6 | `on-error-continue` の再開位置、`<try>` の中の `error-handler`、`raise-error` できない型、`ANY` の枝 |

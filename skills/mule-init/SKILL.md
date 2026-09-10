@@ -24,7 +24,7 @@ argument-hint: "[--kind api|batch|mcp|a2a] [--layer system|process|experience] [
    `--dependencies` は `kind` で変える。**HTTP コネクタは `kind: api` のときだけ渡す。** `kind: mcp` は MCP コネクタ、`kind: batch` は DB / SaaS など実際に使うものだけを渡し、使わない HTTP コネクタを既定で足さない。
    ```bash
    # kind: api
-   NODE_NO_WARNINGS=1 anypoint-cli-v4 dx mule project create <name> --group-id <group> --mule-version 4.12.2 \
+   NODE_NO_WARNINGS=1 anypoint-cli-v4 dx mule project create <name> --group-id <組織 ID> --mule-version 4.12.2 \
      --dependencies "org.mule.connectors:mule-http-connector:1.10.0"
    # kind: mcp (HTTP は付けない。GAV は describe-connector か Exchange で確認してから使う)
    # kind: batch (依存は要件次第。何もコネクタを使わないなら --dependencies 自体省略してよい)
@@ -34,6 +34,13 @@ argument-hint: "[--kind api|batch|mcp|a2a] [--layer system|process|experience] [
    **版は 4.10.1 以降にする (既定 4.12.2)。** 4.9.0 は `mule-runtime-impl-no-services-bom` が公開リポジトリに無く、
    `ee:transform` を 1 つ書いた時点で MUnit が `Cannot create embedded container` で動かなくなる (`knowledge/gotchas/build.md` 参照)。
    **コネクタの GAV は推測せず、`anypoint-cli-v4 dx mule describe-connector` か Exchange で確かめる。** MCP コネクタの GAV もここで確認する (このプラグインは既知の版を決め打ちしない)。
+   **`--group-id` は Anypoint の組織 ID (UUID) です。人に聞くか
+   `anypoint-cli-v4 account business-group list` で取ります。**
+   **このマシンにある他のプロジェクトの pom から写さないこと。** 組織が違えば Exchange への publish が
+   落ちるか、**別の組織に publish する事故**になります。CH2 / RTF は Exchange 経由でしか置けず、
+   Exchange のアセットは groupId = 組織 ID という決まりなので、ここを間違えると後段が全部崩れます。
+   分からなければ**空のまま止まって人に聞く**。推測で埋めない。
+
 3ab. **mule-maven-plugin の版を直す。** `bash scripts/fix-plugin-version.sh` を実行する。
    CLI は 4.7.0 を固定するが Mule 4.12 系とは非互換で、`NoSuchMethodError:
    MuleRuntimeFeature.isEnabled` でビルドが通らない。
