@@ -201,6 +201,39 @@ export ANYPOINT_REGION=PROD_JP
 ## Release notes
 
 <details>
+<summary><b>v0.6.33</b> — Three misclassifications in the exclusion list, and the criterion that closes it</summary>
+
+**Confirming that a hook fires is impossible from any continuation of this session.** Even with the cache
+up at 0.6.32 and matching the real copy, breaking the index and running `echo gh pr create` returned no
+deny. **Hook configuration is read at session start and a context re-read does not replace it.** So the
+chase stops here, closed by the note already in `knowledge/gotchas/build.md`: there is no way to verify a
+hook by making it fire.
+
+**Reviewing `checks-audit.sh`'s exclusion list found three of my own misclassifications.**
+
+| | The error | Reality |
+|---|---|---|
+| `done.sh` | filed as "not a check" | **it is a check** — it runs `done_when` and returns its exit code, i.e. table row 11. Being excluded, its absence from the table could not be noticed |
+| `checks-audit.sh` | in the exclusion list | **redundant, since it is in the table.** Listed entries exit earlier; having both reads as "not a check" |
+| `mule-xml-shape.sh` | same | same (row 6b) |
+
+Row 11 named only `done_when` and **not the thing that runs it (`done.sh`)**. It does now. The table went
+from 21 rows to 22.
+
+**Hand classification will always miss some.** So the **criterion** now heads the list:
+
+> **Does it answer pass/fail with an exit code?** If so it is a check, and it belongs in the table.
+
+The 12 that remain under that rule resolve paths, produce names, generate, patch a pom, log, report
+metrics, inject, or install — **none of them answer pass/fail**. `plugin-root.sh` exits 1 when nothing is
+found, but that reports absence rather than a verdict, so it stays excluded.
+
+**With this, the 58 ledger rows and everything that came out of today's work are all handled.** All three
+checks (index / fixtures / table) exit 0, and `gh pr create` is denied by a hook if any of them breaks.
+
+</details>
+
+<details>
 <summary><b>v0.6.32</b> — Measured that the hooks do not fire, and the ordered table had one wrong row</summary>
 
 **1. "A hook added today does not fire today" is now measured.**

@@ -52,15 +52,28 @@ for name in sorted(listed):
         bad.append(f"`{name}` は表に載っているが、どこからも呼ばれていない (走らない検査)")
 
 # 逆方向: 実在する検査が表に載っているか。**検査でないスクリプトは対象外**にする。
+# **このリストは私が手で分類したので、取りこぼしが起きます。** 実際に 3 件間違えました:
+#   - `done.sh` を入れていた → **これは検査です** (`done_when` を回して終了コードを返す = 表の 11)。
+#     除外していたので、表に載っていなくても気付けませんでした。
+#   - `checks-audit.sh` と `mule-xml-shape.sh` を入れていた → **表に載っているので冗長**。
+#     載っているものは下の `p.name in listed` で先に抜けます。両方に書くと「検査ではない」と
+#     読めてしまいます。
+# だから残すのは「表に載せる必要が無い」と言い切れるものだけにします。判断の基準は
+# **「exit コードで合否を答えるか」** です。答えるなら検査で、表に載せます。
 NOT_A_CHECK = {
-    "plugin-root.sh", "k-new.sh", "schema-index.sh", "add-munit.sh", "done.sh",
-    "run-log.sh", "metrics.sh", "cost-report.sh", "munit-coverage-mode.sh",
-    "fix-plugin-version.sh", "ch2-public-url.sh", "loop-reminder.sh",
-    "checks-audit.sh", "mule-xml-shape.sh", "setup-deps.sh",
+    "plugin-root.sh",         # パスを解決して出す (見つからなければ exit 1 だが合否ではない)
+    "k-new.sh",               # 次の K ファイルの名前を出す
+    "schema-index.sh",        # ~/.m2 から索引を生成する
+    "add-munit.sh",           # pom に MUnit を足す
+    "munit-coverage-mode.sh", # pom にカバレッジゲートを入れるかを決める
+    "fix-plugin-version.sh",  # pom の mule-maven-plugin の版を直す
+    "ch2-public-url.sh",      # CH2 の公開 URL を取って出す
+    "run-log.sh",             # 1 行記録する
+    "metrics.sh",             # 4 指標を出す
+    "cost-report.sh",         # 実コストを出す
+    "loop-reminder.sh",       # UserPromptSubmit hook。規律を注入する (合否を答えない)
+    "setup-deps.sh",          # /mule-setup が外部スキルと MCP を入れる
 }
-# mule-xml-shape.sh は quick-check.sh から呼ばれる子で、表では 6b として別行にしている
-# (名前が表に出るので listed 側で拾われる)。setup-deps.sh は /mule-setup が外部スキルを
-# 入れるためのもので、検査ではない。
 for d in ("scripts", "template/scripts"):
     for p in sorted(pathlib.Path(d).glob("*.sh")):
         if p.name in NOT_A_CHECK or p.name in listed:

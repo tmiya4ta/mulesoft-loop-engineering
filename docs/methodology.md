@@ -92,7 +92,7 @@ deploy の done_when は `smoke-check.sh`、policy の done_when は `policy-che
 | 8 | ゴール 1 件の中 | `mvn test -Dmunit.test=<file>` (段 2) | Green にならない | red → green を同じコマンドで示す |
 | 9 | ゴール 1 件の中 | `coverage-check.sh` | 取り込まない | 0 = 追加した全 flow が MUnit から `flow-ref` されている |
 | 10 | ゴール 1 件の中 | `teeth-check.sh` | 牙が無いテストを残さない | 0 = 牙あり / 2 = 細工が当たらない、落ちない、別の case が落ちた |
-| 11 | ゴール 1 件の中 | `done_when` | `passed` にしない | 0 = 達成 |
+| 11 | ゴール 1 件の中 | `done_when` (`done.sh` が回して終了コードをそのまま返す) | `passed` にしない | 0 = 達成 |
 | 12 | 取り込み | `mvn -q clean test` 全体 (段 3) | 取り込まない | 全スイート緑 |
 | 13 | 取り込み | `mule-reviewer` → `spec-check.sh` | 指摘を台帳に戻す | 読み取りだけ。RAML の必須項目の未参照は**警告** (通過型では正常) |
 | 14 | 止まる前 (**hook**) | `stop-guard.sh` → `goal-state.sh` | **止まらせない** | 0 = 全て passed / 1 = **まだ進められる → 差し戻す** / 2 = 人の判断待ち → **通す (待つのを邪魔しない)** |
