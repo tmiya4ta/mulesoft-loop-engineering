@@ -51,7 +51,7 @@ if ls api/*.raml >/dev/null 2>&1 && ! ls src/main/resources/api/*.raml >/dev/nul
   exit 2
 fi
 
-# **プロジェクトの scripts/ がプラグインより古くないか。** `/mule-init` は template/ を丸ごと
+# **プロジェクトの scripts/ がプラグインと一致しているか。** `/mule-init` は template/ を丸ごと
 # コピーするので新規プロジェクトは揃うが、**プラグインを更新した既存プロジェクトは置いて行かれる**。
 # 検査が 1 本欠けていても、その検査を呼ぶ手順が落ちるまで誰も気付かない。実際、今日 2 つの
 # プロジェクトで 2 本が古いままだった (v0.6.29 で照合して気付いた)。
@@ -64,12 +64,35 @@ if [ -f scripts/plugin-root.sh ]; then
     for f in "$tsrc"/*.sh; do
       b=$(basename "$f")
       if [ ! -f "scripts/$b" ]; then stale="$stale $b(無し)"
-      elif ! cmp -s "$f" "scripts/$b"; then stale="$stale $b(古い)"; fi
+      # **「古い」と断定しない。** どちらが新しいかはこのスクリプトには分かりません
+      # (プラグインより新しいものを手で置いている場合もある。実測でそうなった)。
+      elif ! cmp -s "$f" "scripts/$b"; then stale="$stale $b(差分あり)"; fi
     done
     if [ -n "$stale" ]; then
-      echo "preflight: scripts/ がプラグインより古いものがあります:$stale" >&2
+      echo "preflight: scripts/ がプラグインと違うものがあります:$stale" >&2
       echo "           直す: cp $tsrc/*.sh scripts/ && chmod +x scripts/*.sh" >&2
       echo "           (波は止めません。検査が欠けたままだと、その検査が受け持つ失敗を取り逃します)" >&2
+    fi
+  fi
+fi
+
+# **hook は cache から読まれ、セッション開始時に固定される。** プラグインを更新しても、
+# **走っているセッションの hook は古いまま**です。波は wave-guard / secret-guard / deploy-guard に
+# 頼っているので、ここで言います。実測 (2026-09-10): cache の最新が 0.6.29 のとき
+# plugin-root.sh が返す実体は 0.6.30 で、v0.6.30 の hook は効いていませんでした。
+# **どの cache をハーネスが選んだかはシェルからは読めない** (CLAUDE_PLUGIN_ROOT は env に無い。
+# v0.6.10 で実測) ので、断定せず「古い可能性がある」と言います。波は止めません。
+if [ -f scripts/plugin-root.sh ]; then
+  real=$(bash scripts/plugin-root.sh 2>/dev/null || true)
+  if [ -n "${real:-}" ]; then
+    vreal=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$real/.claude-plugin/plugin.json" 2>/dev/null | head -1)
+    vcache=$(ls -d "$HOME"/.claude/plugins/cache/*/mule-loop/*/ 2>/dev/null | sort -V -r | head -1)
+    [ -n "${vcache:-}" ] && vcache=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$vcache/.claude-plugin/plugin.json" 2>/dev/null | head -1)
+    if [ -n "${vreal:-}" ] && [ -n "${vcache:-}" ] && [ "$vreal" != "$vcache" ]; then
+      echo "preflight: hook が古い可能性があります (cache の最新 $vcache / 実体 $vreal)。" >&2
+      echo "           hook (wave-guard, secret-guard, deploy-guard, stop-guard) は cache から読まれ、" >&2
+      echo "           セッション開始時に固定されます。**実体側で直した hook は次のセッションから効きます。**" >&2
+      echo "           この波でその hook に頼るなら、セッションを開き直してください。" >&2
     fi
   fi
 fi

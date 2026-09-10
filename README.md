@@ -201,6 +201,62 @@ export ANYPOINT_REGION=PROD_JP
 ## Release notes
 
 <details>
+<summary><b>v0.6.31</b> — A hook you add today is not running today, and hooks and knowledge come from different versions</summary>
+
+`preflight.sh` ran end to end in both projects: **7 seconds, exit 0, no false positives** across all four
+checks (git, root RAML, the `scripts/` comparison, `mvn clean package`). The jar mtimes confirm **mvn
+actually ran** rather than being skipped with an "ok".
+
+Then, checking whether the plugin's own `scripts/` (5 hooks + 3 checks) has the same staleness problem,
+**a different and nastier mismatch appeared.**
+
+**Hooks are read from the session-start cache and pinned there.**
+
+```
+newest cache: 0.6.29    ← where this session's hooks come from
+the clone:    0.6.30    ← what plugin-root.sh returns; knowledge and skills come from here
+```
+
+`${CLAUDE_PLUGIN_ROOT}` in `hooks/hooks.json` is resolved by the harness **at session start** to a
+version-pinned cache directory. **Fixing the real copy afterwards does not change the running session's
+hooks.** The cache visibly accumulates a directory per session start: `0.6.8 → 0.6.25 → 0.6.29`.
+
+**So `secret-guard.sh` and `promote-guard.sh`, both added today, never fired once today.** Nor did
+`stop-guard.sh`'s new `goal-state.sh` call.
+
+**Which is why every verification today was done by piping the hook's JSON straight into the script:**
+
+```bash
+printf '{"tool_input":{"file_path":"/tmp/x.md","content":"..."}}' | bash scripts/secret-guard.sh
+```
+
+**That is the correct method** (waiting for a firing that cannot come is not). But **unwritten, the next
+person will assume the hook is protecting them**, so it is now written in three places:
+
+- `knowledge/gotchas/build.md` (12 → 13) as symptom, cause, and verification method
+- `/mule-learn` step 4: "that hook is not active in this session", with the command
+- the ordered table's note on hooks
+
+**Knowledge takes a different path.** `plugin-root.sh` picks the highest version (v0.6.16), so **hooks and
+gotchas can come from different versions in the same session.** A wave leans on `wave-guard` /
+`secret-guard` / `deploy-guard`, so `preflight.sh` now reports the split:
+
+```
+preflight: hook が古い可能性があります (cache の最新 0.6.29 / 実体 0.6.30)。
+           ... 実体側で直した hook は次のセッションから効きます。
+           この波でその hook に頼るなら、セッションを開き直してください。
+```
+
+**It does not assert "old".** Which cache the harness chose is unreadable from the shell
+(`CLAUDE_PLUGIN_ROOT` is not in the environment — measured in v0.6.10), so it says "possibly".
+
+For the same reason, v0.6.30's `scripts/` comparison now says **"differs" instead of "older"**. The error
+showed up in practice: a pre-push copy was distributed by hand, so the project's file was *newer* while the
+message called it older. **That script cannot know which side is newer.**
+
+</details>
+
+<details>
 <summary><b>v0.6.30</b> — Stop having a human check whether the scripts actually got distributed</summary>
 
 Auditing whether today's scripts reached both existing projects turned up **`bump-version.sh` and

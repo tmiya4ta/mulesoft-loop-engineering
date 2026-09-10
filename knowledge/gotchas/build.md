@@ -71,6 +71,31 @@ Tests run: 1 - Failed: 0 で通ることを確認。BOM は 4.9.0 が 404、4.10
 `com.mulesoft.connectors` の解決で 401 になる。キャッシュは `find ~/.m2/repository -name "*.lastUpdated" -delete` で捨てて `-U`。
 根拠: mulesoft-app-development スキル (利用者の過去の実測)。
 
+## hook はセッション開始時の cache から読まれる。**入れた hook はその日は効いていない**
+
+**症状**: hook を追加して push し、クローンも同期したのに、そのセッションでは一度も発火しない。
+
+**原因**: `hooks/hooks.json` の `${CLAUDE_PLUGIN_ROOT}` はハーネスが**セッション開始時に**
+版つきの cache (`~/.claude/plugins/cache/<marketplace>/mule-loop/<版>/`) に解決します。
+**走っているセッションの hook はそこで固定**され、あとで実体を直しても変わりません。
+実測 (2026-09-10): cache の最新が 0.6.29 のとき `plugin-root.sh` が返す実体は 0.6.30 で、
+v0.6.30 の hook は効いていませんでした。**どの cache をハーネスが選んだかはシェルからは読めません**
+(`CLAUDE_PLUGIN_ROOT` は env に無い)。
+
+**だから hook の検証は「実際に発火させる」ではできません。** **スクリプトに hook の JSON を
+直接流して**確かめます (`printf '{"tool_input":{...}}' | bash scripts/<hook>.sh`)。
+それが正しい検証方法ですが、**書いておかないと次の人が「hook で守られている」と誤解します。**
+
+**ナレッジ側は別経路**です。`plugin-root.sh` は版が最大のものを選ぶので (v0.6.16)、
+**同じセッションで hook と gotchas が別の版から来ることがあります。** 波は wave-guard /
+secret-guard / deploy-guard に頼るので、`preflight.sh` が版のずれを言います。
+その hook に頼るならセッションを開き直します。
+
+根拠: このプラグインの開発で実測 (2026-09-10)。cache に 0.6.8 → 0.6.25 → 0.6.29 と
+セッション開始のたびにディレクトリが増えているのが観測できる。
+
+---
+
 ## `-DattachMuleSources` は `.gitignore` を見ない。秘密を持つファイルが jar に入る
 
 **症状**: `.gitignore` 済みで DB パスワードを平文で持つ資格情報ファイルが、

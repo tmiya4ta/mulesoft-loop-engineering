@@ -110,7 +110,11 @@ argument-hint: "[--share 汎用ナレッジをプラグインに PR する]"
    **番号は手で決めない** (並列で同じ番号を選んで衝突した実例がある)。
    中身は実行エージェントの K ファイルと同じ形 — **症状 (原文) / 原因 / 直し方 / 根拠のコマンド /
    どこで調べたか** — に、**昇格の記録に限って** 昇格先、根拠になった失敗の件数、task id を足す。
-4. **hook に昇格したものはテストを付ける。** それを踏む最小の入力を `knowledge/fixtures/` に置き、
+4. **hook に昇格したものはテストを付ける。** **その hook は今のセッションでは効きません** —
+   `hooks.json` はセッション開始時の cache から読まれるので、実際に発火させて確かめることはできません
+   (`knowledge/gotchas/build.md`)。**hook の JSON をスクリプトに直接流して**確かめます:
+   `printf '{"tool_input":{...}}' | bash scripts/<hook>.sh`。
+   それを踏む最小の入力を `knowledge/fixtures/` に置き、
    `knowledge/fixtures/README.md` の表に 1 行足して `bash scripts/fixtures-check.sh` を通す (exit 0 が条件)。
    **正しい形が誤検知されないことも同時に確かめます** — `ok-*.xml` を 1 つ足す。deny する hook の誤検知は
    編集を止めるので、弾く側だけ試すのでは足りません (台帳に `dw-validate-false-positive-p` の実例があります)。

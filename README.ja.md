@@ -196,6 +196,63 @@ export ANYPOINT_REGION=PROD_JP
 ## リリースノート
 
 <details>
+<summary><b>v0.6.31</b> — 入れた hook はその日は効いていない。hook とナレッジが別の版から来る</summary>
+
+`preflight.sh` を 2 プロジェクトで通しで走らせました。**7 秒、exit 0、誤検知なし** (git、直下 RAML、
+`scripts/` の照合、`mvn clean package` の 4 つとも)。jar の mtime で **mvn が実際に走った**ことも
+確かめました (飛ばして「ok」と言っていないこと)。
+
+そのあとプラグイン自身の `scripts/` (hook 5 本 + 検査 3 本) に同じ「ずれ」問題があるかを見たら、
+**別の、もっと厄介なずれ**が出ました。
+
+**hook はセッション開始時の cache から読まれ、そこで固定されます。**
+
+```
+cache の最新: 0.6.29    ← 今のセッションの hook はここから
+実体 (clone): 0.6.30    ← plugin-root.sh が返す。ナレッジとスキルはここから
+```
+
+`hooks/hooks.json` の `${CLAUDE_PLUGIN_ROOT}` はハーネスが**セッション開始時に**版つきの cache へ
+解決します。**あとで実体を直しても、走っているセッションの hook は変わりません。**
+cache に `0.6.8 → 0.6.25 → 0.6.29` とセッション開始のたびにディレクトリが増えているのが観測できます。
+
+**つまり今日追加した `secret-guard.sh` と `promote-guard.sh` は、今日このセッションでは
+一度も発火していません。** `stop-guard.sh` の `goal-state.sh` 呼び出しも同じです。
+
+**だから今日の検証はすべて「スクリプトに hook の JSON を直接流す」形で行いました。**
+
+```bash
+printf '{"tool_input":{"file_path":"/tmp/x.md","content":"..."}}' | bash scripts/secret-guard.sh
+```
+
+**これが正しい検証方法です** (発火を待っても永久に来ない)。ただし**書いておかないと、次の人が
+「hook で守られている」と誤解します。** だから 3 か所に書きました:
+
+- `knowledge/gotchas/build.md` (12 → 13 件) に症状・原因・検証方法として
+- `/mule-learn` の手順 4 に「その hook は今のセッションでは効きません」と検証コマンドを
+- 並びの表の hook の注記に
+
+**ナレッジ側は別経路です。** `plugin-root.sh` は版が最大のものを選ぶので (v0.6.16)、
+**同じセッションで hook と gotchas が別の版から来ます。** 波は `wave-guard` / `secret-guard` /
+`deploy-guard` に頼るので、`preflight.sh` が版のずれを言うようにしました:
+
+```
+preflight: hook が古い可能性があります (cache の最新 0.6.29 / 実体 0.6.30)。
+           hook (wave-guard, secret-guard, deploy-guard, stop-guard) は cache から読まれ、
+           セッション開始時に固定されます。**実体側で直した hook は次のセッションから効きます。**
+           この波でその hook に頼るなら、セッションを開き直してください。
+```
+
+**「古い」と断定しません。** どの cache をハーネスが選んだかはシェルからは読めないので
+(`CLAUDE_PLUGIN_ROOT` は env に無い。v0.6.10 で実測)、「可能性がある」と書きます。
+
+同じ理由で、v0.6.30 で入れた `scripts/` の照合の文言も **「古い」→「差分あり」** に直しました。
+実測でまさにその誤りが出ました — push 前のものを手で配ったので、プロジェクト側が**新しい**のに
+「古い」と言いました。**どちらが新しいかはそのスクリプトには分かりません。**
+
+</details>
+
+<details>
 <summary><b>v0.6.30</b> — 配り切れているかを人が照合するのをやめる</summary>
 
 今日入れたスクリプトが 2 つの既存プロジェクトに配り切れているか照合したら、
