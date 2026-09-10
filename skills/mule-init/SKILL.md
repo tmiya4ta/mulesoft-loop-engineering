@@ -44,6 +44,14 @@ argument-hint: "[--kind api|batch|mcp|a2a] [--layer system|process|experience] [
 5. `mvn -v`、`dw --version`、`xmllint --version`、`anypoint-cli-v4 dx mule --help` の有無を確認し、無いものを表にして知らせる。
 5aa. `bash scripts/munit-coverage-mode.sh` を実行する。EE ランタイムが取れれば MUnit のカバレッジ 100% ゲートを pom に入れ、取れなければ入れず、`scripts/coverage-check.sh` による構造チェックが保証になることを利用者に伝える。
 5b. `mvn -q clean package -DskipTests` を 1 回流し、ライブラリ取得が通ることを確かめる。失敗したら `~/.m2/settings.xml` の Exchange 認証 (Enterprise コネクタを使う場合) を疑い、docs/mulesoft-tools.md の「プロジェクト作成」を案内する。
+5c. **スキーマ索引を作る。** `bash scripts/schema-index.sh` を実行する。`~/.m2` の jar から、この
+   プロジェクトが解決した版のコネクタ定義 (パラメータ名と説明) とランタイム XSD を
+   `reference/mule-schema/` に抜き出し、`INDEX.md` を書く。実行エージェントがコネクタの
+   要素名やパラメータ名を推測しないための地の情報で、**版が必ず一致する**のが手書きとの違い。
+   5b が失敗していると `~/.m2` が埋まっていないので何も取れない。その場合は exit 2 と
+   「未解決」の一覧が出るだけなので、5b を直してから再実行する。**生成物は 6b の初期コミットに含める**
+   (worktree は origin/main から切られるため、コミットしないと実行エージェントに届かない)。
+
 6. `.mcp.json` はコピーしない (MCP はプラグイン側で有効になる)。聞かない。
 6b. **初期コミットを作る。** `git add -A && git commit -m "mule-loop: init"`。worktree 隔離はコミットが 1 つも無いと `Failed to resolve base branch "HEAD"` で起動しない (PR #4)。`.gitignore` に `target/` と `.claude/worktrees/` があることを先に確認する。
 7. 最後に「現在地 / 次にすること / そのあと」の 3 ブロックで締める。次にすることは

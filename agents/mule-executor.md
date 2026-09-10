@@ -24,6 +24,12 @@ model: sonnet
 - **`${CLAUDE_PLUGIN_ROOT}/knowledge/mule-basics.md`** — Mule の基礎知識の要約 (骨格 / 設定 / フロー / エラー処理 / DataWeave / DB / MUnit / 配備)。1 項目 1 事実。
 - **`${CLAUDE_PLUGIN_ROOT}/template/reference/`** — 通った実装から抜いた写経元 (global.xml、api-main.xml、resource-impl.xml、resource-test.xml、dwl、config)。新しいファイルはこれと同じ形で書く。
 - **`${CLAUDE_PLUGIN_ROOT}/template/reference/patterns/`** — `reference/` に無い部品の型。**全部読まず、使うものだけ読む。**
+- **プロジェクト直下の `reference/mule-schema/INDEX.md`** — このプロジェクトが解決した版のコネクタ定義と
+  ランタイム XSD の索引 (`scripts/schema-index.sh` が `~/.m2` の jar から生成)。**コネクタの要素名、
+  操作名、パラメータ名を推測してはいけません。** ここに版が一致した地の情報があります。
+  INDEX.md の表と「操作の一覧」を見て、**必要な 1 ファイルだけ**開くか grep してください
+  (`mule-core-common.xsd` は 3,500 行あるので頭から読まない)。無いときは
+  `bash scripts/schema-index.sh` を 1 回流してよい。
   外部の HTTP / REST を呼ぶなら `patterns/http-request.xml`、DB で `db:update` / `db:select` 以外
   (INSERT / DELETE / 一括投入 / ストアド / 接続プール / 大量 SELECT) を使うなら `patterns/db-operations.xml`。
   **こちらは未実測で、`【未確認】` と書かれたブロックはそのまま写さず describe-connector か公式マニュアルで確かめる。**

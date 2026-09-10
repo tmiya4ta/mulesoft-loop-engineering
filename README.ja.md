@@ -139,7 +139,8 @@ template/         /mule-init が配るもの:
   context/deployment/authorizations.yaml   デプロイと実システム接続の許可（人が書く）
   tasks/          ゴール台帳（done_when + 試行ログ）
   scripts/        done.sh, add-munit.sh, budget-check.sh, coverage-check.sh, preflight.sh,
-                  munit-coverage-mode.sh, run-log.sh, metrics.sh, cost-report.sh
+                  munit-coverage-mode.sh, run-log.sh, metrics.sh, cost-report.sh,
+                  schema-index.sh (~/.m2 の jar からコネクタ定義と XSD を抜く)
 .mcp.json         MuleSoft DX MCP Server（stdio）+ Platform MCP Server（http）
 docs/methodology.md
 docs/mulesoft-tools.md
@@ -177,6 +178,48 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.9</b> — コネクタの要素名を推測させない。~/.m2 の jar から版の一致したスキーマを生成する</summary>
+
+スキルは 8 本ともループの運用で、**Mule アプリの書き方を教えるものが 1 本もありません**でした。
+ドメイン知識は `knowledge/mule-basics.md` 124 行と `gotchas.md` 523 行、それに `template/reference/`
+だけで、届け方は「basics は毎回読む、gotchas は詰まったら読む」。DB を触らないゴールでも DB の節を
+読み、MUnit で詰まったときに 52 件中 45 件が無関係な 523 行を開く形で、知識が増えるほど 1 ゴール
+あたりのコストが上がる構造でした。
+
+その第一歩として `scripts/schema-index.sh` を追加しました。コネクタの XSD と説明は jar の
+`META-INF/` に入っていて版ごとに中身が違うので、**手で書き写すと必ずずれます**
+(`gotchas.md` の「コネクタの GAV を推測しない」を人間の側で破ることになる)。jar から抜けば、
+そのプロジェクトが実際に解決した版と一致します。
+
+- 一覧は `mvn -o dependency:list` から取ります。pom を正規表現で読むと `${...}` の版と推移的な
+  コネクタを落とします (実測: 直接依存 3 件しか取れないところ、`mule-sockets-connector` を含む
+  解決済み 99 行が取れた)。スコープは絞りません (`-DincludeScope=compile` を付けると
+  **MUnit と db コネクタが消えます**)。**ネットワークには触りません。**
+- ランタイムの extension model は依存一覧に出てこない (ランタイムが提供する) ので、
+  `<app.runtime>` から補います。`~/.m2` にその版が無ければ同じ major.minor の最新に落とします
+  (`minMuleVersion` 4.12.0 と実際に置かれている 4.12.2 がずれるため)。
+- 出力は `reference/mule-schema/` に **コミットします**。worktree は `origin/main` から切られるので、
+  コミットしないと実行エージェントに届きません (v0.6.7)。副産物としてコネクタの版が変わったことが
+  diff で見えます。実測で **21 ファイル / 9,638 行 / 560 KB** — 全部入りではなく、そのプロジェクトが
+  使う版だけです。
+- `INDEX.md` に表と「操作の一覧」(`mockWhen`、`bulkInsert` など jar から抜いた操作名) を書き、
+  **全部読まず 1 ファイルだけ開く**よう実行エージェントに指示しました。`mule-core-common.xsd` は
+  3,503 行あるので頭から読ませません。
+
+**Node は使いません。** Windows も macOS も既定で入っておらず、このプラグインの既存の前提は
+bash + python3 + jq です。jar は zip なので `python3` の `zipfile` で直接読めて、依存はゼロ増です。
+
+`/mule-init` の 5c (5b で `~/.m2` が埋まった直後、6b の初期コミットの前) と `preflight.sh`
+(`pom.xml` が `INDEX.md` より新しいときだけ再生成) から呼びます。**preflight ではここの失敗で
+波を止めません** — 索引は速くするための補助で、土台の判定は `mvn package` の結果だからです。
+
+finance-api と inventory2-api の 2 プロジェクトで検証しました。異常系も: `pom.xml` 無し → exit 2、
+依存が未解決 → exit 2 と復旧手順、`~/.m2` に無い版 → 同 major.minor へ縮退、3 つの jar が同名で持つ
+`mule.schemas` の衝突 → 1 本に統合。生成した 21 ファイルは全て `xmllint` を通ります
+(GAV のコメントは XML 宣言の**後ろ**に入れる。前に置くと well-formed でなくなる)。
+</details>
 
 <details>
 <summary><b>v0.6.8</b> — デプロイの承認は毎回押すものではなく、ファイルに 1 回書くもの</summary>

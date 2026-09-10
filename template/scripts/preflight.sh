@@ -25,3 +25,11 @@ if [ "$rc" -ne 0 ]; then
   exit 2
 fi
 echo "preflight: ok ($cmd)"
+
+# スキーマ索引を pom.xml より古ければ作り直す。~/.m2 は上の package で埋まっている。
+# **ここの失敗で波を止めない。** 土台の判定はあくまで上の package の結果で、
+# 索引はあると速くなる補助にすぎない (無ければエージェントは gotchas → スキルの順に戻るだけ)。
+idx=reference/mule-schema/INDEX.md
+if [ -f scripts/schema-index.sh ] && { [ ! -f "$idx" ] || [ pom.xml -nt "$idx" ]; }; then
+  bash scripts/schema-index.sh || echo "preflight: schema-index は失敗した (波は止めない)" >&2
+fi

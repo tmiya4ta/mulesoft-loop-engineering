@@ -143,7 +143,8 @@ template/         What /mule-init distributes:
   context/deployment/authorizations.yaml   Deploy + live-system permissions (written by a human)
   tasks/          The goal ledger (done_when + attempt log)
   scripts/        done.sh, add-munit.sh, budget-check.sh, coverage-check.sh, preflight.sh,
-                  munit-coverage-mode.sh, run-log.sh, metrics.sh, cost-report.sh
+                  munit-coverage-mode.sh, run-log.sh, metrics.sh, cost-report.sh,
+                  schema-index.sh (~/.m2 の jar からコネクタ定義と XSD を抜く)
 .mcp.json         MuleSoft DX MCP Server (stdio) + Platform MCP Server (http)
 docs/methodology.md
 docs/mulesoft-tools.md
@@ -183,6 +184,51 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.9</b> — Stop guessing connector element names: generate version-matched schema from the jars in ~/.m2</summary>
+
+All 8 skills were loop mechanics; **none taught how to write a Mule app**. Domain knowledge was
+`knowledge/mule-basics.md` (124 lines) plus `gotchas.md` (523 lines) and `template/reference/`,
+delivered as "read basics every time, read gotchas when stuck." A goal that never touches a
+database still read the database section, and being stuck on MUnit meant opening 523 lines of
+which 45 of 52 entries were irrelevant — cost per goal rising with every addition.
+
+First step: `scripts/schema-index.sh`. Connector XSDs and descriptions live in the jar's
+`META-INF/` and differ per version, so **copying them by hand always drifts** — it breaks
+gotchas.md's own "never guess a connector GAV" from the human side. Extracted from the jar, they
+match the version the project actually resolved.
+
+- The artifact list comes from `mvn -o dependency:list`. Regexing the pom drops `${...}` versions
+  and transitive connectors (measured: 3 direct deps by regex vs. 99 resolved lines including
+  `mule-sockets-connector`). Scope is not narrowed — `-DincludeScope=compile` **removes MUnit and
+  the db connector**. It never touches the network.
+- The runtime extension models are not dependencies (the runtime provides them), so they come from
+  `<app.runtime>`, falling back to the newest same-major.minor in `~/.m2` (`minMuleVersion` 4.12.0
+  vs. the 4.12.2 actually installed).
+- Output goes to `reference/mule-schema/` and **is committed**: worktrees are cut from
+  `origin/main`, so uncommitted files never reach the executor (v0.6.7). A side benefit is that a
+  connector version change shows up in the diff. Measured at **21 files / 9,638 lines / 560 KB** —
+  the versions this project uses, not everything.
+- `INDEX.md` carries a table plus an operation list (`mockWhen`, `bulkInsert`, … taken from the
+  jar), and the executor is told to **open one file, not all of them**. `mule-core-common.xsd` is
+  3,503 lines and is never read top to bottom.
+
+**No Node.** It ships by default on neither Windows nor macOS, and this plugin's existing baseline
+is bash + python3 + jq. A jar is a zip, so `python3`'s `zipfile` reads it directly — zero new
+dependencies.
+
+Called from `/mule-init` step 5c (right after 5b populates `~/.m2`, before the 6b initial commit)
+and from `preflight.sh` (regenerating only when `pom.xml` is newer than `INDEX.md`). **A failure
+here never stops a wave** — the index makes things faster, but the foundation verdict belongs to
+`mvn package`.
+
+Verified on finance-api and inventory2-api, plus the failure paths: no `pom.xml` → exit 2,
+unresolved dependencies → exit 2 with the recovery step, a version absent from `~/.m2` → falls back
+within the same major.minor, and the `mule.schemas` collision across three jars → merged into one.
+All 21 generated files pass `xmllint` (the GAV comment goes **after** the XML declaration; before
+it, the file is not well-formed).
+</details>
 
 <details>
 <summary><b>v0.6.8</b> — Deploy permission is written once in a file, not pressed every time</summary>
