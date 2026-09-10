@@ -188,6 +188,51 @@ export ANYPOINT_REGION=PROD_JP
 ## Release notes
 
 <details>
+<summary><b>v0.6.12</b> — Reclassifying changed which cluster is first (recovering 13 uncategorized rows)</summary>
+
+**18 of finance-api's 41 ledger rows sat outside the fixed vocabulary**: `uncategorized` 13,
+`toothless-assertion` 4, `connector-usage` 1. `/mule-learn` step 0 exists to clear exactly this
+every time, and had never been run. Invented values are counted as separate things, so those rows
+were **recorded but not counted, and therefore never promoted**.
+
+Each row still carried `vocabulary_gap` — the writer's note about which term they actually wanted —
+so that drove the reclassification: `loop-ops` 6, `test-toothless` 5, `connector-behavior` 4,
+`secret-leak` 1, and 2 that no existing term covers.
+
+**The ranking changed.**
+
+| | Before | After |
+|---|---|---|
+| First | `munit-coverage` 8 | **`loop-ops` 10** |
+| `loop-ops` | 4 | 10 |
+| Outside the vocabulary | 18 | 0 |
+
+Six of those rows were the worktree base, the K-file collision, the ledger never being written, and
+the dispatcher breaking its own file ownership — **all `loop-ops`, whose promotion target is a PR
+against the plugin itself**. Skip step 0 and the largest cluster stays invisible while you conclude
+"MUnit is next." That example is now written into step 0 so it can't be skipped.
+
+**One new vocabulary term: `environment-fact`** — a fact about the connected system or driver that
+only measurement reveals (which schema JDBC lands in, `getSQLState()` always returning null, what
+type a TIMESTAMP arrives as). Nothing existing covers it, and the point is that **its promotion
+target is not `gotchas.md`**: it holds only for this endpoint, so it belongs in
+`context/environment/`. Carried into the plugin it would be a lie. The `vocabulary_gap` fields
+proposed three names (`environment-fact` / `external-driver-quirk` / `environment-setup`); they were
+merged into one, because too many terms stop being countable.
+
+The category → destination table now also states where `environment-fact` and `loop-ops` go.
+
+**Promoting the 5 `test-toothless` rows**: all five share one root ("read the result without
+confirming the check ran"), so `mule-munit`'s "does your test have teeth" section gained a **third**
+measurement — tampering with a line-number-pinned `sed` when the lines had shifted, so **not one
+character of the tamper landed**, and green was nearly read as "no teeth." Tamper by content, not
+line number, and print the tampered line before running.
+
+The reclassified ledger lives in finance-api, with the previous value kept per row as
+`category_was` and the reasoning as `category_reason`, so the work can be checked.
+</details>
+
+<details>
 <summary><b>v0.6.11</b> — The same fingerprint six times: ship a template, not prose (mule-munit)</summary>
 
 **17 of the ledger's 62 failures are MUnit** — the biggest cluster: missing `mock-when`, coverage

@@ -182,6 +182,49 @@ export ANYPOINT_REGION=PROD_JP
 ## リリースノート
 
 <details>
+<summary><b>v0.6.12</b> — 分類し直したら 1 位が変わった (uncategorized 13 件の回収)</summary>
+
+finance-api の台帳 41 件のうち **18 件が固定語彙の外**にありました。`uncategorized` 13、
+`toothless-assertion` 4、`connector-usage` 1。`/mule-learn` の手順 0 はこれを毎回片付ける段ですが、
+一度も実行されていませんでした。自作の値は集計で別物として扱われるので、**記録はされたが数えられず、
+数えられないから昇格されない**行として溜まっていました。
+
+各行に `vocabulary_gap` (書き手が「本当はこの語がほしい」と書いた欄) が残っていたので、それを使って
+18 件を分類し直しました。内訳は `loop-ops` 6、`test-toothless` 5、`connector-behavior` 4、
+`secret-leak` 1、そして既存語彙に無い 2 件。
+
+**順位が変わりました。**
+
+| | 分類前 | 分類後 |
+|---|---|---|
+| 1 位 | `munit-coverage` 8 | **`loop-ops` 10** |
+| `loop-ops` | 4 | 10 |
+| 語彙外 | 18 | 0 |
+
+語彙外の 6 件が worktree の基点、K ファイルの衝突、台帳が書かれない、配布の分担破り —
+**すべて `loop-ops`、つまり昇格先がプラグイン本体への PR** でした。数える前に手順 0 を飛ばすと、
+一番大きいクラスタが見えないまま「次は MUnit」と判断することになります。この実例を手順 0 に
+書き足して、飛ばせないようにしました。
+
+**語彙を 1 つ増やしました: `environment-fact`。** 実接続して初めて分かった接続先やドライバの事実
+(現在スキーマがどちらに着地するか、`getSQLState()` が常に null、TIMESTAMP がどの型で届くか)。
+既存のどれでもなく、**昇格先が `gotchas.md` ではない**ことが要点です。この接続先でしか成り立たない
+測定値なので、`context/environment/` に置きます。プラグインに持ち出すと嘘になります。
+`vocabulary_gap` には `environment-fact` / `external-driver-quirk` / `environment-setup` の 3 案が
+書かれていましたが、語彙を増やしすぎると数えられなくなるので 1 つに統合しました。
+
+`category` → 追記先の表に `environment-fact` と `loop-ops` の行き先も明記しました。
+
+**`test-toothless` 5 件の昇格**: 5 件とも根は 1 つ (「検査が走ったことを確かめずに結果を読んだ」) で、
+`mule-munit` の「牙があるか確かめる」に **3 つ目**を足しました — 行番号を決め打ちした `sed` で細工すると
+行がずれていて**細工が 1 文字も当たらず**、緑を「牙が無い」と誤読しかけた実例です。細工は行番号ではなく
+内容で当て、当てた直後に細工後の行を表示して確認する。
+
+分類し直した台帳は finance-api 側にあります (変更前の値を `category_was`、判断理由を
+`category_reason` として各行に残したので、あとから検算できます)。
+</details>
+
+<details>
 <summary><b>v0.6.11</b> — 同じ指紋を 6 回踏んでいた。文章ではなく写経元を置く (mule-munit)</summary>
 
 台帳 62 件のうち **17 件が MUnit** で最大のクラスタでした。内訳は `mock-when` 漏れ、カバレッジ未達、
