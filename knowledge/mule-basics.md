@@ -16,17 +16,17 @@ Mule を知らないまま試行錯誤すると、1 本の API に半日かか�
 
 ## これから触るものから主題を選ぶ
 
-| # | 主題 | ファイル | 行 | 中身 |
-|---|---|---|---|---|
-| 1 | プロジェクトの骨格 | `basics/build.md` | 15 | ディレクトリ、pom、コネクタの GAV、RAML の置き場 |
-| 2 | 設定とプロパティ | `basics/config.md` | 12 | `configuration-properties`、環境別 YAML、secure プロパティ、`p()` |
-| 3 | フローの構造 | `basics/flow.md` | 12 | main flow と APIkit の振り分け、実処理 flow は HTTP を知らない、応答の組み立て |
-| 4 | エラー処理 (ここで一番時間が溶ける) | `basics/error-handling.md` | 16 | `on-error-continue` / `propagate`、エラー型、共通ハンドラ、`<try>` |
-| 5 | DataWeave | `basics/dataweave.md` | 11 | 外部 `.dwl`、`dw validate`、null の扱い、型強制 |
-| 6 | DB コネクタ | `basics/db.md` | 14 | 操作の使い分け、SQL は子要素、戻り値の形、プール |
-| 7 | MUnit | `basics/munit.md` | 16 | `mock-when` / `assert` / `verify-call`、samples を `readUrl`、カバレッジ |
-| 8 | ビルドと配備 | `basics/deploy.md` | 12 | 検証の速い順、Exchange 経由の配備、版上げ、API Manager、`settings.xml` |
-| 9 | 命名と分割 (このプラグインの規約) | `basics/naming.md` | 11 | ファイル分割、flow 名、dwl 名、層の責務 |
-| 10 | Batch / MCP / A2A | `basics/kind.md` | 25 | `kind` が `api` 以外のとき。**実測 ([G]) はまだ無く、方向づけだけ** |
+| # | 主題 | ファイル | 中身 |
+|---|---|---|---|
+| 1 | プロジェクトの骨格 | `basics/build.md` | ディレクトリ、pom、コネクタの GAV、RAML の置き場 |
+| 2 | 設定とプロパティ | `basics/config.md` | `configuration-properties`、環境別 YAML、secure プロパティ、`p()` |
+| 3 | フローの構造 | `basics/flow.md` | main flow と APIkit の振り分け、実処理 flow は HTTP を知らない、応答の組み立て |
+| 4 | エラー処理 (ここで一番時間が溶ける) | `basics/error-handling.md` | `on-error-continue` / `propagate`、エラー型、共通ハンドラ、`<try>` |
+| 5 | DataWeave | `basics/dataweave.md` | 外部 `.dwl`、`dw validate`、null の扱い、型強制 |
+| 6 | DB コネクタ | `basics/db.md` | 操作の使い分け、SQL は子要素、戻り値の形、プール |
+| 7 | MUnit | `basics/munit.md` | `mock-when` / `assert` / `verify-call`、samples を `readUrl`、カバレッジ |
+| 8 | ビルドと配備 | `basics/deploy.md` | 検証の速い順、Exchange 経由の配備、版上げ、API Manager、`settings.xml` |
+| 9 | 命名と分割 (このプラグインの規約) | `basics/naming.md` | ファイル分割、flow 名、dwl 名、層の責務 |
+| 10 | Batch / MCP / A2A | `basics/kind.md` | `kind` が `api` 以外のとき。**実測 ([G]) はまだ無く、方向づけだけ** |
 
 MUnit を書く・直すときは、この 7 節より `mule-munit` スキル (踏む順のチェックリスト) が先です。

@@ -15,17 +15,17 @@ mule-http-connector 1.10.0 / mule-maven-plugin 4.10.1 / Java 17 / CE。
 
 ## 症状から主題を選ぶ
 
-| 主題 | ファイル | 件 | 行 | こういう症状のとき |
-|---|---|---|---|---|
-| プロジェクトとビルド | `gotchas/build.md` | 10 | 85 | 依存が取れない、起動しない、`requiredProduct`、Maven 401、JDK 違い、RAML がクラスパスに乗らない |
-| 設定とプロパティ | `gotchas/config.md` | 3 | 22 | `${x.y}` を上書きできない、YAML の値の型、`p()` |
-| MUnit | `gotchas/munit.md` | 12 | 114 | `mock-when` が効かない、カバレッジ、`target=`、`default` で牙が無い、APIkit の振り分け flow 直叩き |
-| エラー処理 | `gotchas/error-handling.md` | 6 | 46 | `on-error-continue` の再開位置、`<try>` の中の `error-handler`、`raise-error` できない型、`ANY` の枝 |
-| APIkit と HTTP | `gotchas/apikit-http.md` | 3 | 25 | `requestPath` にベースパスが付く、`payload as String` で `Cannot coerce`、検証エラーの文面 |
-| DB コネクタ | `gotchas/db.md` | 6 | 44 | SQL が属性で動かない、`db:update` の適用範囲、戻り値の形、`affectedRows`、`payload[0]`、デッドロック |
-| DataWeave | `gotchas/dataweave.md` | 3 | 32 | `dw validate -f`、`p()` の誤検知、予約語 |
-| 配備 (CloudHub 2.0 / Runtime Fabric) | `gotchas/deploy.md` | 6 | 59 | Exchange 経由必須、公開 URL が付かない、properties が消える、RTF のログ、Flex に curl が届かない |
-| API Manager とポリシー | `gotchas/api-manager.md` | 4 | 56 | ポリシー適用が効かない、autodiscovery が EE 要求、インスタンスの形、flexGateway の制約 |
+| 主題 | ファイル | 件 | こういう症状のとき |
+|---|---|---|---|
+| プロジェクトとビルド | `gotchas/build.md` | 10 | 依存が取れない、起動しない、`requiredProduct`、Maven 401、JDK 違い、RAML がクラスパスに乗らない |
+| 設定とプロパティ | `gotchas/config.md` | 3 | `${x.y}` を上書きできない、YAML の値の型、`p()` |
+| MUnit | `gotchas/munit.md` | 12 | `mock-when` が効かない、カバレッジ、`target=`、`default` で牙が無い、APIkit の振り分け flow 直叩き |
+| エラー処理 | `gotchas/error-handling.md` | 6 | `on-error-continue` の再開位置、`<try>` の中の `error-handler`、`raise-error` できない型、`ANY` の枝 |
+| APIkit と HTTP | `gotchas/apikit-http.md` | 3 | `requestPath` にベースパスが付く、`payload as String` で `Cannot coerce`、検証エラーの文面 |
+| DB コネクタ | `gotchas/db.md` | 6 | SQL が属性で動かない、`db:update` の適用範囲、戻り値の形、`affectedRows`、`payload[0]`、デッドロック |
+| DataWeave | `gotchas/dataweave.md` | 3 | `dw validate -f`、`p()` の誤検知、予約語 |
+| 配備 (CloudHub 2.0 / Runtime Fabric) | `gotchas/deploy.md` | 6 | Exchange 経由必須、公開 URL が付かない、properties が消える、RTF のログ、Flex に curl が届かない |
+| API Manager とポリシー | `gotchas/api-manager.md` | 4 | ポリシー適用が効かない、autodiscovery が EE 要求、インスタンスの形、flexGateway の制約 |
 
 要約側 (`knowledge/basics/`) との対応は 1 対 1 ではありません。`apikit-http` の要約は `basics/flow.md`、
 `api-manager` の要約は `basics/deploy.md` の中にあります。逆に `basics/flow.md` / `naming.md` / `kind.md` に

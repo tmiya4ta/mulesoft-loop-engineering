@@ -1,7 +1,7 @@
 # MUnit (実測した地雷)
 
 `/mule-learn` の追記先。**根拠のない項目を足さない。**各項目に「何回どこで起きたか」を書き、
-追記したら `../gotchas.md` の索引の件数も直す。他の主題と確認した版もそこに。
+追記したら `../gotchas.md` の索引の件数も直す (`scripts/knowledge-index-check.sh` が検査)。
 
 ## MUnit の絞り込みは `-Dmunit.test=`
 `-Dtest=` は surefire 用で MUnit には効かない。ファイル名を渡す。

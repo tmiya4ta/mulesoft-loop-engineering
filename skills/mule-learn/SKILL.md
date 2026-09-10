@@ -93,9 +93,10 @@ argument-hint: "[--share 汎用ナレッジをプラグインに PR する]"
 
    **`knowledge/gotchas/` への追記はやめない。** そこは根拠と日付つきの一次記録で、スキルはそこから
    「順番」と「写経元の在処」だけを抜いた薄い層です。両方に書く。
-   **追記したら `knowledge/gotchas.md` の索引の件数と行数、症状の欄も直す。** 索引が実体とずれると、
-   読む側は「合う行が無い」と判断してそのファイルを開かなくなり、書いた項目が誰にも読まれません
-   (PR #2 が目次の件数を 11 のまま残した実例があります)。
+   **追記したら `knowledge/gotchas.md` の索引の件数と症状の欄も直し、`bash scripts/knowledge-index-check.sh`
+   を通す (exit 0 が条件)。** 索引が実体とずれると、読む側は「合う行が無い」と判断してそのファイルを
+   開かなくなり、書いた項目が誰にも読まれません。**これは文章で守らせません** — 手で持つ数字は
+   ずれます (PR #2 が目次を 11 件のまま残し、v0.6.15 は索引の行数を全部 1 ずつ間違えました)。判定は機械。
    **同じ形で 3 回以上解決しているものは、文章ではなく `template/reference/` の写経元にする。**
    実例: APIkit の振り分け flow の直叩きは 6 回とも同じ形で解決できたが、写経元が無いため毎回踏んでいた
    (`reference/router-test.xml` として v0.6.11 で追加)。
@@ -120,7 +121,9 @@ argument-hint: "[--share 汎用ナレッジをプラグインに PR する]"
 ```bash
 gh repo clone tmiya4ta/mulesoft-loop-engineering /tmp/ml && cd /tmp/ml
 git switch -c learn/<category>-<短い名前>
-# knowledge/gotchas/<主題>.md に追記 (症状 / 原因 / 直し方 / 根拠の件数) + knowledge/gotchas.md の索引の件数を直す
+# knowledge/gotchas/<主題>.md に追記 (症状 / 原因 / 直し方 / 根拠の件数)
+# 索引 (knowledge/gotchas.md) の件数と症状の欄も直す
+bash scripts/knowledge-index-check.sh   # exit 0 になるまで PR を開かない
 gh pr create --title "gotcha: <symptom>" --body "<根拠: どのリポジトリで何回>"
 ```
 

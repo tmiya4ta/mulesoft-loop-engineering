@@ -1,7 +1,7 @@
 # API Manager とポリシー (実測した地雷)
 
 `/mule-learn` の追記先。**根拠のない項目を足さない。**各項目に「何回どこで起きたか」を書き、
-追記したら `../gotchas.md` の索引の件数も直す。他の主題と確認した版もそこに。
+追記したら `../gotchas.md` の索引の件数も直す (`scripts/knowledge-index-check.sh` が検査)。
 
 ## API Manager のポリシーは「適用」だけでは効かない
 ポリシーを適用して 201 が返り、API Manager の一覧にも出るのに、**API は無防備なまま**という

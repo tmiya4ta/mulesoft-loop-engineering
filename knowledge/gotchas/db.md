@@ -1,7 +1,7 @@
 # DB コネクタ (実測した地雷)
 
 `/mule-learn` の追記先。**根拠のない項目を足さない。**各項目に「何回どこで起きたか」を書き、
-追記したら `../gotchas.md` の索引の件数も直す。他の主題と確認した版もそこに。
+追記したら `../gotchas.md` の索引の件数も直す (`scripts/knowledge-index-check.sh` が検査)。
 
 ## `db:update` / `db:select` の SQL は属性ではなく子要素
 `sql="..."` の属性で書くと XSD 検証で落ちる。`<db:sql>...</db:sql>` の子要素にする。

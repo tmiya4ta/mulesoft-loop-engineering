@@ -192,6 +192,35 @@ export ANYPOINT_REGION=PROD_JP
 ## Release notes
 
 <details>
+<summary><b>v0.6.17</b> — Stop hand-holding the numbers in the index (v0.6.15 broke them exactly as its own note warned)</summary>
+
+The v0.6.15 index tables carried line counts, written **before** the per-file headers were compressed by
+one line. All 19 numbers ended up off by one — inside the same commit whose note says "an index that
+drifts from reality means readers conclude no row matches and never open the file" and cites PR #2
+leaving a count at 11. **The person writing the warning can break it in the same commit.**
+
+So the numbers were taken away from the human.
+
+- **The line-count column is gone.** Line counts move on every edit to any topic file and have **zero
+  bearing on which topic a reader opens**. They were never worth maintaining.
+- **Only the item count stays, and a machine checks it.** Item counts move only when an item is added —
+  the same moment `/mule-learn` already touches the index. `scripts/knowledge-index-check.sh` checks
+  three things: every file on disk has a row, every row has a file, and each count equals the number of
+  `## ` headings. Hand-maintained numbers went from 28 to 9, and a machine holds those 9.
+- `/mule-learn --share` runs it before `gh pr create` (exit 0 required). **A PR that appends an item and
+  forgets the index fails before it is opened.**
+- The script lives in `scripts/` (the plugin itself), **not `template/scripts/`** — the indexes live in the
+  plugin and are never distributed to user projects, so shipping it there would give it nothing to check.
+
+Teeth verified three ways: setting a count 12 → 11, adding a topic file absent from the index, and
+deleting a file the index points at all exit 1. (If any one of those passed, the check would be theatre.)
+
+The prose rule "fix the index count when you append" was **removed** from `/mule-learn`. Per the v0.6.14
+table, something a machine can catch does not become a sentence.
+
+</details>
+
+<details>
 <summary><b>v0.6.16</b> — plugin-root.sh was handing back a stale version (the cache is only built at session start)</summary>
 
 Right after pushing v0.6.15, `bash scripts/plugin-root.sh knowledge/gotchas/munit.md` answered
@@ -225,8 +254,8 @@ So the words are untouched; only the amount read went down.
 
 | | Before | After |
 |---|---|---|
-| `knowledge/gotchas.md` | 506 lines / ~10,567 tok, read **whole** | index 32 lines / 927 tok + one topic (468–2,790) = **1,395–3,717** |
-| `knowledge/mule-basics.md` | 124 lines / ~5,483 tok, read by **every executor** | index 32 lines / 817 tok + only the topics touched (255–1,030) |
+| `knowledge/gotchas.md` | 506 lines / ~10,567 tok, read **whole** | index 927 tok + one topic (468–2,790) = **1,395–3,717** |
+| `knowledge/mule-basics.md` | 124 lines / ~5,483 tok, read by **every executor** | index 817 tok + only the topics touched (255–1,030) |
 
 An executor opening two topics (flow + munit): **5,483 → 2,106 (-62%)**.
 Four topics (flow + db + munit + error-handling): **3,798 (-31%)**.

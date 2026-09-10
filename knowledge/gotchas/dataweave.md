@@ -1,7 +1,7 @@
 # DataWeave (実測した地雷)
 
 `/mule-learn` の追記先。**根拠のない項目を足さない。**各項目に「何回どこで起きたか」を書き、
-追記したら `../gotchas.md` の索引の件数も直す。他の主題と確認した版もそこに。
+追記したら `../gotchas.md` の索引の件数も直す (`scripts/knowledge-index-check.sh` が検査)。
 
 ## DataWeave の検査は `dw validate -f`。`dw -f` は存在しない
 dw CLI (Command Line V1.0.34) に単体の `-f` は無く、**正しい .dwl でも exit 2** を返す。

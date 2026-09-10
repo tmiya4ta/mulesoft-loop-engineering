@@ -1,7 +1,7 @@
 # 配備 (CloudHub 2.0 / Runtime Fabric) (実測した地雷)
 
 `/mule-learn` の追記先。**根拠のない項目を足さない。**各項目に「何回どこで起きたか」を書き、
-追記したら `../gotchas.md` の索引の件数も直す。他の主題と確認した版もそこに。
+追記したら `../gotchas.md` の索引の件数も直す (`scripts/knowledge-index-check.sh` が検査)。
 
 ## CloudHub 2.0 は Exchange 経由でしか配備できない
 jar を直接上げる口が無い。CH1 との一番大きな違い。mule-maven-plugin 経由でも
