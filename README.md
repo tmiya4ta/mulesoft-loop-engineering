@@ -196,6 +196,71 @@ export ANYPOINT_REGION=PROD_JP
 ## Release notes
 
 <details>
+<summary><b>v0.6.25</b> — The post-deploy contract check had never once landed (two parts of this plugin disagreed on the sample shape)</summary>
+
+Working through the 10 `loop-ops` rows, **8 were already mechanized or addressed**:
+
+| Ledger row | What covers it |
+|---|---|
+| worktree needs an initial commit | `/mule-run` step 4 |
+| K filename collisions | `k-new.sh` (v0.6.13) |
+| worktree base older than the goal commit (×2) | the v0.6.7 measurement + the isolation decision table |
+| dispatcher broke its own file-ownership split | `wave-guard.sh` (v0.6.14) |
+| a relative path in a worktree resolved into another project | absolute paths + goal content pasted into the prompt (v0.6.7) |
+| worktree base pinned per session | the table routes to no-isolation (reported as a product bug) |
+| `/goal` reads "blocked" as "not done" | **unresolved**; needs mechanism on the `/goal` side |
+| `smoke-check.sh` does not know the sample shape | **fixed here** |
+
+**The one that was left was a disagreement inside the plugin itself.** Acceptance samples use MUnit's
+input shape:
+
+```
+in.json  {"inventoryId": 3, "body": {"quantity": 5.0}}
+out.json {"status": 200, "body": { ...response body... }}
+```
+
+but `smoke-check.sh` **sent the whole file as the HTTP body** and **compared the response to the whole
+out.json**. So:
+
+- the body sent was `{"inventoryId":3,"body":{...}}` (only `.body` should go)
+- the expected value was `{"status":...,"body":...}`, which a response body cannot equal
+- **the status code was never compared** even though out.json carries it
+- the default path was `POST /<resource>` where the real one is `PUT /inventory/{inventoryId}/reserve`
+
+**Which means the post-deploy check had never actually landed.** Stage 4 of `docs/methodology.md`
+(contract check against the deployed app) exists as the **last line of defence** for what MUnit cannot see
+in principle — SQL, types, double-wrapping. It was swinging at air. The ledger recorded it as one
+inventory2-api row; **measured, finance-api has the same shape**, so both were broken.
+
+Fixed:
+
+- **Body**: send only `.body` when `in.json` has one (whole file otherwise — backward compatible)
+- **Expected**: when `out.json` has `status` and `body`, compare **both, separately**; a status mismatch
+  reports as `status(409≠200)`
+- **method/path derived from the RAML**: enumerate methods and paths from `api/*.raml` and pick by
+  (1) the path's last segment matching the case name's first token, (2) the path containing the resource
+  name, (3) **the path's `{...}` exactly matching in.json's top-level keys**, (4) body presence agreeing
+  with the method. Without (3), `get-ok` resolved to the collection `GET /inventory` — **item vs
+  collection confusion**.
+- **Query string**: `in.json`'s `query` is appended to the URL (the shape search samples use)
+- **`--dry-run <base>`**: print what would be sent. **Verifiable before deploying.**
+
+Under `--dry-run`, **all 25 cases** across both projects resolve to the right method, path, and query from
+the RAML, with nothing falling back to the default:
+
+```
+inventory/reserve-ok   PUT  https://x/api/inventory/3/reserve  (RAML)
+  body:     {"quantity":5.0}
+  expected: status 200 / body {"inventoryId":3,...}
+inventory/search-ok    GET  https://x/api/inventory?warehouseCode=WH-MAIN&lowStockOnly=true  (RAML)
+name/not-found         PUT  https://x/api/customers/CUST99999/name  (RAML)
+```
+
+`.req.json` remains as the explicit override (its `path` gets `{...}` substitution too).
+
+</details>
+
+<details>
 <summary><b>v0.6.24</b> — Two RAML/sample drifts a machine can catch. One found more than the ledger recorded</summary>
 
 Of the 5 `raml-mismatch` rows, 3 were already in `gotchas/apikit-http.md` and are semantic (base path in

@@ -191,6 +191,69 @@ export ANYPOINT_REGION=PROD_JP
 ## リリースノート
 
 <details>
+<summary><b>v0.6.25</b> — 配備後の疎通確認が一度も成立していなかった (同じプラグインの中で形が食い違っていた)</summary>
+
+`loop-ops` 10 件を当たったら、**8 件は既に機械化・対処済み**でした:
+
+| 台帳の件 | 何が受け持っているか |
+|---|---|
+| worktree に初期コミットが要る | `/mule-run` 手順 4 |
+| K ファイルの番号衝突 | `k-new.sh` (v0.6.13) |
+| worktree の基点がゴールより古い (×2) | v0.6.7 の実測 + isolation の判定表 |
+| 進捗エージェントが自分の分担宣言を破る | `wave-guard.sh` (v0.6.14) |
+| worktree の相対パスが別プロジェクトに解決 | 絶対パス + ゴールの中身をプロンプトに貼る (v0.6.7) |
+| worktree の基点がセッション固定 | 判定表で isolation を使わない側に落とす (製品バグとして報告済み) |
+| `/goal` が blocked を「未達」と読む | **未解決。** `/goal` 側の機構が要る |
+| `smoke-check.sh` がサンプルの形を知らない | **これを直しました** |
+
+**残っていた 1 件は、プラグイン自身の中の食い違いでした。** 受け入れ条件のサンプルは MUnit の入力の形
+
+```
+in.json  {"inventoryId": 3, "body": {"quantity": 5.0}}
+out.json {"status": 200, "body": { ...応答ボディ... }}
+```
+
+なのに、`smoke-check.sh` は**ファイル全体を HTTP のボディとして送り**、**応答を out.json 全体と
+比べて**いました。つまり:
+
+- 送っていたボディが `{"inventoryId":3,"body":{...}}` (`.body` だけを送るべき)
+- 期待値が `{"status":...,"body":...}` (応答ボディと一致するはずがない)
+- **status を一度も比べていなかった** (out.json は持っているのに)
+- 既定のパスが `POST /<resource>` で、実際は `PUT /inventory/{inventoryId}/reserve`
+
+**つまり配備後の疎通確認は、当たったことが一度も無かった** ということです。`docs/methodology.md` の
+段 4 (配備先への契約検査) は、MUnit が原理的に見られないもの (SQL、型、二重包み) を捕まえる**最後の砦**
+として置いてあります。そこが空振りしていました。台帳には inventory2-api の 1 件として載っていましたが、
+**実測すると finance-api も同じ形**で、両方壊れていました。
+
+直したもの:
+
+- **ボディ**: `in.json` に `body` があればその中身だけを送る (無ければ全体。後方互換)
+- **期待値**: `out.json` に `status` と `body` があれば**両方を別々に**比べる。status 違いは
+  `status(409≠200)` の形で出す
+- **method / path を RAML から導く**。`api/*.raml` の method と path を列挙し、(1) path の末尾が
+  case 名の先頭トークンと一致、(2) path が resource 名を含む、(3) **path の `{...}` と in.json の
+  トップレベルのキーが完全一致**、(4) body の有無が method と整合 — で選びます。
+  (3) が無いと `get-ok` が集合の `GET /inventory` に解決されました (**個別と集合の取り違え**)。
+- **クエリ文字列**: `in.json` の `query` を URL に付ける (検索系のサンプルはこの形)
+- **`--dry-run <base>`**: 何を送るつもりかだけを出す。**配備前に確かめられます**
+
+`--dry-run` で 2 プロジェクトの **25 ケース全部**が RAML から正しい method・path・クエリに解決され、
+既定に落ちたものは 1 つもありませんでした:
+
+```
+inventory/reserve-ok   PUT  https://x/api/inventory/3/reserve  (RAML)
+  body:     {"quantity":5.0}
+  expected: status 200 / body {"inventoryId":3,...}
+inventory/search-ok    GET  https://x/api/inventory?warehouseCode=WH-MAIN&lowStockOnly=true  (RAML)
+name/not-found         PUT  https://x/api/customers/CUST99999/name  (RAML)
+```
+
+`.req.json` は明示的な上書きとして残しました (`{...}` の置換はそちらでも効きます)。
+
+</details>
+
+<details>
 <summary><b>v0.6.24</b> — RAML とサンプルのずれ 2 つを機械で当てる。片方は台帳より 1 件多かった</summary>
 
 `raml-mismatch` 5 件のうち 3 件は既に `gotchas/apikit-http.md` にあり、意味の問題でした
