@@ -9,6 +9,15 @@
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/deploy-guard.sh"
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/wave-guard.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [

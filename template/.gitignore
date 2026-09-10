@@ -6,3 +6,7 @@
 # ビルド成果物と worktree はコミットしない (初回コミットに 5MB の jar が入りかける)
 target/
 .claude/worktrees/
+
+# 波の所有権宣言。**コミットしない。** worktree に無いことで「進捗エージェントだけを弾く」が成立する
+# (scripts/wave-guard.sh)。コミットすると実行エージェントも自分の担当ファイルを書けなくなる。
+.claude/wave-owned

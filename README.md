@@ -132,6 +132,7 @@ agents/
   mule-executor.md  Drives one goal until done_when passes (worktree-isolated)
   mule-reviewer.md  Read-only review
 hooks/hooks.json  Before a deploy: scripts/deploy-guard.sh (reads authorizations.yaml, answers allow/deny)
+                  Before an edit:  scripts/wave-guard.sh (keeps the dispatcher off files it assigned to a goal)
                   On every edit: scripts/quick-check.sh (seconds-long validation)
                   Every turn:    scripts/loop-reminder.sh (re-inject the discipline)
                   End of reply:  scripts/stop-guard.sh (bounce once if not closed in 3 blocks)
@@ -187,6 +188,53 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.14</b> — "It only happened once" is not a reason to leave it unmechanized</summary>
+
+v0.6.13 left the dispatcher-breaks-its-own-file-ownership failure as a prose rule, **justified by
+"n=1, so `/mule-learn`'s two-occurrence rule says wait."** That was wrong: it had become a reason
+not to fix something fixable. The policy changed.
+
+**How many occurrences a promotion needs now depends on the destination, not the count.**
+
+| Destination | Occurrences | Why |
+|---|---|---|
+| hook / script / template | **1** | Zero reading cost. Put it where it acts; more of them slows nobody |
+| A prose rule (`CLAUDE.md`, a skill, a review point) | **2** | Reading cost. Grown from single incidents, it bloats and stops being read |
+
+The original rule's worry was that rules pile up until `CLAUDE.md` goes unread. That worry applies
+**only to prose**. Nobody reads a hook, so there is no cost to writing one after a single incident.
+Wait for a second occurrence only when prose is the only option — and conversely, something seen
+twice or more still becomes prose if no mechanism can catch it.
+
+**And the deferred item is now mechanical: `scripts/wave-guard.sh` (a PreToolUse hook).**
+
+When dispatching, the progress agent writes `path<TAB>goal id` lines to `.claude/wave-owned`. The
+hook reads it and **denies the progress agent's own Edit / Write**. It is not a request but a key it
+turns on itself — the party that broke the declaration was the one who made it, so a declaration
+cannot be assumed to hold. Once every goal is integrated the file is removed, and only then do the
+shared appends happen, in one pass.
+
+Who gets blocked is decided by **git's own signal**, not by guessing at path shapes: a linked
+worktree's `--git-dir` is `<repo>/.git/worktrees/<name>` and differs from `--git-common-dir`, while
+in the main working tree they match. So **executors (worktrees) pass through and only the dispatcher
+(main tree) is blocked** — verified to hold even when `.claude/wave-owned` is committed by mistake
+and shows up inside the worktree. A forgotten declaration **expires after 12 hours**, because
+leftovers from an aborted wave silently blocking every later write would itself be a new `loop-ops`.
+
+The hook sees only Edit / Write; shell-side appends like `echo >> file` are not caught (judging that
+from a command string produces too many false positives). `/mule-run`'s forbidden list covers those.
+
+One trap hit while building it: **passing the python body as a heredoc consumes the hook's JSON on
+stdin.** `json.load(sys.stdin)` read nothing and no deny ever fired. Read stdin into a file first,
+then pass the path — the same shape `stop-guard.sh` uses.
+
+Verified across 10 cases: relative path, absolute path, a deep cwd, an unlisted file passing through,
+a worktree passing through, a declaration older than 12 hours being ignored, no declaration file,
+outside git, **a mistakenly committed declaration still denying only in the main tree**, and the
+worktree still passing through in that case.
+</details>
 
 <details>
 <summary><b>v0.6.13</b> — Stop letting K filenames be chosen by hand (1 of the 2 open loop-ops rows)</summary>
