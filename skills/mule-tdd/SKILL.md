@@ -52,6 +52,13 @@ description: MuleSoft の実装を TDD (Red → Green → Refactor) で進める
 red:      mvn -q clean test -Dmunit.test=order-cancel-test.xml → exit 1 (期待どおり失敗)
 green:    mvn -q clean test -Dmunit.test=order-cancel-test.xml → exit 0
 coverage: bash scripts/coverage-check.sh → flow coverage: 4/4 (100%)
+teeth:    bash scripts/teeth-check.sh --file src/test/munit/order-cancel-test.xml \
+            --old 'samples/order/cancel.out.json' --new 'samples/order/ok.out.json' \
+            --case order-cancel-ok → 牙あり (Failed: 1)
 done:     <done_when> → exit 0
 ```
+
+**牙は手で測りません。** `teeth-check.sh` が「細工が当たったか / 細工前は緑か / 狙った case が
+失敗として現れたか」の 3 つを見ます。台帳では**牙の確認自体が 3 回当たっていませんでした**
+(詳しくは `mule-munit`)。
 red と green は **同じコマンド** であること。違うコマンドを並べても TDD の証拠にならない。

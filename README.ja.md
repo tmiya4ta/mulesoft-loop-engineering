@@ -149,7 +149,8 @@ template/         /mule-init が配るもの:
                   munit-coverage-mode.sh, run-log.sh, metrics.sh, cost-report.sh,
                   schema-index.sh (~/.m2 の jar からコネクタ定義と XSD を抜く),
                   plugin-root.sh (プラグインとスキルの場所をパスに解決する),
-                  k-new.sh (K ファイルの名前を機械が決める)
+                  k-new.sh (K ファイルの名前を機械が決める),
+                  teeth-check.sh (テストに牙があるかを機械が測る)
 .mcp.json         MuleSoft DX MCP Server（stdio）+ Platform MCP Server（http）
 docs/methodology.md
 docs/mulesoft-tools.md
@@ -187,6 +188,66 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.21</b> — 牙の確認を手でやるのをやめる (3 回、確認そのものが当たっていなかった)</summary>
+
+台帳の `test-toothless` 6 件を 1 件ずつ当たったら、内訳が予想と違いました。**5 件が「検査自体が一度も
+走っていなかった」**で、そのうち **3 件は「牙の確認そのものが当たっていなかった」**ものでした:
+
+- `tamper-missed-due-to-line-number-drift` — 行番号を決め打ちした `sed` が外れ、**細工が 1 文字も
+  当たっていない**まま緑を「牙が無い」と誤読しかけた
+- `mutation-test-wrong-failure-path` — 別の前処理が先に落ちて exit 1。**狙った case は一度も走っていない**
+- `uncaught-exception-in-check-prelude` — 前処理の例外でスタックトレースだけ出て NG 行ゼロ、exit 1
+
+共通の誤りは 1 つです。**exit が非ゼロになったことを牙の証拠にした。**
+
+v0.6.11 でこれを `mule-munit` に「3 つを実測する」という**文章**で書きました。文章では足りません
+— 上の 3 件は全部「気を付ける」で防げるはずのものです。`template/scripts/teeth-check.sh` に移しました:
+
+```bash
+bash scripts/teeth-check.sh --file src/test/munit/name-test.xml \
+     --old 'samples/name/not-found.out.json' --new 'samples/name/ok.out.json' \
+     --case name-not-found
+```
+
+見るのは 3 つとも機械です: **細工が当たったか** (当て先が 1 箇所でなければ細工しない。行番号は
+使わない) / **細工前は緑か** / **狙った case が失敗として現れたか**。対象ファイルは異常終了でも
+元に戻します。
+
+**MUnit の出力の形は推測していません。** finance-api の `name-test.xml` で実測しました:
+
+```
+細工前: = Tests run: 7 - Failed: 0 - Errors: 0 - Skipped: 0 ... =
+細工後: munit.01 ERROR FAILURE - test: name-not-found - Time elapsed: 0.03 sec
+        = Tests run: 7 - Failed: 1 - Errors: 0 - Skipped: 0 ... =
+```
+
+だから条件は `FAILURE - test: <case 名>` と `Failed:` が 1 以上の 2 つです。
+
+**牙の確認に牙があることを、実 mvn で 6 通り確かめました** (この検査自体が `test-toothless` に
+なるのを避けるため):
+
+| 試したこと | 結果 |
+|---|---|
+| 当て先が 0 箇所 | exit 2 |
+| 当て先が 3 箇所 (`equalTo(vars.expected.status)` は実際に 3 箇所あった) | exit 2 |
+| case 名の打ち間違い | exit 2。**`mvn` を回す前に**止まる |
+| 期待値の参照先を別の sample に差し替え | **exit 0 (牙あり)**。`Failed: 1` と case 名を確認 |
+| `doc:name` だけ壊した (assert が読まない箇所) | exit 2「**牙がありません**」 |
+| 別の case を壊して `--case` は元のまま | exit 2「**落ちたのは別の case**」+ 実際に落ちた case 名 |
+
+最後の 2 つが本題です。5 番目は**牙の無いテストを見つける**枝で、6 番目は
+**`mutation-test-wrong-failure-path` そのもの**を機械が捕まえた形です。
+
+途中で 1 つ直しました。`Failed: 0` のときに「落ちたのは別の case です」と言っていました
+(原因も直し方も違うので、集計を先に見るよう並べ替えた)。細工の表示も `grep` から**差分**に変えました
+— 別の case が同じ sample を読んでいて、細工と無関係な 3 行まで並んでいたためです。
+
+`mule-munit` からは「3 つを実測する」という手順を消し、`mule-tdd` の証拠ブロックに `teeth:` の行を
+足しました。
+
+</details>
 
 <details>
 <summary><b>v0.6.20</b> — スキーマ索引は「除外されると黙って届かなくなる」ので、除外を見つけて言う</summary>

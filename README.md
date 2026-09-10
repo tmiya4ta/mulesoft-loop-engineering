@@ -150,9 +150,10 @@ template/         What /mule-init distributes:
   tasks/          The goal ledger (done_when + attempt log)
   scripts/        done.sh, add-munit.sh, budget-check.sh, coverage-check.sh, preflight.sh,
                   munit-coverage-mode.sh, run-log.sh, metrics.sh, cost-report.sh,
-                  schema-index.sh (~/.m2 の jar からコネクタ定義と XSD を抜く),
-                  plugin-root.sh (プラグインとスキルの場所をパスに解決する),
-                  k-new.sh (K ファイルの名前を機械が決める)
+                  schema-index.sh (extracts connector definitions + XSDs from jars in ~/.m2),
+                  plugin-root.sh (resolves the plugin and skills to paths),
+                  k-new.sh (a machine picks the K filename),
+                  teeth-check.sh (a machine measures whether a test has teeth)
 .mcp.json         MuleSoft DX MCP Server (stdio) + Platform MCP Server (http)
 docs/methodology.md
 docs/mulesoft-tools.md
@@ -192,6 +193,68 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.21</b> — Stop measuring teeth by hand (three times, the measurement itself missed)</summary>
+
+Going through the ledger's 6 `test-toothless` rows one at a time, the breakdown was not what was expected.
+**5 of 6 were "the check never ran at all"**, and **3 of those were "the teeth measurement itself missed"**:
+
+- `tamper-missed-due-to-line-number-drift` — a line-pinned `sed` landed nowhere, so **not one character
+  of the tamper applied**, and green was nearly read as "no teeth"
+- `mutation-test-wrong-failure-path` — a different prelude failed first, exit 1, and **the intended case
+  never ran**
+- `uncaught-exception-in-check-prelude` — an exception in the prelude printed a stack trace, zero NG
+  lines, exit 1
+
+One shared mistake: **treating a non-zero exit as proof of teeth.**
+
+v0.6.11 wrote this into `mule-munit` as **prose** — "measure these three things." Prose isn't enough; all
+three rows above are things "be careful" was supposed to prevent. It now lives in
+`template/scripts/teeth-check.sh`:
+
+```bash
+bash scripts/teeth-check.sh --file src/test/munit/name-test.xml \
+     --old 'samples/name/not-found.out.json' --new 'samples/name/ok.out.json' \
+     --case name-not-found
+```
+
+A machine checks all three: **did the tamper land** (refuses unless the anchor occurs exactly once; no
+line numbers) / **was it green before** / **did the intended case appear as a failure**. The target file is
+restored even on abnormal exit.
+
+**MUnit's output format was measured, not recalled** — from finance-api's `name-test.xml`:
+
+```
+before: = Tests run: 7 - Failed: 0 - Errors: 0 - Skipped: 0 ... =
+after:  munit.01 ERROR FAILURE - test: name-not-found - Time elapsed: 0.03 sec
+        = Tests run: 7 - Failed: 1 - Errors: 0 - Skipped: 0 ... =
+```
+
+So the conditions are `FAILURE - test: <case>` plus `Failed:` of 1 or more.
+
+**The teeth check was verified to have teeth, six ways, against real mvn runs** (so this check does not
+itself become a `test-toothless` row):
+
+| Tried | Result |
+|---|---|
+| anchor occurs 0 times | exit 2 |
+| anchor occurs 3 times (`equalTo(vars.expected.status)` really does appear 3×) | exit 2 |
+| misspelled case name | exit 2, **before `mvn` runs** |
+| expectation repointed at a different sample | **exit 0 (has teeth)**; `Failed: 1` and the case name confirmed |
+| tampered only a `doc:name` (nothing an assert reads) | exit 2, "**no teeth**" |
+| tampered a *different* case, left `--case` alone | exit 2, "**a different case failed**", naming it |
+
+The last two are the point. The fifth is the branch that **finds toothless tests**; the sixth is
+**`mutation-test-wrong-failure-path` itself**, now caught by a machine.
+
+Two fixes along the way. On `Failed: 0` it said "a different case failed" (different cause, different
+remedy — the tally is now checked first). And the tamper display moved from `grep` to a **diff**: another
+case read the same sample, so three lines unrelated to the tamper were being listed.
+
+`mule-munit` lost the three-step prose procedure; `mule-tdd`'s evidence block gained a `teeth:` line.
+
+</details>
 
 <details>
 <summary><b>v0.6.20</b> — The schema index goes silently undelivered if it's ignored, so say when it is</summary>
