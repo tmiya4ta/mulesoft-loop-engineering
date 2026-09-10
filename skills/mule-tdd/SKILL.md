@@ -12,7 +12,7 @@ description: MuleSoft の実装を TDD (Red → Green → Refactor) で進める
 `bash scripts/plugin-root.sh <相対パス>` で絶対パスに直してから開いてください。
 
 ## 0. 受け入れ条件を確認する
-- `${CLAUDE_PLUGIN_ROOT}/knowledge/mule-basics.md` と `${CLAUDE_PLUGIN_ROOT}/template/reference/` を読む。MUnit は `reference/resource-test.xml`、flow は `resource-impl.xml`、エラーハンドラは `global.xml` と同じ形で書く。**この手順と `reference/` は `kind: api` (RAML + APIkit) を前提にしている。** `kind: batch` / `mcp` は samples の代わりに入出力データセットや MCP ツール呼び出しを起点にするが、Red → Green → Refactor 自体は変わらない (`mule-basics.md` 10 節)。
+- `${CLAUDE_PLUGIN_ROOT}/knowledge/mule-basics.md` (索引) を読み、**これから触る主題の `knowledge/basics/<主題>.md` だけ**を開く。それと `${CLAUDE_PLUGIN_ROOT}/template/reference/` を読む。MUnit は `reference/resource-test.xml`、flow は `resource-impl.xml`、エラーハンドラは `global.xml` と同じ形で書く。**この手順と `reference/` は `kind: api` (RAML + APIkit) を前提にしている。** `kind: batch` / `mcp` は samples の代わりに入出力データセットや MCP ツール呼び出しを起点にするが、Red → Green → Refactor 自体は変わらない (`knowledge/basics/kind.md`)。
 - `samples/<resource>/<case>.in.json` と `.out.json` を全部読む。これが期待値で、**変えない**。
 - `api/*.raml` の該当リソース、ステータスコード、スキーマを読む。
 - 既存の MUnit (`src/test/munit/`) の書き方に合わせる。
@@ -22,7 +22,7 @@ description: MuleSoft の実装を TDD (Red → Green → Refactor) で進める
 17 件が MUnit で最大のクラスタです。踏む順に並べたチェックリストと、APIkit の振り分け flow を
 直叩きする写経元 (`template/reference/router-test.xml`) がそこにあります。
 - `src/test/munit/<resource>-test.xml` に、samples のケースごとに 1 つ `munit:test` を書く。
-  - `munit:behavior` で外部呼び出し (`http:request`, `db:select`, `sap:*` など) を `mock-when` で固定する。`processor` + `doc:name` で操作を特定する。返す値は samples の in から導き、**戻り値の形はコネクタごとに違う** (`db:select` は配列、`db:update` は `{affectedRows}`。mule-basics 6 節)。要素名・操作名・パラメータ名は推測せず `reference/mule-schema/INDEX.md` から引く (`munit-tools.xml` に `mockWhen` / `assertThat` の、コネクタの `.xml` に操作の定義がある。版が一致している)。コネクタのエラー型は `then-return` の `<munit-tools:error typeId="DB:CONNECTIVITY"/>` で起こす。
+  - `munit:behavior` で外部呼び出し (`http:request`, `db:select`, `sap:*` など) を `mock-when` で固定する。`processor` + `doc:name` で操作を特定する。返す値は samples の in から導き、**戻り値の形はコネクタごとに違う** (`db:select` は配列、`db:update` は `{affectedRows}`。`knowledge/basics/db.md`)。要素名・操作名・パラメータ名は推測せず `reference/mule-schema/INDEX.md` から引く (`munit-tools.xml` に `mockWhen` / `assertThat` の、コネクタの `.xml` に操作の定義がある。版が一致している)。コネクタのエラー型は `then-return` の `<munit-tools:error typeId="DB:CONNECTIVITY"/>` で起こす。
   - `munit:execution` で対象フローを `flow-ref` する。
   - `munit:validation` で `.out.json` と `payload` を `MunitTools::equalTo` で比較する (`readUrl("classpath://samples/...")` で読み、書き写さない)。ステータスは `vars.httpStatus`。**assert の式に `default` を付けない** (未設定でも通る牙の無い検証になる)。呼び出しの事実は `verify-call`。
 - **カバレッジは 100% を目標にする。** 具体的には、追加した `flow` / `sub-flow` が 1 つ残らずどれかの `munit:test` から `flow-ref` されること。

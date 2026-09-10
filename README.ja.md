@@ -134,7 +134,10 @@ hooks/hooks.json  デプロイの前: scripts/deploy-guard.sh（authorizations.y
                   編集のたび: scripts/quick-check.sh（数秒の検証）
                   毎ターン:   scripts/loop-reminder.sh（規律の注入）
                   応答の最後: scripts/stop-guard.sh（3 ブロックで締めていなければ 1 回差し戻す）
-knowledge/gotchas.md  共有ナレッジ（実行エージェントが毎回読む）
+knowledge/mule-basics.md  索引。実行エージェントは索引を読み、これから触る主題だけを開く
+knowledge/basics/*.md  Mule の基礎知識（主題別 10 ファイル、1 項目 1 事実）
+knowledge/gotchas.md  索引（症状から主題を選ぶ）
+knowledge/gotchas/*.md  実測した地雷（主題別 9 ファイル、根拠つき）
 template/         /mule-init が配るもの:
   context/        前提の置き場所（requirements / environment / deployment）+ sources.yaml
   budget.yaml     コスト上限。/mule-run が配る前に確認
@@ -182,6 +185,52 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.15</b> — 毎回読むファイルを索引と主題に割る (語を変えずに読む量を減らす)</summary>
+
+「トークン消費を全部英語にすれば減らせるか」という問いへの答えが**減るが割る方が効く**でした。
+日本語は同じ内容で英語の約 1.4 倍のトークンですが、`gotchas.md` が高い理由は**詰まるたびに 506 行を
+丸ごと読んでいたから**で、語を替えても丸ごと読む構造は変わりません。**語を 1 つも変えずに**
+読む量だけ減らしました。
+
+| | 分割前 | 分割後 |
+|---|---|---|
+| `knowledge/gotchas.md` | 506 行 / 約 10,567 tok を**丸ごと** | 索引 32 行 / 927 tok + 主題 1 つ (468〜2,790) = **1,395〜3,717** |
+| `knowledge/mule-basics.md` | 124 行 / 約 5,483 tok を**実行エージェントが毎回** | 索引 32 行 / 817 tok + 触る主題だけ (255〜1,030) |
+
+実行エージェントが 2 主題を開く例 (flow + munit) で **5,483 → 2,106 (-62%)**、
+4 主題 (flow + db + munit + error-handling) で **3,798 (-31%)**。
+詰まって gotchas を引くときは中央値の主題で **10,567 → 2,027 (-81%)**。
+
+**正直な数字も書いておきます。10 主題を全部開くと 6,780 で、分割前より 24% 増えます** (各ファイルに
+出典の凡例が必要なため)。**7 主題以上読むなら損**なので、割ることそのものではなく
+「索引を読んで、触る主題だけ開く」規律が効きの前提です。だから読み手側を全部直しました:
+`agents/mule-executor.md` は索引の表から 1 行選んで 1 ファイルだけ開く、
+`agents/mule-reviewer.md` は見る 5 つの落とし穴に対応する 3 ファイルを名前で指定、
+`template/CLAUDE.md` と `mule-tdd` は「丸ごと読まない」を明記、
+`mule-munit` は `gotchas/munit.md` と `basics/munit.md` の 2 つだけで足りると明記。
+
+- `knowledge/gotchas/` 9 ファイル (build 10 件 / config 3 / munit 12 / error-handling 6 / apikit-http 3 /
+  db 6 / dataweave 3 / deploy 6 / api-manager 4)。索引は**症状**から主題を選ぶ表にしました
+  (「`Cannot coerce`」「properties が消える」など)。主題名だけでは、詰まっている人がどれを開くか決められません。
+- `knowledge/basics/` 10 ファイル。`kind.md` (Batch / MCP / A2A) は**単独で読まれるようになった**ので、
+  「これは `[S]` だけで実測がない」という但し書きをファイルの中に残しました (索引に書いても、
+  ファイルだけ開いた人には届かない)。
+- **分割が無損失であることを機械で確かめました。** 本文 363 行 + 83 行が主題ファイルに
+  ちょうど 1 回ずつ現れることを行単位で照合 (目で見ていません)。日付と根拠つきの手書きの記録なので、
+  1 行落ちても後から気付けません。
+- `/mule-learn` の追記先は `knowledge/gotchas/<主題>.md` になりました。**追記したら索引の件数も直す**を
+  手順に入れました。索引が実体とずれると、読む側は「合う行が無い」と判断してそのファイルを
+  開かなくなり、書いた項目が誰にも読まれません (PR #2 が目次を 11 件のまま残した実例があります)。
+- 主題が 1 対 1 で対応しないことは索引に明記しました。`gotchas/apikit-http` の要約は `basics/flow.md`、
+  `gotchas/api-manager` の要約は `basics/deploy.md` の中にあり、`basics/flow` / `naming` / `kind` に
+  対応する gotchas はまだありません (実測が無い)。**無い対応を埋めるために項目を複製しません。**
+
+`knowledge/gotchas.md` と `knowledge/mule-basics.md` のパスは索引として残したので、
+この 2 つを参照していた 18 ファイルはすべてそのまま解決します。
+
+</details>
 
 <details>
 <summary><b>v0.6.14</b> — 「まだ 1 回だから」を機械化しない理由にしない</summary>

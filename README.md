@@ -136,8 +136,10 @@ hooks/hooks.json  Before a deploy: scripts/deploy-guard.sh (reads authorizations
                   On every edit: scripts/quick-check.sh (seconds-long validation)
                   Every turn:    scripts/loop-reminder.sh (re-inject the discipline)
                   End of reply:  scripts/stop-guard.sh (bounce once if not closed in 3 blocks)
-knowledge/mule-basics.md  Mule basics distilled from two loops and the user's skill; executors read it before writing
-knowledge/gotchas.md  Shared knowledge by topic, with evidence, read by every executor
+knowledge/mule-basics.md  Index over basics/; executors read the index, then the one topic they touch
+knowledge/basics/*.md  Mule basics distilled from two loops and the user's skill, one file per topic (10)
+knowledge/gotchas.md  Index over gotchas/: pick a topic by symptom
+knowledge/gotchas/*.md  Measured traps with evidence, one file per topic (9)
 template/reference/   Reference skeleton (global.xml / impl / MUnit / dwl / config) taken from an API that passed
 template/         What /mule-init distributes:
   context/        Where premises live (requirements / environment / deployment) + sources.yaml
@@ -188,6 +190,53 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.15</b> — Split the files that get read every time into an index plus topics (fewer tokens, same words)</summary>
+
+The answer to "can I cut token spend by writing everything in English" was **yes, but splitting wins**.
+Japanese costs about 1.4x English for the same content, but `gotchas.md` was expensive because
+**506 lines got read whole every time someone got stuck** — and translating it doesn't change that.
+So the words are untouched; only the amount read went down.
+
+| | Before | After |
+|---|---|---|
+| `knowledge/gotchas.md` | 506 lines / ~10,567 tok, read **whole** | index 32 lines / 927 tok + one topic (468–2,790) = **1,395–3,717** |
+| `knowledge/mule-basics.md` | 124 lines / ~5,483 tok, read by **every executor** | index 32 lines / 817 tok + only the topics touched (255–1,030) |
+
+An executor opening two topics (flow + munit): **5,483 → 2,106 (-62%)**.
+Four topics (flow + db + munit + error-handling): **3,798 (-31%)**.
+Looking a gotcha up at the median topic: **10,567 → 2,027 (-81%)**.
+
+**The honest number too: opening all 10 basics topics costs 6,780 — 24% more than before**, because each
+file needs its own source-marker legend. **Reading 7+ topics is a loss**, so the win depends on the
+discipline, not the split: read the index, open only what you touch. That's why every reader was updated:
+`agents/mule-executor.md` picks one row from the index table and opens one file;
+`agents/mule-reviewer.md` names the three files behind the five traps it checks;
+`template/CLAUDE.md` and `mule-tdd` state "do not read the directory whole";
+`mule-munit` states that `gotchas/munit.md` + `basics/munit.md` are all it needs.
+
+- `knowledge/gotchas/`, 9 files (build 10 items / config 3 / munit 12 / error-handling 6 / apikit-http 3 /
+  db 6 / dataweave 3 / deploy 6 / api-manager 4). The index selects a topic **by symptom**
+  (`Cannot coerce`, "properties get wiped"), not by topic name — someone who is stuck cannot pick a
+  topic name reliably.
+- `knowledge/basics/`, 10 files. `kind.md` (Batch / MCP / A2A) is now **readable in isolation**, so its
+  caveat — this is `[S]` only, with no measurement behind it — lives inside the file, not just in the index.
+- **Losslessness was verified mechanically**, not by eye: 363 + 83 body lines each appear exactly once
+  across the topic files. These are hand-written records with dates and evidence; a dropped line would
+  be unrecoverable and silent.
+- `/mule-learn` now appends to `knowledge/gotchas/<topic>.md`, and **fixing the index count is part of
+  the step**. An index that drifts from reality is worse than no index: readers conclude "no row matches"
+  and never open the file, so the item you wrote is read by nobody (PR #2 left the count at 11).
+- The index states that the two trees do **not** pair 1:1. The summary for `gotchas/apikit-http` lives in
+  `basics/flow.md`, the one for `gotchas/api-manager` inside `basics/deploy.md`, and `basics/flow` /
+  `naming` / `kind` have no gotchas counterpart yet (nothing measured). **No item is duplicated to
+  manufacture a pair.**
+
+`knowledge/gotchas.md` and `knowledge/mule-basics.md` remain as the index paths, so all 18 files that
+referenced them still resolve.
+
+</details>
 
 <details>
 <summary><b>v0.6.14</b> — "It only happened once" is not a reason to leave it unmechanized</summary>

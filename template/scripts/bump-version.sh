@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# デプロイ前に pom の <version> のパッチ番号を 1 上げる。Exchange は同一版を上書きできない (knowledge/gotchas.md)。
+# デプロイ前に pom の <version> のパッチ番号を 1 上げる。Exchange は同一版を上書きできない (knowledge/gotchas/deploy.md)。
 # 使い方: bump-version.sh            → 1.0.3 → 1.0.4 (SNAPSHOT は外す)
 set -eu
 pom=pom.xml; [ -f $pom ] || { echo "bump-version: pom.xml がありません" >&2; exit 2; }

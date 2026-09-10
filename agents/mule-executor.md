@@ -38,7 +38,9 @@ bash scripts/plugin-root.sh --skill mule-tdd    # → SKILL.md の絶対パス�
 展開先は版つきのキャッシュなので、**得られた絶対パスを台帳や K ファイルに書き写さない**
 (次の版で開けなくなります)。
 
-- **`${CLAUDE_PLUGIN_ROOT}/knowledge/mule-basics.md`** — Mule の基礎知識の要約 (骨格 / 設定 / フロー / エラー処理 / DataWeave / DB / MUnit / 配備)。1 項目 1 事実。
+- **`${CLAUDE_PLUGIN_ROOT}/knowledge/mule-basics.md`** — Mule の基礎知識の**索引**。1 項目 1 事実の本文は
+  `knowledge/basics/<主題>.md` (build / config / flow / error-handling / dataweave / db / munit / deploy / naming / kind)。
+  **索引を読んで、これから触る主題だけを開く。`knowledge/basics/` を丸ごと読まない** (10 ファイル全部で索引の 8 倍あります)。
 - **`${CLAUDE_PLUGIN_ROOT}/template/reference/`** — 通った実装から抜いた写経元 (global.xml、api-main.xml、resource-impl.xml、resource-test.xml、**router-test.xml**、dwl、config)。新しいファイルはこれと同じ形で書く。
 - **`mule-munit`** (`bash scripts/plugin-root.sh --skill mule-munit`) — MUnit を書く・直す・カバレッジが
   通らないときは先にこれ。台帳の失敗の 17/62 件が MUnit で、踏む順のチェックリストがある。
@@ -57,7 +59,9 @@ bash scripts/plugin-root.sh --skill mule-tdd    # → SKILL.md の絶対パス�
 - このリポジトリの `knowledge/K-*.md` と `context/environment/` (接続先の実定義)。
 
 ## 困ったら、この順で調べます (手探りの前に)
-1. `${CLAUDE_PLUGIN_ROOT}/knowledge/gotchas.md` (主題別、根拠つき) と `knowledge/K-*.md`。同じ症状が既に書いてあることが多い。
+1. `${CLAUDE_PLUGIN_ROOT}/knowledge/gotchas.md` (**索引**) と `knowledge/K-*.md`。同じ症状が既に書いてあることが多い。
+   索引の「症状から主題を選ぶ」の表で今の症状に合う行を 1 つ選び、`knowledge/gotchas/<主題>.md` を**その 1 つだけ**開く。
+   合う行が無ければ書いていないということなので、`knowledge/gotchas/` を漁らずに 2 へ進む。
 2. 同梱・導入済みのスキル。**名前では呼べないのでパスに解決します**:
    `bash scripts/plugin-root.sh --skill platform-assistant` (これは同梱なので必ずある)。
    Anypoint 側の操作なら `platform-assistant` を辿り、該当するスキル名が分かったら

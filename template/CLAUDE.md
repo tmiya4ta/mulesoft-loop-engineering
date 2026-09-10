@@ -14,8 +14,7 @@ name: __NAME__
   - system: 外部システム 1 つを包む。ビジネスロジックを持たない。
   - process: system API だけを呼ぶ。DB / SAP / Salesforce コネクタを直接使わない。
   - experience: process か system を呼び、利用者向けに形を整える。永続化しない。
-- `kind: batch` / `mcp` はまだこのプラグイン専用の `template/reference/` 雛形が無い (`knowledge/mule-basics.md` の
-  「10. Batch / MCP / A2A」参照)。困ったら gotchas → スキル (platform-assistant 経由の mulesoft-app-development) →
+- `kind: batch` / `mcp` はまだこのプラグイン専用の `template/reference/` 雛形が無い (`knowledge/basics/kind.md` 参照)。困ったら gotchas → スキル (platform-assistant 経由の mulesoft-app-development) →
   マニュアルの順で調べる。`kind: a2a` はこのリポジトリでは扱わない (`agent-network` 系スキルの担当)。
 - 実装は TDD。先に MUnit を書いて失敗を確認し (Red)、通る最小の実装 (Green)、通ったまま整える (Refactor)。`mule-tdd` の順に従う。
 - **スキルは名前ではなくパスで参照する。** 実行エージェントは Skill ツールを持たないので、`bash scripts/plugin-root.sh --skill <名前>` で SKILL.md の絶対パスに解決してから Read する。exit 1 なら入っていないので探し回らず、gotchas → `reference/mule-schema/INDEX.md` → マニュアルの順に戻る。
@@ -23,7 +22,7 @@ name: __NAME__
 - フロー生成に MCP `generate_mule_flow` や公式スキル `build-mule-integration` (`--skill` で在否を確かめる。外部スキルなので無いことがある) を使ってよい。生成物は MUnit が通るまで仮説。
 - ゴールは `tasks/T-*.md`。`done_when` の無いゴールは作らない。
 - **台帳の外で作業しない。** 実装もデプロイもポリシーも `tasks/T-*.md` のゴール (stage: impl | deploy | policy) にしてから動く。done_when が無い作業は始めない。
-- 実行エージェントは書く前にプラグインの `knowledge/mule-basics.md` と `template/reference/`、それに `reference/mule-schema/INDEX.md` (コネクタの要素名と操作名の地の情報) を読み、同じ形で書く。プラグイン内のパスは `bash scripts/plugin-root.sh <相対パス>` で解決する。困ったら gotchas → スキル (platform-assistant) → マニュアルの順で調べ、1 回でも詰まったことは K ファイルに残す。
+- 実行エージェントは書く前にプラグインの `knowledge/mule-basics.md` と `template/reference/`、それに `reference/mule-schema/INDEX.md` (コネクタの要素名と操作名の地の情報) を読み、同じ形で書く。**`mule-basics.md` と `gotchas.md` は索引で、本文は `knowledge/basics/<主題>.md` と `knowledge/gotchas/<主題>.md` にある。索引を読んで、これから触る主題だけを開く (丸ごと読まない)。**プラグイン内のパスは `bash scripts/plugin-root.sh <相対パス>` で解決する。困ったら gotchas → スキル (platform-assistant) → マニュアルの順で調べ、1 回でも詰まったことは K ファイルに残す。
 - **進捗エージェントはマニュアルを読まない。** 読むのは台帳、context/、knowledge/ だけ。足りない事実は実行エージェントに調べさせ、K ファイルに書かせてから使う。
 - **K ファイルの名前は手で決めない。** `bash scripts/k-new.sh <ゴール id>` が出したパスを使う (`knowledge/K-T-003-1.md` の形)。並列の実行エージェントが同じ番号を独立に選んで衝突した実例があり、名前にゴール id が入っていれば構造的に起きない。
 - 止まるときは必ず「現在地 / 次にすること / そのあと」の 3 ブロックで締め、次にすることは 1 つ。

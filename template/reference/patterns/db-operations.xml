@@ -4,7 +4,7 @@
      INSERT / DELETE / 一括投入 / 接続プール / ストリーミング / ベンダ別の接続はここ。
 
      【このファイルは未実測】 各ブロックの出所を記す:
-       [G][K] = mule-basics.md に載っている、finance-api の実装で実際に確かめた事実
+       [G][K] = knowledge/basics/db.md に載っている、finance-api の実装で実際に確かめた事実
        [S]    = 利用者の mulesoft-app-development スキルに書かれていた
        [D]    = コネクタの公開ドキュメントの仕様
        【未確認】 = 上のどれでもない。**書く前に describe-connector か公式マニュアルで要素名を確かめる**

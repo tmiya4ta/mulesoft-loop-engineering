@@ -13,7 +13,7 @@
 
      根拠: inventory2-api の振り分け flow `get:\inventory\(inventoryId):inventory2-api-config` に
      対して実測 (2026-09-10)。1 件 pass、期待値を壊すと Failed: 1 で exit 1 (牙も確認)。
-     型付けの手法そのものは finance-api の T-001 (main flow) が初出 (knowledge/gotchas.md 参照)。
+     型付けの手法そのものは finance-api の T-001 (main flow) が初出 (knowledge/gotchas/munit.md 参照)。
 
      型の指定を間違えると動かない。3 つとも必要:
        headers / queryParams → org.mule.runtime.api.util.MultiMap

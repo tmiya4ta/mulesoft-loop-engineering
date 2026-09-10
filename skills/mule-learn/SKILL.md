@@ -32,7 +32,7 @@ argument-hint: "[--share 汎用ナレッジをプラグインに PR する]"
 | `loop-ops` | ループ自体の運用 (worktree、K ファイルの衝突、hook の誤検知)。昇格先はプラグインへの PR |
 | `test-toothless` | 検証しているつもりで何も検証していないテストや検査 (default 付き assert、走っていない検査、手書きの期待値) |
 | `secret-leak` | 資格情報を追跡ファイルやログに書きかけた |
-| `environment-fact` | 実接続して初めて分かった接続先やドライバの事実 (現在スキーマ、SQLSTATE が常に null、型の着地)。**昇格先は `gotchas.md` ではなく `context/environment/`** — この接続先でしか成り立たず、他プロジェクトに持ち出すと嘘になる |
+| `environment-fact` | 実接続して初めて分かった接続先やドライバの事実 (現在スキーマ、SQLSTATE が常に null、型の着地)。**昇格先は `knowledge/gotchas/` ではなく `context/environment/`** — この接続先でしか成り立たず、他プロジェクトに持ち出すと嘘になる |
 | `other` | 上のどれにも当てはまらない。**この値が付いていること自体が「語彙が足りない」という信号** |
 
 **表に無い言葉を作らない。** 当てはまるものが無ければ必ず `other` を使う。自作の値は集計で別物として
@@ -89,10 +89,13 @@ argument-hint: "[--share 汎用ナレッジをプラグインに PR する]"
    | `munit-*` / `test-toothless` | `skills/mule-munit/SKILL.md` |
    | `environment-fact` | **このリポジトリの `context/environment/`** (プラグインには持ち出さない) |
    | `loop-ops` | プラグイン本体への PR (下記) |
-   | それ以外 | 今は `knowledge/gotchas.md` (主題別スキルが増えたらこの表に足す) |
+   | それ以外 | `knowledge/gotchas/<主題>.md` — 主題は `knowledge/gotchas.md` の索引の表から選ぶ。**合う主題が無ければ新しいファイルを作り、索引の表に 1 行足す** |
 
-   **`gotchas.md` への追記はやめない。** そこは根拠と日付つきの一次記録で、スキルはそこから
+   **`knowledge/gotchas/` への追記はやめない。** そこは根拠と日付つきの一次記録で、スキルはそこから
    「順番」と「写経元の在処」だけを抜いた薄い層です。両方に書く。
+   **追記したら `knowledge/gotchas.md` の索引の件数と行数、症状の欄も直す。** 索引が実体とずれると、
+   読む側は「合う行が無い」と判断してそのファイルを開かなくなり、書いた項目が誰にも読まれません
+   (PR #2 が目次の件数を 11 のまま残した実例があります)。
    **同じ形で 3 回以上解決しているものは、文章ではなく `template/reference/` の写経元にする。**
    実例: APIkit の振り分け flow の直叩きは 6 回とも同じ形で解決できたが、写経元が無いため毎回踏んでいた
    (`reference/router-test.xml` として v0.6.11 で追加)。
@@ -100,7 +103,7 @@ argument-hint: "[--share 汎用ナレッジをプラグインに PR する]"
    **`loop-ops` だけは行き先が違う。** 上の 3 つは全てこのリポジトリの中で、Mule の書き方の誤りを対象に
    している。ループ自体の運用の誤り (worktree、配布、K ファイルの衝突、hook の誤検知) は、このリポジトリを
    直しても次のプロジェクトで再発する。**プラグイン本体の `skills/` / `hooks/` / `scripts/` を直す PR** を出す。
-   `gotchas.md` への追記では解決しない (手順の欠陥であって、知っていれば避けられる事実ではないため)。
+   `knowledge/gotchas/` への追記では解決しない (手順の欠陥であって、知っていれば避けられる事実ではないため)。
 
 3. **書く。** `bash scripts/k-new.sh learn` が出したパス (`knowledge/K-learn-<連番>.md`) に残す。
    **番号は手で決めない** (並列で同じ番号を選んで衝突した実例がある)。
@@ -112,12 +115,12 @@ argument-hint: "[--share 汎用ナレッジをプラグインに PR する]"
 
 ## `--share` — チームで共有する
 
-`scope: generic` のナレッジは、このリポジトリに閉じ込めず **プラグイン側の `knowledge/gotchas.md`** に PR する。実行エージェントは毎回それを読むので、マージした時点で全リポジトリ・全メンバーに効く。
+`scope: generic` のナレッジは、このリポジトリに閉じ込めず **プラグイン側の `knowledge/gotchas/<主題>.md`** に PR する。実行エージェントは詰まったときに索引からそこを開くので、マージした時点で全リポジトリ・全メンバーに効く。
 
 ```bash
 gh repo clone tmiya4ta/mulesoft-loop-engineering /tmp/ml && cd /tmp/ml
 git switch -c learn/<category>-<短い名前>
-# knowledge/gotchas.md に追記 (症状 / 原因 / 直し方 / 根拠の件数)
+# knowledge/gotchas/<主題>.md に追記 (症状 / 原因 / 直し方 / 根拠の件数) + knowledge/gotchas.md の索引の件数を直す
 gh pr create --title "gotcha: <symptom>" --body "<根拠: どのリポジトリで何回>"
 ```
 

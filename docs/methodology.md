@@ -161,7 +161,7 @@ PR マージ ──→ authorizations.yaml が allowed + 人が明示 ──→ 
   (機械で弾く)     mule-tdd の規則
         │
         ├─ scope: repo    → そのリポジトリの knowledge/
-        └─ scope: generic → プラグインの knowledge/gotchas.md に PR (全員に効く)
+        └─ scope: generic → プラグインの knowledge/gotchas/<主題>.md に PR (全員に効く)
 ```
 
 低い層から順に選ぶ。**機械で弾けるなら必ず hook**。規則は読まれないことがあるが hook は必ず効く。

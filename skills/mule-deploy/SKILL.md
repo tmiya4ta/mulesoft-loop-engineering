@@ -55,7 +55,7 @@ MCP の `deploy_mule_application` は使わない。経路は下の `mvn clean d
    mvn clean deploy -DmuleDeploy
    ```
    出力の末尾に配置先の URL か status が出る。RTF は Ingress の URL が sandbox.yaml の `public_url` になる。
-   CH2 で `public_url` が空なら `bash scripts/ch2-public-url.sh <app> <environment>` で既定の公開 URL を付けて取る。`runtime-mgr application modify --publicEndpoints` は成功を返すが効かず、`modify` は properties を消す (gotchas.md)。取れた URL を sandbox.yaml の `public_url` と deploy ゴールの `done_when` に書く。
+   CH2 で `public_url` が空なら `bash scripts/ch2-public-url.sh <app> <environment>` で既定の公開 URL を付けて取る。`runtime-mgr application modify --publicEndpoints` は成功を返すが効かず、`modify` は properties を消す (`knowledge/gotchas/deploy.md`)。取れた URL を sandbox.yaml の `public_url` と deploy ゴールの `done_when` に書く。
    終わったら `bash scripts/run-log.sh deploy <kind> <environment> ok|failed <秒>` を記録する。
 4. **待つ。** `anypoint-cli-v4 runtime-mgr application describe <app> --environment <env> -o json` の `status` が `RUNNING`/`APPLIED` になるまで 30 秒間隔で最大 10 分。`FAILED` ならログを `runtime-mgr application logs` で取り、手順 6 へ。
 5. **疎通を確かめる。** `bash scripts/smoke-check.sh <base-url>`。samples の全ケースを配置先に投げて out.json と比較する。要求が `POST /<resource>` でないケースには `<case>.req.json` (method / path / headers) を隣に置く。samples の期待値は変えない。結果は `knowledge/deploy-log.jsonl` に 1 ケース 1 行。
@@ -80,7 +80,7 @@ MCP の `deploy_mule_application` は使わない。経路は下の `mvn clean d
 | Java | `--javaVersion` / `javaVersion` (8 / 17) | 同じ |
 
 どちらも Exchange への publish が前段にあるので、`groupId` = 組織 ID と Exchange の認証が共通の前提。
-ここに書いてあるのは公式手順で、実測で得た地雷は `knowledge/gotchas.md` に件数つきで増やす (根拠の無い項目は書かない)。
+ここに書いてあるのは公式手順で、実測で得た地雷は `knowledge/gotchas/deploy.md` (配備) と `knowledge/gotchas/api-manager.md` (ポリシー) に件数つきで増やし、`knowledge/gotchas.md` の索引の件数も直す (根拠の無い項目は書かない)。
 
 ## 禁止
 

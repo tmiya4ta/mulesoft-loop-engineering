@@ -7,8 +7,9 @@ description: MUnit を書くときに毎回踏んでいる罠だけを、踏む�
 (`munit-coverage` 8 + `munit-mock-missing` 4 + `test-toothless` 6)。
 中身は `mock-when` 漏れ、カバレッジ未達、そして**牙の無い assert**。どれも書き方の癖で防げます。
 
-**このファイルは Mule や MUnit の入門ではありません。** 基礎は `knowledge/mule-basics.md` の 7 節、
-Red → Green → Refactor の順は `mule-tdd`、根拠と日付つきの詳細は `knowledge/gotchas.md` にあります。
+**このファイルは Mule や MUnit の入門ではありません。** 基礎は `knowledge/basics/munit.md`、
+Red → Green → Refactor の順は `mule-tdd`、根拠と日付つきの詳細は `knowledge/gotchas/munit.md` (12 件) にあります。
+**この 2 ファイルだけで足ります。`knowledge/gotchas.md` / `mule-basics.md` は索引なので、丸ごと読まない。**
 ここに置くのは**順番と写経元の在処**だけです。
 
 > パスの解決: 実行エージェントは Skill ツールを持たないので、
@@ -37,7 +38,7 @@ Red → Green → Refactor の順は `mule-tdd`、根拠と日付つきの詳細
 `then-return` に何を返すかを間違えると、実装は正しいのにテストだけ落ちます。
 `db:select` は配列、`db:update` は `{affectedRows}`。列名は DB が返す形 (大文字など) に合わせる。
 コネクタのエラーは `<munit-tools:error typeId="DB:CONNECTIVITY"/>` で起こす
-(コネクタ組み込みのエラー型は `<raise-error>` できない)。詳細は `mule-basics.md` 6 節。
+(コネクタ組み込みのエラー型は `<raise-error>` できない)。詳細は `knowledge/basics/db.md` と `knowledge/gotchas/db.md`。
 
 ## APIkit の振り分け flow を叩く (**ここで 6 回踏んでいる**)
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # CloudHub 2.0 のアプリに既定の公開 URL を付けて表示する。
-# `runtime-mgr application modify --publicEndpoints` は効かない (knowledge/gotchas.md)。
+# `runtime-mgr application modify --publicEndpoints` は効かない (knowledge/gotchas/deploy.md)。
 # Application Manager の API で deploymentSettings.generateDefaultPublicUrl を立てる。
 # 使い方: ch2-public-url.sh <app-name> <environment-name>   (環境変数 ANYPOINT_CLIENT_ID / ANYPOINT_CLIENT_SECRET)
 set -eu

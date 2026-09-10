@@ -32,7 +32,7 @@ argument-hint: "[--kind api|batch|mcp|a2a] [--layer system|process|experience] [
    生成物は `<name>/` に入るので、リポジトリ直下に移す (`mv <name>/* <name>/.[!.]* . 2>/dev/null; rmdir <name>`)。
    CLI が無い場合 (`anypoint-cli-v4 dx mule --help` が失敗) は `npm i -g anypoint-cli-v4 && anypoint-cli-v4 plugins:install @salesforce/anypoint-cli-dx-mule-plugin` を案内する。MCP `create_mule_project` でも同じものが作れる。
    **版は 4.10.1 以降にする (既定 4.12.2)。** 4.9.0 は `mule-runtime-impl-no-services-bom` が公開リポジトリに無く、
-   `ee:transform` を 1 つ書いた時点で MUnit が `Cannot create embedded container` で動かなくなる (knowledge/gotchas.md 参照)。
+   `ee:transform` を 1 つ書いた時点で MUnit が `Cannot create embedded container` で動かなくなる (`knowledge/gotchas/build.md` 参照)。
    **コネクタの GAV は推測せず、`anypoint-cli-v4 dx mule describe-connector` か Exchange で確かめる。** MCP コネクタの GAV もここで確認する (このプラグインは既知の版を決め打ちしない)。
 3ab. **mule-maven-plugin の版を直す。** `bash scripts/fix-plugin-version.sh` を実行する。
    CLI は 4.7.0 を固定するが Mule 4.12 系とは非互換で、`NoSuchMethodError:
@@ -57,5 +57,5 @@ argument-hint: "[--kind api|batch|mcp|a2a] [--layer system|process|experience] [
 7. 最後に「現在地 / 次にすること / そのあと」の 3 ブロックで締める。次にすることは
    「`context/requirements/` に資料を置く (パスを具体的に示す)」か、資料が無いなら
    「`/mule-start <作りたいこと>`」の 1 つだけにする。
-   `kind: batch` / `mcp` のときは「そのあと」に一言足す: 「`knowledge/mule-basics.md` の『10. Batch / MCP / A2A』を読んでください。
+   `kind: batch` / `mcp` のときは「そのあと」に一言足す: 「`knowledge/basics/kind.md` (Batch / MCP / A2A) を読んでください。
    まだこのプラグイン専用の reference/ 雛形が無く、困ったら gotchas → スキル → マニュアルの順で進めることになります」。
