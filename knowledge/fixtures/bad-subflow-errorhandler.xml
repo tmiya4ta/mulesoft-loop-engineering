@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:db="http://www.mulesoft.org/schema/mule/db"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation">
+    <!-- 弾かれるべき: subFlowType は error-handler を持てない。 -->
+    <sub-flow name="map-profile">
+        <logger doc:name="変換" message="mapping"/>
+        <error-handler>
+            <on-error-continue type="ANY"/>
+        </error-handler>
+    </sub-flow>
+</mule>

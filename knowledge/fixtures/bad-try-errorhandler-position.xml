@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:db="http://www.mulesoft.org/schema/mule/db"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation">
+    <!-- 弾かれるべき: <try> の中で error-handler の後ろに処理が続いている。 -->
+    <flow name="update-profile">
+        <try doc:name="更新をまとめる">
+            <db:update doc:name="profile を更新" config-ref="db-config">
+                <db:sql>UPDATE PROFILE SET NAME = :name</db:sql>
+            </db:update>
+            <error-handler>
+                <on-error-continue type="DB:CONNECTIVITY"/>
+            </error-handler>
+            <logger doc:name="ここが error-handler の後ろにある" message="done"/>
+        </try>
+    </flow>
+</mule>

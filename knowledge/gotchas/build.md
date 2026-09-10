@@ -82,3 +82,19 @@ Tests run: 1 - Failed: 0 で通ることを確認。BOM は 4.9.0 が 404、4.10
 `src/main/resources` の外にあるので当然だが、APIkit の `api=` の書き方だけを見ていると気づけない。
 pom の `<resources>` に直下の `api/` を足す。
 根拠: finance-api の T-001 で実測 (2026-09-06)。
+
+---
+
+## ベンダの JDBC jar は fat jar とは限らない (依存を宣言しているだけ)
+
+**症状**: `clouderby-jdbc-1.5.0.jar` を `java -cp` に 1 つだけ渡して繋ぐと
+`NoClassDefFoundError: com/fasterxml/jackson/databind/ObjectMapper`。
+
+**原因**: この jar は依存を同梱した fat jar ではなく、`jackson-databind` を compile 依存として
+**宣言しているだけ**。ファイル名も大きさも fat jar と区別が付かないので、1 個で足りると思い込む。
+
+**直し方**: クラスパスを推測せず Maven に出させる。
+`mvn -o dependency:build-classpath -Dmdep.outputFile=cp.txt` の結果を `java -cp "$(cat cp.txt):..."` に渡す。
+接続確認のような Mule の外の小さな検証でも同じ。
+
+**根拠**: finance-api T-009 (2026-09-07) で 1 回。DB への疎通を Mule の外で確かめようとして踏んだ。

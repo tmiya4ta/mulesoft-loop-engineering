@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:db="http://www.mulesoft.org/schema/mule/db"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation">
+    <!-- 弾かれるべき: SQL を属性で書いている。正しくは子要素 <db:sql>。 -->
+    <flow name="get-profile">
+        <db:select doc:name="profile を取得" config-ref="db-config" sql="SELECT * FROM PROFILE"/>
+    </flow>
+</mule>

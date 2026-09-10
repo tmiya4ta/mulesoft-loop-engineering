@@ -132,8 +132,10 @@ agents/
 hooks/hooks.json  デプロイの前: scripts/deploy-guard.sh（authorizations.yaml を読んで allow/deny）
                   編集の前:   scripts/wave-guard.sh（波で他ゴールに宣言したファイルを進捗エージェントに触らせない）
                   編集のたび: scripts/quick-check.sh（数秒の検証）
+                              └ scripts/mule-xml-shape.sh（XSD で落ちる形。台帳の指紋だけ）
                   毎ターン:   scripts/loop-reminder.sh（規律の注入）
                   応答の最後: scripts/stop-guard.sh（3 ブロックで締めていなければ 1 回差し戻す）
+knowledge/fixtures/  hook が本当に弾くかを確かめる最小の入力（bash scripts/fixtures-check.sh）
 knowledge/mule-basics.md  索引。実行エージェントは索引を読み、これから触る主題だけを開く
 knowledge/basics/*.md  Mule の基礎知識（主題別 10 ファイル、1 項目 1 事実）
 knowledge/gotchas.md  索引（症状から主題を選ぶ）
@@ -185,6 +187,55 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.19</b> — `mule-build` スキルは作らない。8 件のうち機械で弾ける 3 件を弾く</summary>
+
+台帳の `build-config` 6 件 + `xml-namespace` 2 件を主題にした `mule-build` スキルを作る予定でした。
+**作りませんでした。** 8 件を 1 件ずつ当たったら、**7 件は既に `knowledge/gotchas/` に書いてあり**、
+スキルは 3 つ目の写しになるところでした (`gotchas` の原文 → `basics` の要約 → スキル)。
+v0.6.15 で読む量を減らしたばかりなので、その一部を返すことになります。
+
+v0.6.14 の表がこれを決めます。**機械で弾けるものは文章にしない。** 8 件を行き先で分けました:
+
+| 台帳の件 | すでにある | 今回やったこと |
+|---|---|---|
+| `db:sql` を属性で書く | `gotchas/db.md` | **hook で弾く** |
+| `<try>` の中の `error-handler` の位置 | `gotchas/error-handling.md` | **hook で弾く** |
+| 直下の `api/*.raml` がクラスパスに乗らない | `gotchas/build.md` | **preflight で止める** |
+| `dw validate` の `p()` 誤検知 | `gotchas/dataweave.md` | `quick-check` が既に除外済み |
+| `.gitignore` に `target/` が無い | — | テンプレートに既に入っている |
+| JDK 混在 (`javac` と `java`) | `gotchas/build.md` | 端末の事実なので文章のまま |
+| 環境変数がプロパティを上書きしない | `gotchas/config.md` | 同じ |
+| ベンダの JDBC jar が fat でない | **無かった** | `gotchas/build.md` に追記 (10 → 11 件) |
+
+**`scripts/mule-xml-shape.sh`** — `xmllint --noout` は形式しか見ないので、XSD で落ちる形は素通りします。
+かといって `xmllint --schema` は使えません: **コネクタの XSD は jar に入っていない**からです
+(jar が持つのは `*-extension-descriptions.xml` = 説明文で、XSD はランタイムが拡張モデルから生成する)。
+実測でも `~/.m2` から抜けた 21 ファイルのうち `.xsd` はランタイム側だけでした。**だから汎用の検証はせず、
+台帳に実測がある指紋だけを見ます。** content model は推測せず `mule-core-common.xsd` の原文から写しました:
+
+- `flowType` : `description?, messageSource?, processor+, abstract-error-handler?`
+- `tryType` : `processor+, abstract-error-handler?`
+- `subFlowType` : `description?, processor+` ← **error-handler を持てない**
+
+**ルート直下の `<error-handler name="global-error-handler">` は位置の制約が無いので見ません。**
+`template/reference/global.xml` がまさにこの形で、ここを弾くと写経元が通らなくなります。
+
+牙の確認 (`bash scripts/fixtures-check.sh`): 違反 3 形が exit 2、**正しい形 (ルート直下の error-handler)
+が素通り**することを実測。`knowledge/fixtures/` に最小の入力として残しました。deny する hook は
+**誤検知が編集を止める**ので、弾く側だけ試すのでは足りません (台帳の `dw-validate-false-positive-p` が実例)。
+`/mule-learn` の手順 4 にも「`ok-*.xml` を 1 つ足す」を書きました。
+
+**preflight の RAML 検査は `mvn package` では捕まりません。** package は通り、落ちるのはアプリの初期化時
+(`InitialisationException: Raml not found`) です。台帳 T-001 は package が通ったあとにゴールを 1 件
+失っています。だから package の**前**に見ます。`src/main/resources/api/` に置く構成は既定でクラスパスに
+乗るので、そのときは検査しません。
+
+`gotchas/build.md` への追記では **v0.6.17 の索引ゲートが実際に働きました** —
+件数を直す前に `knowledge-index-check.sh` が「10 件だが実体は 11 件」と言って exit 1 になりました。
+
+</details>
 
 <details>
 <summary><b>v0.6.18</b> — git が無いと 4 つの仕掛けが黙って no-op になる。preflight で止める</summary>

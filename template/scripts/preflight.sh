@@ -33,6 +33,24 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   exit 2
 fi
 
+# **リポジトリ直下の api/*.raml がクラスパスに乗っているか。** 直下のディレクトリは既定で乗らない。
+# **これは下の mvn package では捕まりません** — package は成功し、落ちるのはアプリの初期化時
+# (`InitialisationException: Raml not found at: api/<name>.raml`) です。実測 (台帳 T-001) では
+# package が通ったあとにゴールを 1 件失いました。だから package の前に見ます。
+# src/main/resources/api/ に置く構成は既定で乗るので、そのときはこの検査をしません。
+if ls api/*.raml >/dev/null 2>&1 && ! ls src/main/resources/api/*.raml >/dev/null 2>&1 \
+   && ! grep -qE "<directory>[[:space:]]*api[[:space:]]*</directory>" pom.xml; then
+  {
+    echo "preflight: 直下の api/*.raml がクラスパスに乗っていない。この波は 1 件も配らない。"
+    echo "リポジトリ直下のディレクトリは既定でクラスパスに乗らないので、apikit:config の"
+    echo "api=\"api/<name>.raml\" がアプリの初期化時に InitialisationException で落ちます"
+    echo "(mvn package は通るので、ここで見ないと配ったあとに気付きます)。"
+    echo "直し方: pom.xml の <build><resources> に足す —"
+    echo "  <resource><directory>api</directory><targetPath>api</targetPath></resource>"
+  } >&2
+  exit 2
+fi
+
 cmd="mvn -q clean package -DskipTests"
 out=$($cmd 2>&1); rc=$?
 if [ "$rc" -ne 0 ]; then

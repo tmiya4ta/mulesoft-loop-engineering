@@ -31,6 +31,14 @@ case "$file" in
     if command -v xmllint >/dev/null 2>&1; then
       xmllint --noout "$file" 2>/tmp/qc.err || fail "Mule XML が壊れています: $(head -3 /tmp/qc.err)"
     fi
+    # XSD で落ちる形 (db の SQL を属性で書く、error-handler の位置)。台帳に実測がある指紋だけを見る。
+    # **XSD 検証ではない** — コネクタの XSD は jar に入っていないので xmllint --schema は使えない。
+    # 詳しい理由と content model の出所は scripts/mule-xml-shape.sh の冒頭に書いてある。
+    d=$(dirname "$0")
+    if [ -f "$d/mule-xml-shape.sh" ]; then
+      out=$(bash "$d/mule-xml-shape.sh" "$file" 2>&1) || fail "$out"
+    fi
+
     # 層の越境: kind: api で System 層以外から DB / SAP コネクタを直接使っていないか。
     # kind 行が無い既存リポジトリ (v0.6.0 以前に /mule-init したもの) は api とみなす (後方互換)。
     # batch は DB を直接触るのが正常な形なので、kind: batch ではこの検査自体をしない。
