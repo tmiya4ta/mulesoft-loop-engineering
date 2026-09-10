@@ -8,7 +8,10 @@ description: 今どこにいて次に何をすればよいかを示す。迷っ�
 ## 読むもの
 
 1. `context/sources.yaml` — 前提が埋まっているか
-2. `tasks/T-*.md` — todo / running / failed / blocked / passed の数
+2. `bash scripts/goal-state.sh` — todo / running / failed / blocked / passed の数と、**エージェント側で
+   進められるゴールがあるか**。exit 0 = 全て passed / exit 1 = 進められる / **exit 2 = 進められるものが
+   1 つも無く未完了 (人の判断待ち)**。exit 2 のときは「止まっている」の行をそのまま人に伝える。
+   数を目で数えない (状態が 5 つあり、`blocked` は「諦めた」と「許可が無い」の両方を指すため)
 3. `knowledge/run-log.jsonl` と `budget.yaml` — 残予算 (`bash scripts/budget-check.sh`)
 4. `git status` と `git log --oneline -3`、`gh pr list --head $(git branch --show-current)` — PR の有無と状態
 5. `knowledge/failures.jsonl` — 2 回以上の指紋があるか

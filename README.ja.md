@@ -153,9 +153,10 @@ template/         /mule-init が配るもの:
                   k-new.sh (K ファイルの名前を機械が決める),
                   teeth-check.sh (テストに牙があるかを機械が測る),
                   spec-check.sh (RAML・サンプル・実装の機械で当てられるずれ),
-                  jar-leak-check.sh (配る jar に git が無視しているファイルが入っていないか)
+                  jar-leak-check.sh (配る jar に git が無視しているファイルが入っていないか),
+                  goal-state.sh (エージェント側で進められるゴールがあるかを exit で返す)
 .mcp.json         MuleSoft DX MCP Server（stdio）+ Platform MCP Server（http）
-docs/methodology.md
+docs/methodology.md  考え方、検証器 4 段、**検査の並び (走る順。20 件の通し番号)**
 docs/mulesoft-tools.md
 ```
 
@@ -191,6 +192,68 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.28</b> — 「止まってよいか」を機械が答える。検査 20 件を走る順に並べ直す</summary>
+
+台帳で最後に残っていた 1 件は `/goal` の件でした。「ぜんぶ pass」のような条件を置くと、
+残りのゴールが**人の許可待ちで正当に止まっている**ときも「まだ終わっていない」と読まれ、
+同じ報告を繰り返しても再発火し続けた、というものです。
+
+原因は `/goal` 側だけではありませんでした。**`blocked` が 2 つの意味を兼ねていて、しかもそれが
+機械可読でなかった**ことです:
+
+1. `attempts` が 3 に達して諦めた
+2. `authorizations.yaml` が `denied` で段に入れない
+
+どちらも「人が動かないと 1 歩も進まない」で、**エージェントの努力では変わりません。** さらに
+`blocked_by` が未完了なだけのゴールは「待ち」であって打ち止めではないので、状態を目で数えると
+必ず取り違えます。
+
+**`template/scripts/goal-state.sh`** が台帳と `authorizations.yaml` から判定して exit で返します:
+
+| exit | 意味 | `/mule-run` は |
+|---|---|---|
+| 0 | 全ゴールが passed | 完了を報告する |
+| 1 | **進められるゴールがある** | **止まる理由を説明できないなら続ける** |
+| 2 | 進められるゴールが 1 つも無く未完了 | **人の判断待ち。止まるのが正しい** |
+
+「進められる」の定義は `status` が `todo`、または `failed` かつ `attempts < 3`。かつ `blocked_by` が
+全て `passed`。かつ段の許可がある (`stage: deploy` なら `deploy.sandbox: allowed`)。
+
+**`/goal` の条件は「ぜんぶ pass」ではなく「`goal-state.sh` が exit 0 か exit 2」と書きます。**
+そう書けば「完了」と「エージェント側は打ち止め」の両方で条件が満たされます。
+`/mule-run` の禁止にも **「exit 2 のときに進めるために `authorizations.yaml` を書き換えること」** を
+足しました。それは人の判断で、待つのが正しい動作です。
+
+牙の確認は 6 通り。両プロジェクトが完了済みで exit 0 しか出ず、**1 つの値しか返さない検査は壊れて
+いるのと区別できない**ので、台帳を作って全部の枝を通しました:
+todo あり → 1 / deploy 段で許可 denied → 2 / **許可を allowed にすると 1 に変わる** /
+`attempts` 3 → 2 / `status: blocked` → 2 / 全部 passed → 0。
+
+**そして検査を走る順に並べ直しました** (`docs/methodology.md` の「検査の並び (走る順)」)。
+
+既存の「検証器は 4 段」は**コードに対する検証器を速さで分けた**表で、実際に 1 周で走る検査は
+それ以外にもあり、手順書の中に散っていました。20 件を通し番号で 1 本にして、
+**いつ走るか / 通らないと何をしないか / exit の契約**を並べました。抜粋:
+
+```
+ 2 波を配る前   budget-check.sh    → 1 件も配らない
+ 3 波を配る前   preflight.sh       → 1 件も配らない
+ 4 書き込み前   secret-guard.sh    → その書き込みを deny (hook)
+10 ゴールの中   teeth-check.sh     → 牙が無いテストを残さない
+14 止まる前     goal-state.sh      → 止まってよいかを答える
+16 配る前       jar-leak-check.sh  → 置かない
+17 置いたあと   smoke-check.sh     → 完了にしない
+20 昇格の前     fixtures-check.sh  → 昇格したと言わない
+```
+
+**hook は 3 つ (4, 5, 7) で、エージェントが忘れても走ります。** それ以外は手順書が呼ぶので、
+呼び忘れは起こりえます。**だからこの表があります** — どれが自動でどれが人 (エージェント) 任せかが
+一覧で分かるようにするためです。`/mule-run` には表への参照だけを置き、
+**両方に同じ内容を書かない**ようにしました (索引と実体がずれる話と同じ理由です)。
+
+</details>
 
 <details>
 <summary><b>v0.6.27</b> — 最後の 9 件。既に記録済み 6 件、プラグインの手順の誤り 1 件、新しい hook 2 つ</summary>

@@ -66,12 +66,46 @@ deploy の done_when は `smoke-check.sh`、policy の done_when は `policy-che
 
 | 段 | 検証器 | 目安 | 担当 | 何に対して閉じるか |
 |---|---|---|---|---|
-| 1 | xmllint、`dw validate`、層の越境 grep、done_when 有無 | 秒 | hook (`scripts/quick-check.sh`) が自動 | 構文と規約 |
+| 1 | xmllint、`dw validate`、層の越境 grep、done_when 有無、XSD で落ちる形 (`mule-xml-shape.sh`) | 秒 | hook (`scripts/quick-check.sh`) が自動 | 構文と規約 |
 | 2 | `mvn -q test -Dmunit.test=<対象ファイル>`、mulex | 十秒 | 実行エージェント | **モックを相手にした** 1 スイート |
 | 3 | `mvn -q test` 全体 | 分 | 進捗エージェント (`done_when`) と CI | **モックを相手にした** 全体 |
 | 4 | 配備先への契約検査 (`scripts/smoke-check.sh`) | 分 | ゲート 2 (PR マージ) の後、Sandbox で。`stage: deploy` のゴールの done_when | **実物** |
 
 ループ 1 周が 1 分を超えると人がループを待たずに手で直し始める。段 1 と 2 を速く保つことが採用率を決める。
+
+## 検査の並び (走る順)
+
+上の 4 段は**コードに対する検証器を速さで分けた**ものです。実際に 1 周で走る検査はそれ以外にもあり、
+**走る順と「何を通さないか」が決まっています。** 手順書に散っているので、ここに 1 本に並べます。
+**すべて exit で答えます。「たぶん大丈夫」を人が判断する箇所を作らないためです。**
+
+| # | いつ | 検査 | 通らないと | 契約 |
+|---|---|---|---|---|
+| 1 | 受け入れ条件を人に出す前 | `spec-check.sh` | 承認に出さない | 0 = ずれ無し / 2 = サンプルの `instance` が flow ごとに不揃い |
+| 2 | 波を配る前 | `budget-check.sh` | **1 件も配らない** | 0 = 予算内 / 1 = 超過 |
+| 3 | 波を配る前 | `preflight.sh` | **1 件も配らない** | 0 = 土台健全 / 2 = git でない、直下 `api/*.raml` がクラスパスに無い、`mvn package` が落ちる |
+| 4 | 書き込みの前 (hook) | `secret-guard.sh` | その書き込みを **deny** | 秘密の**値そのもの**が入っていたら deny (値は出力しない) |
+| 5 | 書き込みの前 (hook) | `wave-guard.sh` | その書き込みを **deny** | 波で他ゴールに宣言した追記型ファイルなら deny |
+| 6 | 書き込みのたび (hook) | `quick-check.sh` → `mule-xml-shape.sh` | その場で差し戻す | 0 = ok / 2 = 構文、層の越境、`done_when` 欠け、XSD で落ちる形 |
+| 7 | Bash の前 (hook) | `deploy-guard.sh` | そのコマンドを **deny** | `authorizations.yaml` と `sandbox.yaml` で allow/deny。本番名は常に deny |
+| 8 | ゴール 1 件の中 | `mvn test -Dmunit.test=<file>` (段 2) | Green にならない | red → green を同じコマンドで示す |
+| 9 | ゴール 1 件の中 | `coverage-check.sh` | 取り込まない | 0 = 追加した全 flow が MUnit から `flow-ref` されている |
+| 10 | ゴール 1 件の中 | `teeth-check.sh` | 牙が無いテストを残さない | 0 = 牙あり / 2 = 細工が当たらない、落ちない、別の case が落ちた |
+| 11 | ゴール 1 件の中 | `done_when` | `passed` にしない | 0 = 達成 |
+| 12 | 取り込み | `mvn -q clean test` 全体 (段 3) | 取り込まない | 全スイート緑 |
+| 13 | 取り込み | `mule-reviewer` → `spec-check.sh` | 指摘を台帳に戻す | 読み取りだけ。RAML の必須項目の未参照は**警告** (通過型では正常) |
+| 14 | 止まる前 | `goal-state.sh` | — | 0 = 全て passed / 1 = **まだ進められる** / 2 = 進められるものが無く未完了 (**人の判断待ち**) |
+| 15 | 配る前 | `deploy-config.sh` → `bump-version.sh` | 置かない | pom に設定と `businessGroupId`、版を上げる |
+| 16 | 配る前 | `jar-leak-check.sh` | **置かない** | 0 = ok / 2 = git が無視しているファイルが jar に入っている |
+| 17 | 置いたあと | `smoke-check.sh` (段 4) | 完了にしない | 0 = 全ケースで status と body が一致 |
+| 18 | ポリシー適用後 | `policy-check.sh` | 効いたと言わない | 認証なし 401 / あり 2xx |
+| 19 | 昇格の PR の前 (プラグイン側) | `knowledge-index-check.sh` | PR を開かない | 0 = 索引と実体が一致 (件数まで) |
+| 20 | 昇格の PR の前 (プラグイン側) | `fixtures-check.sh` | 昇格したと言わない | 0 = 弾くべきものを弾き、**正しい形を弾かない** |
+
+**4、5、7 は hook で、エージェントが忘れても走ります。** それ以外は手順書が呼びます。
+**14 は「止まってよいか」を答える唯一の検査です** — `/goal` の条件は「ぜんぶ pass」ではなく
+「`goal-state.sh` が exit 0 か exit 2」と書きます (前者だけだと、人の許可待ちで正当に止まっている
+ときも未達と読まれ、同じ報告を繰り返しても再発火します)。
 
 ### 段 4 が要る理由
 

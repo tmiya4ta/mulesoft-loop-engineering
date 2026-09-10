@@ -156,9 +156,10 @@ template/         What /mule-init distributes:
                   k-new.sh (a machine picks the K filename),
                   teeth-check.sh (a machine measures whether a test has teeth),
                   spec-check.sh (RAML/sample/implementation drift a machine can catch),
-                  jar-leak-check.sh (does the jar being shipped contain git-ignored files?)
+                  jar-leak-check.sh (does the jar being shipped contain git-ignored files?),
+                  goal-state.sh (exit code says whether any goal can still advance agent-side)
 .mcp.json         MuleSoft DX MCP Server (stdio) + Platform MCP Server (http)
-docs/methodology.md
+docs/methodology.md  The method, the 4 validator tiers, **the ordered check list (20, numbered)**
 docs/mulesoft-tools.md
 ```
 
@@ -196,6 +197,69 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.28</b> — A machine answers "is it OK to stop", and the 20 checks are ordered</summary>
+
+The last row left in the ledger was the `/goal` one: a condition like "everything passes" reads remaining
+goals that are **legitimately waiting on human authorization** as "not done yet", and re-fires even when
+the same report is repeated.
+
+The cause was not only on `/goal`'s side. **`blocked` carried two meanings, and neither was machine
+readable:**
+
+1. `attempts` reached 3 and the agent gave up
+2. `authorizations.yaml` says `denied`, so the stage cannot be entered
+
+Both mean "not one step is possible until a human moves", and **no amount of agent effort changes them.**
+On top of that, a goal merely waiting on an unfinished `blocked_by` is *waiting*, not stuck — so counting
+states by eye gets it wrong every time.
+
+**`template/scripts/goal-state.sh`** decides from the ledger plus `authorizations.yaml` and answers by exit
+code:
+
+| exit | Meaning | `/mule-run` |
+|---|---|---|
+| 0 | every goal passed | report completion |
+| 1 | **a goal can still advance** | **keep going unless you can justify stopping** |
+| 2 | nothing can advance and it isn't done | **waiting on a human; stopping is correct** |
+
+"Can advance" means `status` is `todo`, or `failed` with `attempts < 3`; and every `blocked_by` is
+`passed`; and the stage is authorized (`stage: deploy` needs `deploy.sandbox: allowed`).
+
+**Phrase `/goal` conditions as "`goal-state.sh` exits 0 or 2", not "everything passes."** That way both
+"done" and "the agent side is out of moves" satisfy the condition. `/mule-run`'s prohibitions gained
+**"editing `authorizations.yaml` to get past an exit 2"** — that is a human's call, and waiting is the
+correct behaviour.
+
+Teeth, six ways. Both projects are complete, so only exit 0 ever appeared — and **a check that only ever
+returns one value is indistinguishable from a broken one** — so a ledger was built to walk every branch:
+a todo → 1; a deploy goal with authorization denied → 2; **flipping it to allowed → 1**; `attempts` 3 → 2;
+`status: blocked` → 2; all passed → 0.
+
+**And the checks are now ordered** (`docs/methodology.md`, "検査の並び (走る順)").
+
+The existing "4 validator tiers" table sorts **code validators by speed**; the checks that actually run in
+one pass are more than that, and they were scattered across the procedure docs. All 20 are now in one
+numbered list with **when each fires, what it withholds, and its exit contract**. An extract:
+
+```
+ 2 before dispatch   budget-check.sh    → dispatches nothing
+ 3 before dispatch   preflight.sh       → dispatches nothing
+ 4 before a write    secret-guard.sh    → denies the write (hook)
+10 inside a goal     teeth-check.sh     → no toothless test survives
+14 before stopping   goal-state.sh      → answers whether stopping is OK
+16 before shipping   jar-leak-check.sh  → does not deploy
+17 after deploying   smoke-check.sh     → does not call it done
+20 before promoting  fixtures-check.sh  → does not claim promotion
+```
+
+**Three are hooks (4, 5, 7) and run even if the agent forgets.** The rest are invoked by the procedure, so
+forgetting is possible — **which is why the table exists**: to make it visible at a glance which are
+automatic and which rely on an agent. `/mule-run` carries only a pointer to it, so **the same content does
+not live in two places** (the same reason an index must not drift from reality).
+
+</details>
 
 <details>
 <summary><b>v0.6.27</b> — The last 9 rows: 6 already recorded, 1 defect in this plugin's own steps, 2 new hooks</summary>
