@@ -194,22 +194,24 @@ export ANYPOINT_REGION=PROD_JP
 <details>
 <summary><b>v0.6.18</b> — Without git, four mechanisms silently become no-ops. Stop the wave in preflight</summary>
 
-While redistributing the scripts to existing projects, **`inventory2-api` turned out not to be a git
-repository**. It has `knowledge/`, it has `tasks/`, it has six goals of history. And yet:
+**This entry was first written on a false premise.** While redistributing scripts to existing projects I
+found `/home/myst/projects/inventory2-api` was not a git repository and wrote that a project with real
+history had been running without git. **That directory was an empty one I had just created with
+`mkdir -p`**; the real project lives elsewhere and is a git repository on `main`. The error was
+**asserting a fact about a project from a path I had not verified.** Rewritten with the actual basis.
 
-- executor **worktree isolation** — cannot be created, so parallel goals share one tree
-- **`wave-guard.sh`'s file-ownership split** — designed to pass through when git is absent (so it never
-  misfires inside a worktree)
-- the **"is a K file in the diff" check** — no diff, no answer
-- **`/mule-learn --share` PRs** — promotions never get shared
+The check stays, because its justification is not an incident but **what the code says**:
 
-All four were doing **nothing, with no error and no warning**. That is the opposite of everything else
+- `wave-guard.sh` **passes through with `exit 0` by design** outside git (so it never misfires in a worktree)
+- **worktree isolation** cannot be created without git (parallel goals then share one tree)
+- the **"is a K file in the diff" check** has no diff to read
+- **`/mule-learn --share` PRs** cannot be opened
+
+All four do **nothing, with no error and no warning**, when git is absent — the opposite of everything else
 here: `deploy-guard` returns a deny, `wave-guard` returns a deny, `coverage-check` returns exit 1.
-**A check that silently does nothing is worse than no check** — you proceed believing it held.
-
-`scripts/preflight.sh` now verifies git first and **exits 2, dispatching nothing**, if it is absent (the
-same treatment as a missing `pom.xml`). The failure names all four mechanisms and prints the one-line
-`git init` remedy, so nobody has to guess why the wave stopped.
+**A check that silently does nothing is worse than no check** — you proceed believing it held. So it gets
+the same treatment as a missing `pom.xml`: `scripts/preflight.sh` verifies git first and **exits 2,
+dispatching nothing**, naming all four mechanisms and printing the one-line `git init` remedy.
 
 Teeth verified: exit 2 in a non-git directory; after `git init` it proceeds to the next check (mvn package).
 

@@ -15,9 +15,11 @@ set -u
 [ -f pom.xml ] || { echo "preflight: pom.xml が無い (/mule-init が済んでいない)" >&2; exit 2; }
 
 # **git であることを最初に確かめる。** このループの仕掛けの多くは git が無いと
-# エラーも警告も出さずに no-op になる。実測 (2026-09-10): inventory2-api は 6 ゴールを回して
-# knowledge/ と tasks/ が揃っているのに git リポジトリではなく、下の 4 つが全部黙って効いていなかった。
+# エラーも警告も出さずに no-op になる。根拠はコードそのもの: wave-guard.sh は git の外では
+# 設計として exit 0 で素通りし (worktree を誤爆しないため)、worktree 隔離は作れず、
+# 「K ファイルが diff にあるか」は diff が取れず、--share は PR を出せない。
 # **黙って効かない検査は、無い検査より悪い** (効いていると思って進むため)。
+# deploy-guard は deny、coverage-check は exit 1 を返す。ここも同じく止める側に揃える。
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   {
     echo "preflight: ここは git リポジトリではない。この波は 1 件も配らない。"
