@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 写経元: global.xml の型登録スタブ (`app-error-types`) の MUnit。
+
+     なぜこのファイルがあるか。`coverage-check.sh` は「追加した全 flow / sub-flow がどれかの
+     munit:test から flow-ref されている」ことを要求するので、スタブにも MUnit が要る。
+     **そこで `expression="#[true]" is="#[equalTo(true)]"` と書くと、カバレッジは通るが
+     何も検証していないテストになる。** inventory2-api に実際にその形が残った。
+     `expectedErrorType` を使えば同じ手間で「その型が本当に raise できる」ことまで検証できる。
+     それはスタブの存在理由そのもの (型がアプリに登録されていること) の検証でもある。
+
+     `expectedErrorType` は munit の XSD で確認した属性
+     (`reference/mule-schema/mule-munit.xsd` に `expectedErrorType` / `expectedErrorDescription` /
+     `expectedException` がある)。 -->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:munit="http://www.mulesoft.org/schema/mule/munit"
+      xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+        http://www.mulesoft.org/schema/mule/munit-tools http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd">
+
+    <munit:config name="error-types-test.xml"/>
+
+    <!-- 1. 型が実際に raise できる = アプリに登録されている。**これがスタブの存在理由の検証。**
+            期待値を壊すなら type を存在しない型に差し替える (bash scripts/teeth-check.sh)。 -->
+    <munit:test name="app-error-types-raises-customer-not-found"
+                description="型を指定すると APP:CUSTOMER_NOT_FOUND が raise される (型が登録されている証拠)"
+                expectedErrorType="APP:CUSTOMER_NOT_FOUND">
+        <munit:execution>
+            <set-variable variableName="appErrorTypeToRaise" value="#['APP:CUSTOMER_NOT_FOUND']"/>
+            <flow-ref name="app-error-types"/>
+        </munit:execution>
+    </munit:test>
+
+    <!-- 2. 型を指定しなければ何も起きない = 本物の flow から誤って呼んでも無害。
+            こちらは `expectedErrorType` を付けない (エラーにならないことが検証内容)。 -->
+    <munit:test name="app-error-types-no-op"
+                description="型を指定しなければ raise せずに戻る">
+        <munit:execution>
+            <set-variable variableName="probe" value="#['前']"/>
+            <flow-ref name="app-error-types"/>
+        </munit:execution>
+        <munit:validation>
+            <!-- **`#[true]` を assert しない。** スタブを通っても変数が生き残っていることを見る
+                 (raise されていたらここに到達しない)。 -->
+            <munit-tools:assert-that doc:name="raise されずここまで来た"
+                                     expression="#[vars.probe]"
+                                     is="#[MunitTools::equalTo('前')]"/>
+        </munit:validation>
+    </munit:test>
+
+</mule>

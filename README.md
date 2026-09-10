@@ -195,6 +195,50 @@ export ANYPOINT_REGION=PROD_JP
 ## Release notes
 
 <details>
+<summary><b>v0.6.22</b> — The 5 `error-handler` rows were fine as prose. What was missing was one template</summary>
+
+Going through the 5 `error-handler` rows (finance 4 + inventory2 1), **nothing warranted mechanizing.**
+
+| Ledger row | Verdict |
+|---|---|
+| `try-scope-resume-after-continue` (resume position) | Semantics; a machine cannot judge it. Already in `gotchas/error-handling.md` |
+| `shared-handler-propagate-breaks-others` | Same; a design choice, not something to deny |
+| `builtin-error-type-not-raisable` | The build fails **loudly**. The remedy is already prose |
+| `custom-error-type-undeclared` (**two projects**) | Also loud. **But there was no template** |
+
+Denying `custom-error-type-undeclared` in a hook was **rejected**. Under TDD you write
+`on-error-continue type="APP:X"` and *then* the `raise-error`, so **denying that intermediate state fights
+the correct procedure.** The build says `Could not find error 'APP:X'` explicitly — this never passes
+silently. What was missing was what to write instead.
+
+**When a wave writes `global.xml` first, the goals that implement the resource flows have not run yet.**
+"Write the real `raise-error` later" doesn't fit — the build fails at that moment. inventory2-api solved it
+by **inventing a type-registration stub**. Per the v0.6.14 table a template earns its place on one
+occurrence, so it's now in `template/reference/`:
+
+- `global.xml` gains `app-error-types` (a `sub-flow`): it raises only the type named by
+  `vars.appErrorTypeToRaise` and, with nothing set, **returns doing nothing** via `otherwise` — which is
+  what makes it safe to call from MUnit (`coverage-check.sh` requires every flow to be `flow-ref`'d from a
+  test). The comment also says it **may be deleted** once the goals write the real ones.
+- `error-types-test.xml` (new) is its MUnit.
+
+**Which is where the original's toothlessness showed.** inventory2-api's stub test was
+`expression="#[true]" is="#[equalTo(true)]"` — passes coverage, verifies nothing. With
+`expectedErrorType` the same effort verifies **that the type can actually be raised**, i.e. the stub's
+entire reason for existing. The template uses that shape, and `expectedErrorType` was confirmed in
+`mule-munit.xsd` rather than recalled.
+
+**The template was measured before being shipped.** Run for real in inventory2-api:
+`Tests run: 2 - Failed: 0`, then teeth measured with v0.6.21's `teeth-check.sh` (swap the expected type →
+the intended case reports `Failed: 1`; repoint `vars.probe` at a missing variable → the no-op case reports
+`Failed: 1`). **The new teeth tool's first job was measuring the new template's teeth.**
+
+inventory2-api's `#[true]` test was replaced with this shape, keeping `flow coverage: 12/12 (100%)` and
+gaining verified teeth.
+
+</details>
+
+<details>
 <summary><b>v0.6.21</b> — Stop measuring teeth by hand (three times, the measurement itself missed)</summary>
 
 Going through the ledger's 6 `test-toothless` rows one at a time, the breakdown was not what was expected.

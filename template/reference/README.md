@@ -9,10 +9,12 @@ gotchas → スキル (platform-assistant) → マニュアルの順で調べる
 
 | ファイル | 何の写経元か |
 |---|---|
-| `global.xml` | 設定の読み込み、HTTP listener、APIkit config、DB config、**既定エラーハンドラ (problem+json)** |
+| `global.xml` | 設定の読み込み、HTTP listener、APIkit config、DB config、**既定エラーハンドラ (problem+json)**、独自エラー型の登録スタブ |
 | `api-main.xml` | 受け口 (listener + apikit:router) と、APIkit が振り分ける flow。実処理は `flow-ref` するだけ |
 | `resource-impl.xml` | 実処理の flow。`<try>` + トランザクション + 読み戻しで存在判定 + ローカル error-handler |
 | `resource-test.xml` | MUnit。samples を `readUrl` で読む、`doc:name` で mock を特定、エラー型を `then-return` で起こす、`verify-call` |
+| `router-test.xml` | APIkit の振り分け flow を型付け attributes で直叩きする MUnit (3 つの形) |
+| `error-types-test.xml` | 型登録スタブの MUnit。`expectedErrorType` で「型が登録されている」ことを検証する (`#[true]` を assert しない) |
 | `dwl/problem.dwl` | RFC 7807 の本文。各 on-error は vars を立てるだけ |
 | `dwl/problem-detail.dwl` | APIkit の `error.description` から項目名を取り出し文言表を引く |
 | `config/sql.yaml` | SQL は 1 文 1 プロパティ。flow では `${sql.x}` |

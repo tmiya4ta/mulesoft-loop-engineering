@@ -190,6 +190,49 @@ export ANYPOINT_REGION=PROD_JP
 ## リリースノート
 
 <details>
+<summary><b>v0.6.22</b> — `error-handler` 5 件は文章で足りていた。足りなかったのは写経元 1 つ</summary>
+
+`error-handler` 5 件 (finance 4 + inventory2 1) を 1 件ずつ当たった結果、**機械化するものはありませんでした。**
+
+| 台帳の件 | 判定 |
+|---|---|
+| `try-scope-resume-after-continue` (再開位置) | 意味の問題。機械が判定できない。`gotchas/error-handling.md` にあり |
+| `shared-handler-propagate-breaks-others` | 同じ。設計の選択なので弾く対象にならない |
+| `builtin-error-type-not-raisable` | ビルドが**大声で**落ちる。直し方は既に文章にある |
+| `custom-error-type-undeclared` (**2 プロジェクト**) | 同じく大声で落ちる。**ただし写経元が無かった** |
+
+`custom-error-type-undeclared` を hook で弾くのは**やめました**。TDD では
+`on-error-continue type="APP:X"` を書いてから `raise-error` を書くので、**その途中の状態を
+deny すると正しい手順を邪魔します。** ビルドは `Could not find error 'APP:X'` と明示的に落ちるので、
+黙って通る類ではありません。足りなかったのは「では何を書けばいいか」でした。
+
+**波の中で `global.xml` を先に書くと、実処理 flow を書くゴールはまだ走っていません。**
+「あとで本物の `raise-error` を書く」では間に合わず、その時点でビルドが落ちます。
+inventory2-api はここで**型登録スタブを独自に作って**解決していました。
+v0.6.14 の表では写経元は 1 回で作る対象なので、`template/reference/` に取り込みました:
+
+- `global.xml` に `app-error-types` (`sub-flow`)。`vars.appErrorTypeToRaise` で選んだ型だけ
+  `raise-error` し、未指定なら `otherwise` で**何もせず戻る** — だから MUnit から安全に呼べる
+  (`coverage-check.sh` は全 flow が MUnit から `flow-ref` されることを要求する)。
+  各ゴールが本物を書いたら**消してよい**ことも書きました。
+- `error-types-test.xml` (新) がその MUnit。
+
+**ここで元の実装の牙の無さが出ました。** inventory2-api のスタブ用 MUnit は
+`expression="#[true]" is="#[equalTo(true)]"` でした。カバレッジは通りますが何も検証していません。
+`expectedErrorType` を使えば**同じ手間で「その型が本当に raise できる」= スタブの存在理由そのもの**を
+検証できます。写経元はその形にし、`expectedErrorType` は推測ではなく `mule-munit.xsd` で確認しました。
+
+**写経元は実測してから配りました。** inventory2-api で実際に流して `Tests run: 2 - Failed: 0`、
+そのうえで v0.6.21 の `teeth-check.sh` で牙を測りました (期待型を別の型に差し替え → 狙った case が
+`Failed: 1` / `vars.probe` を存在しない変数に差し替え → no-op 側が `Failed: 1`)。
+**新しい写経元の最初の使い道が、自分の牙の測定でした。**
+
+inventory2-api の `#[true]` のテストは、この形に置き換えて `flow coverage: 12/12 (100%)` を保ったまま
+牙が付いたことを確認済みです。
+
+</details>
+
+<details>
 <summary><b>v0.6.21</b> — 牙の確認を手でやるのをやめる (3 回、確認そのものが当たっていなかった)</summary>
 
 台帳の `test-toothless` 6 件を 1 件ずつ当たったら、内訳が予想と違いました。**5 件が「検査自体が一度も

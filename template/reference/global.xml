@@ -92,7 +92,9 @@
             </ee:transform>
         </on-error-continue>
 
-        <!-- 独自エラー型。raise-error が最低 1 箇所 (resource-impl.xml) 無いとビルドが通らない。 -->
+        <!-- 独自エラー型。**アプリ内のどこかに raise-error type="APP:..." が最低 1 箇所無いと
+             `Could not find error 'APP:CUSTOMER_NOT_FOUND'` でビルドが落ちる** (呼ばれるかは無関係)。
+             ふつうは resource-impl.xml が本物を持つ。まだ無い段階なら下の型登録スタブを使う。 -->
         <on-error-continue doc:name="対象が無い (404)" type="APP:CUSTOMER_NOT_FOUND">
             <set-variable variableName="httpStatus" value="#[404]"/>
             <set-variable variableName="outboundHeaders" value="#[{'content-type': 'application/problem+json'}]"/>
@@ -130,4 +132,33 @@
         </on-error-continue>
 
     </error-handler>
+
+    <!-- ================================================================
+         独自エラー型のコンパイル用登録スタブ。
+         **波の中で global.xml を先に書くときに必要になる。** 上の error-handler が
+         `type="APP:X"` を挙げた時点で、アプリ内に `raise-error type="APP:X"` が
+         1 箇所も無ければビルドが落ちる。実処理 flow を書くゴールはまだ走っていないので、
+         「あとで本物を書く」では間に合わない。
+
+         根拠: finance-api T-001 と inventory2-api の 2 プロジェクトで同じ指紋
+         (`custom-error-type-undeclared`)。inventory2-api はこの形を独自に作って解決した。
+
+         `vars.appErrorTypeToRaise` を立てずに `flow-ref` すると `otherwise` で**何もせず戻る**ので、
+         MUnit から安全に呼べる (`coverage-check.sh` は全 flow が MUnit から flow-ref されることを
+         要求する)。写経元の MUnit は `error-types-test.xml`。
+         各ゴールが本物の `raise-error` を書いたら、このスタブは冗長になる。**消してよい**
+         (残しても害は無いが、消せるものを残すと「なぜあるのか」を次の人が調べることになる)。
+         ================================================================ -->
+    <sub-flow name="app-error-types" doc:name="独自エラー型のコンパイル用登録">
+        <choice doc:name="呼び出し側が指定した型だけ raise する (既定は何もしない)">
+            <when expression="#[vars.appErrorTypeToRaise == 'APP:CUSTOMER_NOT_FOUND']">
+                <raise-error type="APP:CUSTOMER_NOT_FOUND" description="#['stub']"/>
+            </when>
+            <!-- 型を足すたびに when を 1 つ足す。error-handler の type= と 1 対 1 で対応させる。 -->
+            <otherwise>
+                <logger level="DEBUG"
+                        message="#['app-error-types: no-op (' ++ (vars.appErrorTypeToRaise default '未指定') ++ ')']"/>
+            </otherwise>
+        </choice>
+    </sub-flow>
 </mule>

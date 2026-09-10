@@ -75,8 +75,13 @@ DataWeave の null 伝播でエラーにならず**正常完走してしまう**
 
 - **`http:listener` を持つ flow を叩くとき**は `<munit:enable-flow-sources>` で明示的に有効化する
   (MUnit は既定でメッセージソースを起動しない)。
-- **エラー型の登録用スタブ** (`flow-ref` されない `sub-flow`) は、変数未指定なら no-op で戻るようにして
-  専用の MUnit から安全に `flow-ref` する。
+- **エラー型の登録用スタブ**。`on-error-* type="APP:X"` を書いた時点で、アプリ内に
+  `raise-error type="APP:X"` が 1 箇所も無ければビルドが落ちます (2 プロジェクトで踏んでいる)。
+  波の中で `global.xml` を先に書くときは実処理 flow がまだ無いので、写経元がこれです:
+  `template/reference/global.xml` の `app-error-types` と、その MUnit `template/reference/error-types-test.xml`。
+  **カバレッジを通すために `expression="#[true]"` と書かないこと。** `expectedErrorType` を使えば
+  同じ手間で「その型が本当に raise できる」= スタブの存在理由そのものを検証できます
+  (inventory2-api に `#[true]` の形が残っていたので、実測して置き換えました)。
 - 本物のカバレッジ率計測は EE 限定。`scripts/munit-coverage-mode.sh` が EE を取れるときだけ pom に
   100% ゲートを入れ、取れなければこの構造チェックが唯一の保証になります。
 
