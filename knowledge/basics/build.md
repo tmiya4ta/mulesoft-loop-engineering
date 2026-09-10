@@ -12,4 +12,5 @@
 - 置き場所: フローは `src/main/mule/` (1 リソース 1 ファイル + `global.xml`)、変換は `src/main/resources/dwl/`、設定は `src/main/resources/config/*.yaml`、RAML は `api/` (pom の `<resources>` に `api/` を足さないとクラスパスに乗らず `Raml not found`)。[G]
 - `mule-artifact.json` は `minMuleVersion` と `requiredProduct` を持つ。`ee:` 名前空間を 1 つ使うと `requiredProduct` が `MULE_EE` になり、MUnit が EE の器を作ろうとする (4.10.1 以降なら動く)。[G]
 - `-DattachMuleSources` を付けてビルドすると jar に `META-INF/mule-src/` が入り、Studio で読める。Exchange に上げるなら付ける。[S]
+  **ただしプロジェクト全体をファイルシステムから丸ごと入れ、`.gitignore` は見ない。** 秘密を持つファイルはプロジェクトの外に置く。配る前に `bash scripts/jar-leak-check.sh`。[G]
 - ベンダの JDBC jar は fat jar とは限らない (依存を宣言しているだけ)。Mule の外で疎通を試すときもクラスパスを推測せず `mvn -o dependency:build-classpath` に出させる。[G]

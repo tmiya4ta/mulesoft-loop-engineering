@@ -132,6 +132,7 @@ agents/
   mule-executor.md  Drives one goal until done_when passes (worktree-isolated)
   mule-reviewer.md  Read-only review
 hooks/hooks.json  Before a deploy: scripts/deploy-guard.sh (reads authorizations.yaml, answers allow/deny)
+                  Before a write:  scripts/secret-guard.sh (denies a secret's own value entering a file)
                   Before an edit:  scripts/wave-guard.sh (keeps the dispatcher off files it assigned to a goal)
                   On every edit: scripts/quick-check.sh (seconds-long validation)
                               └ scripts/mule-xml-shape.sh (shapes that fail XSD; ledger fingerprints only)
@@ -154,7 +155,8 @@ template/         What /mule-init distributes:
                   plugin-root.sh (resolves the plugin and skills to paths),
                   k-new.sh (a machine picks the K filename),
                   teeth-check.sh (a machine measures whether a test has teeth),
-                  spec-check.sh (RAML/sample/implementation drift a machine can catch)
+                  spec-check.sh (RAML/sample/implementation drift a machine can catch),
+                  jar-leak-check.sh (does the jar being shipped contain git-ignored files?)
 .mcp.json         MuleSoft DX MCP Server (stdio) + Platform MCP Server (http)
 docs/methodology.md
 docs/mulesoft-tools.md
@@ -194,6 +196,68 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.27</b> — The last 9 rows: 6 already recorded, 1 defect in this plugin's own steps, 2 new hooks</summary>
+
+`dataweave-null` 2 + `secret-leak` 2 + `deploy-*` 5 = 9 rows. **Six were already at their destination:**
+
+| Ledger row | Where it already was |
+|---|---|
+| `payload as String` → `Cannot coerce` (×2) | `gotchas/apikit-http.md` + `basics/dataweave.md` |
+| `oracle.jdbc.OracleDriver` → `Cannot load class` | `basics/db.md`'s "a JDBC driver is needed in **two** places in the pom". Checking the pom, `<sharedLibraries>` is exactly how it was fixed |
+| ORA-12505 / ORA-00942 / wrong service (×3) | inventory2-api's `context/environment/resolved.md`, with the connection string and measurement dates |
+
+**Which means the destination table works.** Without the rule sending `environment-fact` to
+`context/environment/` (v0.6.12), Oracle's SID-vs-Service-Name story would have gone into the
+all-projects gotchas and **become false for every other project.**
+
+**One of the remaining three was a defect in this plugin's own instructions.**
+
+`mule-deploy` wrote `mvn clean deploy -DmuleDeploy` as **one command**. Followed literally it **always**
+fails with `Failed to retrieve artifact information from Exchange. Reason: 404 There is no asset matching
+given parameters.`, because `muleDeploy` reaches for an asset that has not been published yet.
+
+- The step is now two stages: `mvn clean deploy` (publish only) → `mvn deploy -DmuleDeploy` (deploy),
+  noting that a `clean` on the second stage destroys the artifact and forces a re-publish.
+- The same 404 appears when `<businessGroupId>` is missing (the token's **default org, Root**, is used).
+  `deploy-config.sh` now writes it from the pom's `groupId`.
+- `gotchas/deploy.md` (6 → 7) records the symptom and cause.
+
+**Two new checks, both built to avoid guessing values or patterns.**
+
+**`jar-leak-check.sh`** — `-DattachMuleSources` archives **the entire project from the filesystem** into
+`META-INF/mule-src/` and **does not consult `.gitignore`**. Measured: a `.gitignore`d file holding a
+plaintext DB password went straight into the jar. It was never in git, so `git log -S` finds nothing, and
+the jar goes to Exchange where the whole org can read it. **Only the person shipping it can notice.**
+The test is "**does the jar contain files git ignores**" — fewer false positives than name patterns, and it
+catches files not named `credential`. Wired into `mule-deploy` step 3b.
+
+Two self-inflicted bugs along the way, both making **the check itself silently return ok**:
+
+- it `cd`'d to `git rev-parse --show-toplevel`, so in a monorepo (inventory2-api's git root is
+  `mule-demos`) `target/*.jar` was never found: "no jar". → the `cd` is gone
+- `git check-ignore --stdin` exits 128 with `fatal: empty string is not a valid pathspec` **if one line is
+  empty**, and `|| true` swallowed it into "no leak". → empty lines are dropped, and **any exit other
+  than 0/1 now reports "could not determine" instead of ok**
+
+**`secret-guard.sh`** (PreToolUse Edit|Write) — credentials were once **nearly written into three tracked
+files** as a progress note, and the ledger's remedy was "be disciplined about grepping before commit".
+That is a rule, enforced by the same party that broke it. So a machine enforces it.
+
+**It does not guess at secrets by pattern; it matches the values themselves.** The sources are where
+secrets legitimately live (`ANYPOINT_CLIENT_SECRET` / `ANYPOINT_CLIENT_ID`, `<password>` in
+`~/.m2/settings.xml`), ignoring anything under 8 characters. So it is independent of variable names and
+encodings (base64 or UUID alike) and never flags a non-secret. **`${env.X}` references are not flagged.**
+
+**It never prints the value.** Hook output enters the conversation, so printing the secret there would
+defeat the point. `fixtures-check.sh` now **tests that the deny reason contains no value.**
+
+Teeth (`bash scripts/fixtures-check.sh`, all 8): writing the value → deny; the deny reason carries no
+value; a write without the value → passes; `${env.X}` → passes. The jar check, three ways: leak → exit 2;
+removed and rebuilt → exit 0; no `attachMuleSources` → not applicable.
+
+</details>
 
 <details>
 <summary><b>v0.6.26</b> — One claim in the reference template was never verified. Measured, it was false</summary>

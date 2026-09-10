@@ -130,6 +130,7 @@ agents/
   mule-executor.md  ゴール 1 件を done_when が通るまで回す（worktree 隔離）
   mule-reviewer.md  読み取り専用レビュー
 hooks/hooks.json  デプロイの前: scripts/deploy-guard.sh（authorizations.yaml を読んで allow/deny）
+                  書き込みの前: scripts/secret-guard.sh（秘密の値そのものがファイルに入るのを弾く）
                   編集の前:   scripts/wave-guard.sh（波で他ゴールに宣言したファイルを進捗エージェントに触らせない）
                   編集のたび: scripts/quick-check.sh（数秒の検証）
                               └ scripts/mule-xml-shape.sh（XSD で落ちる形。台帳の指紋だけ）
@@ -151,7 +152,8 @@ template/         /mule-init が配るもの:
                   plugin-root.sh (プラグインとスキルの場所をパスに解決する),
                   k-new.sh (K ファイルの名前を機械が決める),
                   teeth-check.sh (テストに牙があるかを機械が測る),
-                  spec-check.sh (RAML・サンプル・実装の機械で当てられるずれ)
+                  spec-check.sh (RAML・サンプル・実装の機械で当てられるずれ),
+                  jar-leak-check.sh (配る jar に git が無視しているファイルが入っていないか)
 .mcp.json         MuleSoft DX MCP Server（stdio）+ Platform MCP Server（http）
 docs/methodology.md
 docs/mulesoft-tools.md
@@ -189,6 +191,68 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.27</b> — 最後の 9 件。既に記録済み 6 件、プラグインの手順の誤り 1 件、新しい hook 2 つ</summary>
+
+`dataweave-null` 2 + `secret-leak` 2 + `deploy-*` 5 = 9 件。**6 件は既に行き先に入っていました:**
+
+| 台帳の件 | どこにあったか |
+|---|---|
+| `payload as String` が `Cannot coerce` (×2) | `gotchas/apikit-http.md` + `basics/dataweave.md` |
+| `oracle.jdbc.OracleDriver` が `Cannot load class` | `basics/db.md` の「JDBC ドライバは pom の**2 箇所**に要る」。pom を見たら実際に `<sharedLibraries>` で解決していた |
+| ORA-12505 / ORA-00942 / 別サービス経由 (×3) | inventory2-api の `context/environment/resolved.md`。接続文字列と実測日つきで入っていた |
+
+**行き先の表が機能している**ということです。`environment-fact` を `context/environment/` に送る規則
+(v0.6.12) が無ければ、Oracle の SID / Service Name の話が全プロジェクト向けの gotchas に入って
+**他のプロジェクトで嘘になっていました。**
+
+**残る 3 件のうち 1 件は、このプラグインの手順が間違っていた件です。**
+
+`mule-deploy` は `mvn clean deploy -DmuleDeploy` を **1 コマンド**で書いていました。手順どおりにやると
+`Failed to retrieve artifact information from Exchange. Reason: 404 There is no asset matching given
+parameters.` で**必ず**落ちます。`muleDeploy` がまだ publish されていないアセットを先に参照するためです。
+
+- 手順を 2 段階にしました: `mvn clean deploy` (publish のみ) → `mvn deploy -DmuleDeploy` (配置)。
+  2 段目に `clean` を付けると成果物が消えてやり直しになる旨も書きました。
+- 同じ 404 は `<businessGroupId>` 欠けでも出ます (認証トークンの**既定組織 = Root** を見る)。
+  `deploy-config.sh` が pom の `groupId` から入れるようにしました。
+- `gotchas/deploy.md` (6 → 7 件) に症状と原因を記録しました。
+
+**新しい hook / 検査 2 つ。どちらも「値やパターンを推測しない」形にしました。**
+
+**`jar-leak-check.sh`** — `-DattachMuleSources` は **プロジェクト全体をファイルシステムから丸ごと**
+`META-INF/mule-src/` に入れ、**`.gitignore` を見ません**。実測では `.gitignore` 済みで DB パスワードを
+平文で持つファイルがそのまま jar に入りました。git には一度も入っていないので `git log -S` では
+見つからず、jar は Exchange に上がって組織の全員から見えます。**気付くのは配る側だけです。**
+判定は「**git が無視しているファイルが jar に入っているか**」— 名前のパターンで秘密を当てるより
+誤検知が少なく、`credential` という名前でなくても引っかかります。`mule-deploy` の手順 3b に入れました。
+
+作る途中で 2 つ自分で踏みました。どちらも**この検査自体が黙って ok を返す**形でした:
+
+- `git rev-parse --show-toplevel` に `cd` していたので、monorepo (inventory2-api の git 直下は
+  `mule-demos`) で `target/*.jar` を見つけられず「jar がありません」。→ `cd` を外した
+- `git check-ignore --stdin` は**空行が 1 つあると `fatal: empty string is not a valid pathspec` で
+  exit 128** になり、`|| true` がそれを飲んで「混入なし」と嘘をついた。→ 空行を落とし、
+  **exit が 0/1 以外なら「判定できなかった」と言って止める**ようにした
+
+**`secret-guard.sh`** (PreToolUse Edit|Write) — 資格情報を進捗メモとして**追跡ファイル 3 つに
+書き込みかけた**実例があり、台帳の対策は「コミット前に grep する運用を徹底する」でした。
+それは規則で、破った側が自分で守る話になります。だから機械で弾きます。
+
+**パターンで秘密を当てません。値そのものを照合します。** 照合元は秘密が正しく置かれている場所
+(環境変数 `ANYPOINT_CLIENT_SECRET` / `ANYPOINT_CLIENT_ID`、`~/.m2/settings.xml` の `<password>`) で、
+8 文字未満は使いません。だから変数名や書式に依存せず (base64 でも UUID でも当たる)、
+秘密でない文字列を弾きません。**`${env.X}` の参照は弾きません。**
+
+**値は絶対に出力しません。** hook の出力は会話に入るので、そこに値を書いたら弾く意味がありません。
+`fixtures-check.sh` に**「deny の理由に値が出ていないこと」自体の検査**を入れました。
+
+牙の確認 (`bash scripts/fixtures-check.sh`、8 件全部): 値をそのまま書く → deny /
+deny の理由に値が出ていない / 値を含まない書き込み → 素通り / `${env.X}` → 素通り。
+jar は 3 通り (混入あり → exit 2 / 消して作り直す → exit 0 / `attachMuleSources` 無し → 対象外)。
+
+</details>
 
 <details>
 <summary><b>v0.6.26</b> — 写経元に未検証の記述が 1 つあった。実測したら反証された</summary>

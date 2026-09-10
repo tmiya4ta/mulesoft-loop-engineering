@@ -27,7 +27,13 @@ if "cloudhub2Deployment" in s or "runtimeFabricDeployment" in s:
 auth = ("<connectedAppClientId>${env.ANYPOINT_CLIENT_ID}</connectedAppClientId>\n"
         "<connectedAppClientSecret>${env.ANYPOINT_CLIENT_SECRET}</connectedAppClientSecret>\n"
         "<connectedAppGrantType>client_credentials</connectedAppGrantType>")
+# **businessGroupId を必ず入れる。** 無いと認証トークンの既定組織 (Root) を参照し、
+# Exchange のアセットが見つからず `404 There is no asset matching given parameters` になる
+# (inventory2-api で実測)。値は組織 ID = pom の groupId (上で UUID を検証済み)。
+# 別の組織に置くときだけ sandbox.yaml の business_group_id で上書きする。
+bgid = y.get("business_group_id") or gid
 common = (f"<uri>https://anypoint.mulesoft.com</uri>\n<provider>MC</provider>\n"
+          f"<businessGroupId>{bgid}</businessGroupId>\n"
           f"<environment>{y['environment']}</environment>\n<target>{y['target']}</target>\n"
           f"<muleVersion>{y['mule_version']}</muleVersion>\n<applicationName>{app}</applicationName>\n"
           f"<replicas>{y.get('replicas','1')}</replicas>\n{auth}")
@@ -60,7 +66,7 @@ chk = pom.read_text()
 tag = "cloudhub2Deployment" if kind == "cloudhub2" else "runtimeFabricDeployment"
 if tag not in chk or "distributionManagement" not in chk:
     sys.exit("deploy-config: 書き込んだはずの設定が pom にありません")
-print(f"deploy-config: {tag} と distributionManagement を pom.xml に入れました (app={app}, target={y['target']})")
+print(f"deploy-config: {tag} と distributionManagement を pom.xml に入れました (app={app}, target={y['target']}, businessGroupId={bgid})")
 PY
 xmllint --noout pom.xml 2>/dev/null || { echo "deploy-config: pom.xml が壊れました。git checkout pom.xml で戻してください" >&2; exit 2; }
 grep -q 'anypoint-exchange-v3' ~/.m2/settings.xml 2>/dev/null || \

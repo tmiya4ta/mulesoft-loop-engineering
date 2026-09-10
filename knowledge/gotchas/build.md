@@ -71,6 +71,29 @@ Tests run: 1 - Failed: 0 で通ることを確認。BOM は 4.9.0 が 404、4.10
 `com.mulesoft.connectors` の解決で 401 になる。キャッシュは `find ~/.m2/repository -name "*.lastUpdated" -delete` で捨てて `-U`。
 根拠: mulesoft-app-development スキル (利用者の過去の実測)。
 
+## `-DattachMuleSources` は `.gitignore` を見ない。秘密を持つファイルが jar に入る
+
+**症状**: `.gitignore` 済みで DB パスワードを平文で持つ資格情報ファイルが、
+`META-INF/mule-src/` に**そのまま**入った。git には一度も入っていないので `git log -S` では
+見つからない。jar は Exchange に上がって組織の全員から見えるので、**気付くのは配る側だけ**。
+
+**原因**: `attachMuleSources` はプロジェクト全体を**ファイルシステムから丸ごと**アーカイブする。
+`.gitignore` は git に対する宣言なので、ここには効かない。
+除外オプション (`sourceExcludes` 相当) は公式ドキュメントと GitHub を探して見つからなかった
+(**無いと断定はできない。探索が届かなかっただけ**)。
+
+**直し方**: 秘密を持つファイルは**プロジェクトの外**に置く (例: `~/<app>-credential`、パーミッション 600)。
+配る前に `bash scripts/jar-leak-check.sh` を通す (exit 0 が条件)。
+これは **git が無視しているファイルが jar に入っているか**で判定する — 名前のパターンで秘密を
+当てるより誤検知が少なく、`credential` という名前でなくても引っかかる。
+
+**`.gitignore` を秘密の防御に使えるのは git に対してだけ。jar には別の検査が要る。**
+
+根拠: inventory2-api で 1 回 (2026-09-09)。jar は確認後すぐ削除、commit / push は無く
+`git log -S` で外部漏洩が無いことを確認済み。
+
+---
+
 ## `javac` と `java` が別の JDK を指す環境がある
 `javac` が GraalVM 25、`java` が OpenJDK 17 を指していると、コンパイルは通るのに実行で
 `UnsupportedClassVersionError (class file version 69.0 ... up to 61.0)` になる。

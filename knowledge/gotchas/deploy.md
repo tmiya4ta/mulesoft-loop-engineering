@@ -12,6 +12,29 @@ jar を直接上げる口が無い。CH1 との一番大きな違い。mule-mave
 `version` も上げ続ける必要がある。Exchange は同一版を上書きできない。
 根拠: T1 organization への配備で実測 (2026-09-06)。
 
+## `mvn clean deploy -DmuleDeploy` を 1 コマンドで打つと Exchange の 404 で必ず落ちる
+
+**症状**: `Failed to retrieve artifact information from Exchange. Reason: 404 There is no asset
+matching given parameters.`
+
+**原因**: `muleDeploy` が、**まだ publish されていないアセットを先に参照する**。
+
+**直し方**: 2 段階に分ける。
+```bash
+mvn clean deploy          # 1 段目: Exchange に publish するだけ
+mvn deploy -DmuleDeploy   # 2 段目: publish 済みのアセットを配置する (clean を付けない)
+```
+2 段目に `clean` を付けると成果物が消えて publish からやり直しになる。
+
+**同じ 404 が `<businessGroupId>` 欠けでも出る。** 無いと認証トークンの**既定組織 (Root)** を
+参照するため、アセットが見つからない。`cloudhub2Deployment` に組織 ID を明示する
+(`scripts/deploy-config.sh` が pom の `groupId` から入れる)。
+
+根拠: inventory2-api で実測 (2026-09-09)。**このプラグインの `mule-deploy` の手順が
+1 コマンドで書いてあったため、手順どおりにやると必ず落ちた** (v0.6.27 で 2 段階に直した)。
+
+---
+
 ## CloudHub 2.0 の公開エンドポイントは `--publicEndpoints` では付かない
 `anypoint-cli-v4 runtime-mgr application modify --publicEndpoints <host>` は
 成功を返すが `access: internal` のまま変わらない。ホスト名だけでも
