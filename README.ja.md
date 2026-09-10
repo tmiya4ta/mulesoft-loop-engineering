@@ -191,6 +191,47 @@ export ANYPOINT_REGION=PROD_JP
 ## リリースノート
 
 <details>
+<summary><b>v0.6.26</b> — 写経元に未検証の記述が 1 つあった。実測したら反証された</summary>
+
+`munit-coverage` 8 件 + `munit-mock-missing` 4 件は **12 件すべてプラグイン側は対処済み**
+(`gotchas/munit.md`、`mule-munit`、`router-test.xml`、`teeth-check.sh`)。残っていたのは
+inventory2-api の**牙の弱い振り分け flow のテスト**という実作業でした。
+
+**まず牙が無いことを機械で示しました** (推論ではなく実測。`teeth-check.sh` の初仕事の 1 つ):
+モックの戻りを `#[[]]` → `#[[{}, {}]]` に変えても `Tests run: 1 - Failed: 0`。
+`vars.httpStatus` が notNullValue かどうかしか見ていないので、当然素通りします。
+
+4 本を `router-test.xml` の型付け方式に置き換え、**応答の中身を samples と比較する**形にしました。
+behavior のモックは承認済みテストから**機械で写しました** (手で写すとずれるため)。
+4 本とも牙を実測 (モックの戻りを壊す / 期待値の参照先を別サンプルにする → 狙った case が `Failed: 1`)。
+全 15 スイート緑、`flow coverage: 12/12 (100%)` を維持。
+
+**ここで写経元の誤りが出ました。** `template/reference/router-test.xml` にはこう書いてありました:
+
+> **main flow を叩く** (listener + apikit:router。本物の APIkit 検証を通したいとき):
+> APIkit が経路とスキーマを判定するので `method` / `listenerPath` / `relativePath` /
+> `requestPath` と、`headers` の `content-type` が効く。
+
+**未検証でした。実測すると成り立ちません:**
+
+- 型付け attributes を渡して `flow-ref` しても `APIKIT:NOT_IMPLEMENTED`
+- APIkit が経路判定に使う `maskedRequestPath` は **DataWeave から渡せない** —
+  `Unable to found builder method: maskedRequestPath() on class HttpRequestAttributesBuilder`。
+  mule-http-connector 1.10.6 で**フィールド自体は存在する**のに builder に無いので、渡す手段がありません
+- `listenerPath: "/*"` + `requestPath: "/inventory/1"` に変えても `NOT_IMPLEMENTED` のまま
+
+v0.6.23 で直した「1 接続先の実測を全接続先の事実として書いた」件と**同じ種類**です。あちらは
+根拠が 1 件、こちらは根拠がゼロでした。**書いた側は区別できません。読む側は確かめずに従います。**
+
+- `router-test.xml`: 当該記述を実測の結果に差し替え、**未検証だったことも書きました**
+- `gotchas/munit.md` (13 → 14 件) と `mule-munit`: 「main flow は `flow-ref` で振り分けられない」を追加
+- inventory2-api の `api-main-test.xml` は**牙を付けられないと分かった**ので、理由を書いて据え置き。
+  **「型付けすれば検証できる」と思って作り直さないでください**と明記しました。
+  APIkit の経路判定は段 4 (`smoke-check.sh`、v0.6.25 で初めて機能するようになった) が受け持ちます。
+
+</details>
+
+<details>
 <summary><b>v0.6.25</b> — 配備後の疎通確認が一度も成立していなかった (同じプラグインの中で形が食い違っていた)</summary>
 
 `loop-ops` 10 件を当たったら、**8 件は既に機械化・対処済み**でした:

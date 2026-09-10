@@ -20,13 +20,20 @@
        uriParams            → java.util.HashMap
        全体                 → org.mule.extension.http.api.HttpRequestAttributes
 
-     どのフィールドが効くかは、どこを叩くかで違う:
-       - **振り分け flow を直叩き** (このファイル): その flow が実際に読むもの
-         (ふつう `uriParams`、検索系なら `queryParams`) だけが効く。残りは
-         HttpRequestAttributes への変換を成立させるために埋めておく。
-       - **main flow を叩く** (listener + apikit:router。本物の APIkit 検証を通したいとき):
-         APIkit が経路とスキーマを判定するので `method` / `listenerPath` / `relativePath` /
-         `requestPath` と、`headers` の `content-type` が効く。 -->
+     効くのは、その flow が実際に読むもの (ふつう `uriParams`、検索系なら `queryParams`) だけ。
+     残りは HttpRequestAttributes への変換を成立させるために埋めておく。
+
+     **main flow (listener + apikit:router) を flow-ref しても APIkit は振り分けません。**
+     以前このファイルは「main flow を叩けば APIkit が経路とスキーマを判定する」と書いていましたが、
+     **それは未検証で、実測すると成り立ちませんでした** (2026-09-10、inventory2-api):
+       - 型付け attributes を渡して `flow-ref` しても `APIKIT:NOT_IMPLEMENTED`
+       - APIkit が経路判定に使う `maskedRequestPath` は **DataWeave から渡せない** —
+         `HttpRequestAttributesBuilder` に setter が無い
+         (`Unable to found builder method: maskedRequestPath()`。mule-http-connector 1.10.6 で
+          フィールド自体は存在するが builder に無い)
+       - `listenerPath: "/*"` + `requestPath: "/inventory/1"` に変えても NOT_IMPLEMENTED のまま
+     **MUnit で検証できるのは振り分け flow から下だけです。** APIkit の経路判定そのものは
+     配備先への疎通確認 (`scripts/smoke-check.sh`、段 4) が受け持ちます。 -->
 <mule xmlns="http://www.mulesoft.org/schema/mule/core"
       xmlns:munit="http://www.mulesoft.org/schema/mule/munit"
       xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools"

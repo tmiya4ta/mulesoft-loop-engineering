@@ -62,6 +62,12 @@ inventory2-api にこの形のテストが 7 本残り、`test-toothless` とし
 DataWeave の null 伝播でエラーにならず**正常完走してしまう**ので、上の「500 に落ちる」前提の
 やり方はそもそも成り立ちません (`router-test.xml` の 3 つ目の例)。
 
+**受け口 (main flow) は同じ手が使えません。** `listener` + `apikit:router` を `flow-ref` しても
+APIkit は振り分けず `APIKIT:NOT_IMPLEMENTED` になります。経路判定に使う `maskedRequestPath` は
+`HttpRequestAttributesBuilder` に setter が無く DataWeave から渡せないためです (実測)。
+**受け口の MUnit はカバレッジ専用で、牙を付けられません。** そう書いて据え置き、
+次の人が作り直さないようにします。詳細は `knowledge/gotchas/munit.md`。
+
 **承認済みの `<resource>-test.xml` は変更しません。** 振り分け flow のカバレッジは
 `<resource>-router-test.xml` として別ファイルに分けます (受け入れ条件のファイルを触らないため)。
 

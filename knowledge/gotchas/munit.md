@@ -91,6 +91,26 @@ DataWeave で `... as Object {class: "org.mule.extension.http.api.HttpRequestAtt
 叩いて `payload.inventoryId` / `payload.warehouseCode` まで assert し 1 件 pass、期待値を壊すと
 Failed: 1 / exit 1 (牙も確認)。**弱いテストで代替する必要は無い。**
 
+## main flow を `flow-ref` しても APIkit は振り分けない (`APIKIT:NOT_IMPLEMENTED`)
+
+振り分け flow は型付け attributes で叩けるので、**受け口 (listener + `apikit:router`) も同じように
+叩けると思ってしまいます**。叩けません。
+
+- 型付け attributes を渡して `flow-ref` しても `APIKIT:NOT_IMPLEMENTED`
+- APIkit が経路判定に使う `maskedRequestPath` は **DataWeave から渡せない**。
+  `HttpRequestAttributesBuilder` に setter が無い
+  (`Unable to found builder method: maskedRequestPath() on class HttpRequestAttributesBuilder`)。
+  mule-http-connector 1.10.6 でフィールド自体は存在しますが、builder に無いので渡す手段がありません
+- `listenerPath: "/*"` + `requestPath: "/inventory/1"` に変えても `NOT_IMPLEMENTED` のまま
+
+**だから受け口 flow の MUnit はカバレッジ専用で、牙を付けられません。** そう書いて据え置きます
+(次の人が「型付けすれば検証できる」と思って作り直すのを防ぐため)。RAML と `apikit:config` の
+対応そのものは、配備先への疎通確認 (`scripts/smoke-check.sh`、段 4) が受け持ちます。
+
+根拠: inventory2-api で 2 通り試して実測 (2026-09-10)。
+それまで `template/reference/router-test.xml` に「main flow を叩けば APIkit が判定する」と
+**未検証のまま書いてあり**、実測で反証されました。
+
 ## queryParams が全て任意項目だと、attributes 無しの `flow-ref` が正常完走してしまう
 上の項目の「attributes 無しで NPE / 型エラーになり ANY(500) に落ちる」ことを前提にした確認は、
 振り分け flow のパラメータが**全て任意項目** (RAML の queryParams が `?` 付きのみ) のときは成り立たない。

@@ -24,7 +24,7 @@ mule-http-connector 1.10.0 / mule-maven-plugin 4.10.1 / Java 17 / CE。
 |---|---|---|---|
 | プロジェクトとビルド | `gotchas/build.md` | 11 | 依存が取れない、起動しない、`requiredProduct`、Maven 401、JDK 違い、RAML がクラスパスに乗らない、JDBC jar が fat でない |
 | 設定とプロパティ | `gotchas/config.md` | 3 | `${x.y}` を上書きできない、YAML の値の型、`p()` |
-| MUnit | `gotchas/munit.md` | 13 | `mock-when` が効かない、カバレッジ、`target=`、`default` で牙が無い、**モックが型の不一致を隠す**、APIkit の振り分け flow 直叩き |
+| MUnit | `gotchas/munit.md` | 14 | `mock-when` が効かない、カバレッジ、`target=`、`default` で牙が無い、**モックが型の不一致を隠す**、APIkit の振り分け flow 直叩き、**main flow は flow-ref で振り分けられない** |
 | エラー処理 | `gotchas/error-handling.md` | 6 | `on-error-continue` の再開位置、`<try>` の中の `error-handler`、`raise-error` できない型、`ANY` の枝 |
 | APIkit と HTTP | `gotchas/apikit-http.md` | 3 | `requestPath` にベースパスが付く、`payload as String` で `Cannot coerce`、検証エラーの文面 |
 | DB コネクタ | `gotchas/db.md` | 7 | SQL が属性で動かない、`db:update` の適用範囲、戻り値の形、**TIMESTAMP の型が DB で違う**、`affectedRows`、`payload[0]`、デッドロック |

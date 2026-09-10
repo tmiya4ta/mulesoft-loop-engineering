@@ -196,6 +196,49 @@ export ANYPOINT_REGION=PROD_JP
 ## Release notes
 
 <details>
+<summary><b>v0.6.26</b> — One claim in the reference template was never verified. Measured, it was false</summary>
+
+The 8 `munit-coverage` + 4 `munit-mock-missing` rows were **all 12 already covered on the plugin side**
+(`gotchas/munit.md`, `mule-munit`, `router-test.xml`, `teeth-check.sh`). What remained was project work:
+inventory2-api's **toothless router-flow tests**.
+
+**Toothlessness was demonstrated by machine first** (measured, not argued — one of `teeth-check.sh`'s first
+jobs): changing the mock's return from `#[[]]` to `#[[{}, {}]]` still gave `Tests run: 1 - Failed: 0`.
+A test that only checks `vars.httpStatus` is non-null passes either way, by construction.
+
+Four were replaced with `router-test.xml`'s typed-attributes shape, **comparing the response body against
+the samples**. Their `behavior` mocks were **copied by machine** from the approved tests (copying by hand
+drifts). All four measured as having teeth (break the mock's return, or repoint the expectation at a
+different sample → the intended case reports `Failed: 1`). All 15 suites green,
+`flow coverage: 12/12 (100%)` held.
+
+**Which is where the template's own error surfaced.** `template/reference/router-test.xml` said:
+
+> **Calling the main flow** (listener + apikit:router, when you want real APIkit validation): APIkit
+> resolves the route and schema, so `method` / `listenerPath` / `relativePath` / `requestPath` and the
+> `content-type` header are what matter.
+
+**Never verified. Measured, it does not hold:**
+
+- typed attributes plus `flow-ref` still yields `APIKIT:NOT_IMPLEMENTED`
+- `maskedRequestPath`, which APIkit routes on, **cannot be supplied from DataWeave** —
+  `Unable to found builder method: maskedRequestPath() on class HttpRequestAttributesBuilder`.
+  In mule-http-connector 1.10.6 **the field exists** but the builder has no setter, so there is no way in
+- `listenerPath: "/*"` with `requestPath: "/inventory/1"` still gives `NOT_IMPLEMENTED`
+
+This is **the same species** as the v0.6.23 fix (one target's measurement written as a universal fact).
+There the basis was one measurement; here it was zero. **The writer cannot tell the difference. The reader
+follows without checking.**
+
+- `router-test.xml`: the claim is replaced with the measurement, **and the fact that it was unverified**
+- `gotchas/munit.md` (13 → 14) and `mule-munit`: "a main flow cannot be routed via `flow-ref`"
+- inventory2-api's `api-main-test.xml` **cannot be given teeth**, so it stays with the reason written in,
+  explicitly saying **do not rebuild it thinking typed attributes will work**. APIkit's routing is covered
+  by stage 4 (`smoke-check.sh`, which only started working in v0.6.25).
+
+</details>
+
+<details>
 <summary><b>v0.6.25</b> — The post-deploy contract check had never once landed (two parts of this plugin disagreed on the sample shape)</summary>
 
 Working through the 10 `loop-ops` rows, **8 were already mechanized or addressed**:
