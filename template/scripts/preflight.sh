@@ -51,6 +51,29 @@ if ls api/*.raml >/dev/null 2>&1 && ! ls src/main/resources/api/*.raml >/dev/nul
   exit 2
 fi
 
+# **プロジェクトの scripts/ がプラグインより古くないか。** `/mule-init` は template/ を丸ごと
+# コピーするので新規プロジェクトは揃うが、**プラグインを更新した既存プロジェクトは置いて行かれる**。
+# 検査が 1 本欠けていても、その検査を呼ぶ手順が落ちるまで誰も気付かない。実際、今日 2 つの
+# プロジェクトで 2 本が古いままだった (v0.6.29 で照合して気付いた)。
+# **波は止めません。** 1 行の cp で直る話で、止めると全作業が塞がるためです。代わりに
+# **直すコマンドをそのまま出します**。止める必要があるものは、その検査自身が止めます。
+if [ -f scripts/plugin-root.sh ]; then
+  tsrc=$(bash scripts/plugin-root.sh template/scripts 2>/dev/null || true)
+  if [ -n "${tsrc:-}" ] && [ -d "$tsrc" ]; then
+    stale=""
+    for f in "$tsrc"/*.sh; do
+      b=$(basename "$f")
+      if [ ! -f "scripts/$b" ]; then stale="$stale $b(無し)"
+      elif ! cmp -s "$f" "scripts/$b"; then stale="$stale $b(古い)"; fi
+    done
+    if [ -n "$stale" ]; then
+      echo "preflight: scripts/ がプラグインより古いものがあります:$stale" >&2
+      echo "           直す: cp $tsrc/*.sh scripts/ && chmod +x scripts/*.sh" >&2
+      echo "           (波は止めません。検査が欠けたままだと、その検査が受け持つ失敗を取り逃します)" >&2
+    fi
+  fi
+fi
+
 cmd="mvn -q clean package -DskipTests"
 out=$($cmd 2>&1); rc=$?
 if [ "$rc" -ne 0 ]; then

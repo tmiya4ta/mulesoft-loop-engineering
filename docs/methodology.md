@@ -83,7 +83,7 @@ deploy の done_when は `smoke-check.sh`、policy の done_when は `policy-che
 |---|---|---|---|---|
 | 1 | 受け入れ条件を人に出す前 | `spec-check.sh` | 承認に出さない | 0 = ずれ無し / 2 = サンプルの `instance` が flow ごとに不揃い |
 | 2 | 波を配る前 | `budget-check.sh` | **1 件も配らない** | 0 = 予算内 / 1 = 超過 |
-| 3 | 波を配る前 | `preflight.sh` | **1 件も配らない** | 0 = 土台健全 / 2 = git でない、直下 `api/*.raml` がクラスパスに無い、`mvn package` が落ちる |
+| 3 | 波を配る前 | `preflight.sh` | **1 件も配らない** | 0 = 土台健全 / 2 = git でない、直下 `api/*.raml` がクラスパスに無い、`mvn package` が落ちる。**`scripts/` がプラグインより古いものは名指しで言う (止めない)** |
 | 4 | 書き込みの前 (hook) | `secret-guard.sh` | その書き込みを **deny** | 秘密の**値そのもの**が入っていたら deny (値は出力しない) |
 | 5 | 書き込みの前 (hook) | `wave-guard.sh` | その書き込みを **deny** | 波で他ゴールに宣言した追記型ファイルなら deny |
 | 6 | 書き込みのたび (hook) | `quick-check.sh` → `mule-xml-shape.sh` | その場で差し戻す | 0 = ok / 2 = 構文、層の越境、`done_when` 欠け、XSD で落ちる形 |

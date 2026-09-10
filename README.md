@@ -201,6 +201,39 @@ export ANYPOINT_REGION=PROD_JP
 ## Release notes
 
 <details>
+<summary><b>v0.6.30</b> — Stop having a human check whether the scripts actually got distributed</summary>
+
+Auditing whether today's scripts reached both existing projects turned up **`bump-version.sh` and
+`ch2-public-url.sh` stale in both** (from v0.6.15, when the gotchas references moved to per-topic paths).
+The diff was comment-only this time — but **it was noticed only because the audit was done by hand.**
+
+`/mule-init` copies `template/` **wholesale, not by enumeration**, so a new project picks up new checks
+automatically. **An existing project does not.** A missing check goes unnoticed **until the step that
+calls it falls over.**
+
+`preflight.sh` now compares before dispatching a wave and **names** what is missing or stale:
+
+```
+preflight: scripts/ がプラグインより古いものがあります: teeth-check.sh(無し) goal-state.sh(古い)
+           直す: cp <plugin>/template/scripts/*.sh scripts/ && chmod +x scripts/*.sh
+           (波は止めません。検査が欠けたままだと、その検査が受け持つ失敗を取り逃します)
+```
+
+**It does not stop the wave.** A one-line `cp` fixes it, and stopping would block all work. Anything that
+must stop is stopped by the check itself (a missing check fails when it is called). **That decision is in
+the table too** — after v0.6.29's lesson that a check placed too late prevents nothing, **what stops and
+what merely reports is visible at a glance.**
+
+Measured three ways: all present → silent; remove one → `teeth-check.sh(無し)`; make one stale →
+`goal-state.sh(古い)`. The comparison target is whatever `plugin-root.sh` picks **by version**, so it
+compares against the right copy even in the session right after a version bump (v0.6.16).
+
+Both projects are now in sync across all 22 scripts (`finance-api`'s `contract-check.sh` is
+project-specific and out of scope).
+
+</details>
+
+<details>
 <summary><b>v0.6.29</b> — Move the "forgettable" checks into hooks. One of them was placed too late to prevent anything</summary>
 
 Ordering the 20 checks in v0.6.28 made one thing visible at a glance: **only 3 were hooks; the other 17

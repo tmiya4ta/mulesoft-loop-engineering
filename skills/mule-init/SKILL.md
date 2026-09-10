@@ -39,7 +39,9 @@ argument-hint: "[--kind api|batch|mcp|a2a] [--layer system|process|experience] [
    MuleRuntimeFeature.isEnabled` でビルドが通らない。
 3aa. **前提の置き場所を作る。** `context/` (requirements / environment / deployment / `decisions.yaml`)、`budget.yaml`、`context/deployment/authorizations.yaml`、`knowledge/` を配置し、**利用者に「資料をここに置いてください」と具体的なパスを伝え、`context/requirements/_template.md` をコピーして埋めればよいこと、System 層 (`kind: api` かつ `layer: system`) や DB を直接触る `batch` ならデータモデル (DDL かオブジェクト定義) が必須であることを添える**。URL しか無い場合は `context/sources.yaml` に書いてもらう。
 3b. **MUnit を足す。** 生成直後の pom には MUnit が無いので `scripts/add-munit.sh` を実行する (設定済みなら何もしない)。
-3c. template/ の各ファイルをコピーする。**既にあるファイルは上書きしない**。CLAUDE.md が既にある場合は末尾に template/CLAUDE.md の内容を追記し、冒頭にマーカー `<!-- mule-loop -->` を付ける。
+3c. template/ の各ファイルをコピーする (**列挙せず丸ごと**。プラグインに検査が増えても新規プロジェクトは自動で揃う)。**既にあるファイルは上書きしない**。
+    **既存のプロジェクトはこれで追随しません。** プラグインを更新したら `scripts/` が置いて行かれるので、
+    `preflight.sh` が波の前に照合して名指しで言います (`cp <プラグイン>/template/scripts/*.sh scripts/` で直る)。CLAUDE.md が既にある場合は末尾に template/CLAUDE.md の内容を追記し、冒頭にマーカー `<!-- mule-loop -->` を付ける。
 4. CLAUDE.md の `kind:`、`layer:` (`kind: api` のときだけ。それ以外は空のまま)、`name:` を埋める。
 5. `mvn -v`、`dw --version`、`xmllint --version`、`anypoint-cli-v4 dx mule --help` の有無を確認し、無いものを表にして知らせる。
 5aa. `bash scripts/munit-coverage-mode.sh` を実行する。EE ランタイムが取れれば MUnit のカバレッジ 100% ゲートを pom に入れ、取れなければ入れず、`scripts/coverage-check.sh` による構造チェックが保証になることを利用者に伝える。
