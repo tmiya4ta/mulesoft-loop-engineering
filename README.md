@@ -194,6 +194,33 @@ export ANYPOINT_REGION=PROD_JP
 ## Release notes
 
 <details>
+<summary><b>v0.6.20</b> — The schema index goes silently undelivered if it's ignored, so say when it is</summary>
+
+Reviewing the two projects' uncommitted changes, `reference/mule-schema/` turned out to be **untracked** in
+both. The v0.6.7 measurement is what makes that matter: **`isolation: "worktree"` worktrees are cut from
+`origin/main`, so an untracked file never reaches an executor at all.**
+
+Which breaks something specific. `agents/mule-executor.md` and `mule-munit` both say
+**"never guess a connector's element, operation, or parameter names"** and point at `INDEX.md`. With no
+index, the prohibition is all that survives and **guessing is the only option left** — the exact thing the
+script was built to remove.
+
+Neither project was actually broken: `/mule-run` runs `git add -A` before dispatching, so anything not
+excluded by `.gitignore` gets committed (and both are tracked now, after this review). The dangerous case
+is **only** when it *is* excluded — and then it goes undelivered with no message.
+
+- `scripts/preflight.sh`: if the index matches `git check-ignore`, **say so, with the reason. The wave is
+  not stopped** — without the index an agent can still fall back to gotchas → skills, which is a cost, not
+  a broken foundation. It sits **after** `mvn package`: a wave whose build fails dispatches nothing, so the
+  warning would be noise there.
+- `scripts/schema-index.sh` now states in its header that **the output must not be added to `.gitignore`**,
+  and why. It is 564 KB of generated files, so wanting to exclude it is the natural instinct.
+
+All three branches verified: ignored → warns; not ignored → silent; index absent → silent.
+
+</details>
+
+<details>
 <summary><b>v0.6.19</b> — No `mule-build` skill. Mechanize the 3 of 8 rows a machine can catch</summary>
 
 The plan was a `mule-build` skill covering the ledger's 6 `build-config` + 2 `xml-namespace` rows.

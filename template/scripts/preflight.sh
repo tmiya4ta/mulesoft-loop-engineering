@@ -70,3 +70,11 @@ idx=reference/mule-schema/INDEX.md
 if [ -f scripts/schema-index.sh ] && { [ ! -f "$idx" ] || [ pom.xml -nt "$idx" ]; }; then
   bash scripts/schema-index.sh || echo "preflight: schema-index は失敗した (波は止めない)" >&2
 fi
+
+# 索引が .gitignore で除外されていないか。除外されていると /mule-run の `git add -A` に入らず、
+# worktree (origin/main から切られる) の実行エージェントに届かない。**届かないことは黙って起きる**
+# ので、ここで言う。**波は止めない** (索引が無くても gotchas → スキルの順に戻れるだけなので)。
+if [ -f "$idx" ] && git check-ignore -q "$idx" 2>/dev/null; then
+  echo "preflight: $idx が .gitignore で除外されている。worktree の実行エージェントには届かないので" >&2
+  echo "           コネクタの要素名を推測することになる。除外を外してコミットの対象にしてください。" >&2
+fi
