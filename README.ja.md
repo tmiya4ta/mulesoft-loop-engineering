@@ -190,6 +190,46 @@ export ANYPOINT_REGION=PROD_JP
 ## リリースノート
 
 <details>
+<summary><b>v0.6.23</b> — 共有ナレッジに嘘が 1 行あった (1 接続先の実測を全接続先の事実として書いていた)</summary>
+
+`connector-behavior` 5 件 + `environment-fact` 2 件を当たったら、**7 件のうち 5 件は既に記録済み**で、
+`environment-fact` 2 件も行き先どおり `context/environment/cif-schema.md` に入っていました。
+残った 2 件が**同じクラスなのに結論が真逆**で、そこで共有ナレッジの誤りが出ました。
+
+`knowledge/gotchas/db.md` と `basics/db.md` にはこう書いてありました:
+
+> TIMESTAMP 列は Mule に入った時点で **DataWeave の String** (`2026-09-05T16:47:13.033`、TZ 無し)。
+> `as String` は恒等変換。
+
+**平叙で書いてありますが、根拠は Derby 1 件の実測でした。** Oracle では逆です:
+
+| 接続先 | `db:select` が DataWeave に渡す型 | `as String` |
+|---|---|---|
+| Derby (clouderby-jdbc) | 既に `String` | 恒等変換で無害 |
+| Oracle (`db:generic-connection`) | 素の `Object` | **落ちる** (`Cannot coerce Object to String`) |
+
+inventory2-api は実際にこれで 500 になりました。**しかも MUnit は 15 スイート全部緑でした** —
+`mock-when` が返していたのはプレーンな文字列で、型の不一致はモックで消えるからです。
+気付いたのは配備して curl を当てたときです。
+
+- `gotchas/db.md` (6 → 7 件): 両方の実測を並べた独立の項目にし、**「1 つの接続先での実測を、
+  全接続先の事実として書いてはいけない」**ことを項目の中に明記しました。直し方は
+  「dwl で型を当てにせず SQL 側で `TO_CHAR` して文字列で渡す」で、同じ列を読む SELECT を**全部**直す
+  (楽観ロックの比較経路も同じ列を読んでいました)。
+- `basics/db.md`: 該当行を「DB とドライバで違う」に直しました。**`[K]` から `[G]` に変わりました**
+  (2 プロジェクトの実測になったため)。
+- `gotchas/munit.md` (12 → 13 件) と `mule-munit` の「MUnit で検証できないもの」に
+  **「`mock-when` が返す値の型は実物と違ってよいので、型の不一致は緑のまま通る」**を足しました。
+  **対策はモックを実物に似せることではありません** — 実物の型が分からないから間違えるので。
+- `gotchas.md` の追記の規則に **「1 つの接続先で測った事実は、接続先の名前を本文に書く」**を足しました。
+  範囲が 1 接続先に閉じるなら行き先は `context/environment/` です。
+
+索引の件数は 2 つとも `knowledge-index-check.sh` が **exit 1 で止めて**から直しました
+(db 6→7、munit 12→13)。v0.6.17 のゲートが 2 回目も働いています。
+
+</details>
+
+<details>
 <summary><b>v0.6.22</b> — `error-handler` 5 件は文章で足りていた。足りなかったのは写経元 1 つ</summary>
 
 `error-handler` 5 件 (finance 4 + inventory2 1) を 1 件ずつ当たった結果、**機械化するものはありませんでした。**

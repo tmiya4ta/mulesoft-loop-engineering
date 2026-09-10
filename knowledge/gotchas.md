@@ -7,6 +7,11 @@
 `/mule-learn --share` の PR で増えます。追記先は主題の合うファイル。**根拠のない項目を足さない。**
 各項目に「何回どこで起きたか」を必ず書く。主題が無ければ新しいファイルを作り、この表に 1 行足す。
 
+**1 つの接続先 (DB 製品、ドライバ、ランタイム) で測った事実は、接続先の名前を本文に書く。**
+「TIMESTAMP 列は String」と平叙で書いた項目が、実は Derby 1 件の実測で、Oracle では素の `Object`
+だったため別プロジェクトで 500 になりました (v0.6.22 の直前まで残っていた)。**測った範囲を超えて
+書くと、読んだ側は確かめずに従います。** 範囲が 1 接続先に閉じるなら `context/environment/` 側です。
+
 **プラットフォーム操作 (API Manager、ポリシー、Exchange) は手探りの前に同梱の公式スキルを読む。**
 `secure-api`、`apply-policy-to-api-instance`、`platform-assistant`。実例で遠回りした落とし穴のうち 3 件は既にそこに書いてあった (PR #2、2026-09-06)。
 
@@ -19,10 +24,10 @@ mule-http-connector 1.10.0 / mule-maven-plugin 4.10.1 / Java 17 / CE。
 |---|---|---|---|
 | プロジェクトとビルド | `gotchas/build.md` | 11 | 依存が取れない、起動しない、`requiredProduct`、Maven 401、JDK 違い、RAML がクラスパスに乗らない、JDBC jar が fat でない |
 | 設定とプロパティ | `gotchas/config.md` | 3 | `${x.y}` を上書きできない、YAML の値の型、`p()` |
-| MUnit | `gotchas/munit.md` | 12 | `mock-when` が効かない、カバレッジ、`target=`、`default` で牙が無い、APIkit の振り分け flow 直叩き |
+| MUnit | `gotchas/munit.md` | 13 | `mock-when` が効かない、カバレッジ、`target=`、`default` で牙が無い、**モックが型の不一致を隠す**、APIkit の振り分け flow 直叩き |
 | エラー処理 | `gotchas/error-handling.md` | 6 | `on-error-continue` の再開位置、`<try>` の中の `error-handler`、`raise-error` できない型、`ANY` の枝 |
 | APIkit と HTTP | `gotchas/apikit-http.md` | 3 | `requestPath` にベースパスが付く、`payload as String` で `Cannot coerce`、検証エラーの文面 |
-| DB コネクタ | `gotchas/db.md` | 6 | SQL が属性で動かない、`db:update` の適用範囲、戻り値の形、`affectedRows`、`payload[0]`、デッドロック |
+| DB コネクタ | `gotchas/db.md` | 7 | SQL が属性で動かない、`db:update` の適用範囲、戻り値の形、**TIMESTAMP の型が DB で違う**、`affectedRows`、`payload[0]`、デッドロック |
 | DataWeave | `gotchas/dataweave.md` | 3 | `dw validate -f`、`p()` の誤検知、予約語 |
 | 配備 (CloudHub 2.0 / Runtime Fabric) | `gotchas/deploy.md` | 6 | Exchange 経由必須、公開 URL が付かない、properties が消える、RTF のログ、Flex に curl が届かない |
 | API Manager とポリシー | `gotchas/api-manager.md` | 4 | ポリシー適用が効かない、autodiscovery が EE 要求、インスタンスの形、flexGateway の制約 |

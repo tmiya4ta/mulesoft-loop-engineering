@@ -52,6 +52,20 @@ listener も同じで、MUnit の器と配備先で Mule の版が違うと応�
 `samples/` をそのまま流す。期待値を別形式に書き写すと二重管理になり必ずずれる。
 根拠: System API 1 本の実装で 2 件とも実測 (2026-09-06)。
 
+## `mock-when` が返す値の型は実物と違ってよいので、**型の不一致は緑のまま通る**
+
+`then-return` に書くのは自分で用意した値なので、**実際のコネクタが返す型とは無関係**です。
+プレーンな文字列を返すモックの上では、`payload.X as String` は当然通ります。
+
+実例: Oracle の TIMESTAMP 列は `db:select` から素の `Object` で来るため `as String` が
+`Cannot coerce Object to String` で落ちるのに、モックが文字列を返していたので
+**15 スイート全部が緑**でした。落ちたのは配備して curl を当てたときです
+(inventory2-api、2026-09-09。詳細と直し方は `gotchas/db.md`)。
+
+**対策はモック側を実物に似せることではありません** (実物の型が分からないから間違えるので)。
+**型に依存する変換を dwl から追い出す** — SQL 側で文字列にして渡す — か、
+`docs/methodology.md` の段 4 (配備先への契約検査) で捕まえます。
+
 ## MUnit は既定でメッセージソース (http:listener) を起動しない
 配線が正しくても、実 HTTP を叩くテストが毎回 `HTTP:CONNECTIVITY ... Connection refused` になる。
 `mvn -q clean package -DskipTests` は成功するので設定ミスに見えるが違う。

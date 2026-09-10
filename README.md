@@ -195,6 +195,48 @@ export ANYPOINT_REGION=PROD_JP
 ## Release notes
 
 <details>
+<summary><b>v0.6.23</b> — One line of the shared knowledge was false (one target's measurement written as a fact about all)</summary>
+
+Working through the 5 `connector-behavior` + 2 `environment-fact` rows, **5 of the 7 were already
+recorded**, and both `environment-fact` rows had landed where they belong, in
+`context/environment/cif-schema.md`. The two left over were **the same class with opposite conclusions**,
+which is how the error in the shared knowledge surfaced.
+
+`knowledge/gotchas/db.md` and `basics/db.md` said:
+
+> A TIMESTAMP column arrives in Mule as a **DataWeave `String`** (`2026-09-05T16:47:13.033`, no TZ).
+> `as String` is the identity.
+
+**Stated flatly — but the basis was a single Derby measurement.** On Oracle it's the reverse:
+
+| Target | Type `db:select` hands DataWeave | `as String` |
+|---|---|---|
+| Derby (clouderby-jdbc) | already a `String` | harmless identity |
+| Oracle (`db:generic-connection`) | a raw `Object` | **fails** (`Cannot coerce Object to String`) |
+
+inventory2-api actually returned 500 because of it. **And MUnit was green across all 15 suites** — the
+`mock-when` returned a plain string, so the type mismatch vanished into the mock. It surfaced only when
+the app was deployed and hit with curl.
+
+- `gotchas/db.md` (6 → 7 items): both measurements now sit side by side in their own item, which states
+  inside itself that **a measurement from one target must not be written as a fact about all of them**.
+  The remedy is "don't rely on the type in dwl; stringify in SQL with `TO_CHAR`", applied to **every**
+  SELECT reading that column (the optimistic-locking comparison read the same one).
+- `basics/db.md`: the line now says the type depends on the DB and driver. **Its marker went from `[K]`
+  to `[G]`**, since it is now measured in two projects.
+- `gotchas/munit.md` (12 → 13) and `mule-munit`'s "what MUnit cannot verify" gained
+  **"the type a `mock-when` returns need not match the real connector, so type mismatches stay green"**.
+  **The fix is not to make mocks resemble reality** — you get it wrong precisely because the real type is
+  unknown.
+- `gotchas.md`'s append rules gained **"a fact measured on one target must name that target in the
+  text"**. If its scope closes over a single target, the destination is `context/environment/`.
+
+Both index counts were **stopped at exit 1 by `knowledge-index-check.sh`** before being corrected
+(db 6→7, munit 12→13) — the v0.6.17 gate earning its place a second time.
+
+</details>
+
+<details>
 <summary><b>v0.6.22</b> — The 5 `error-handler` rows were fine as prose. What was missing was one template</summary>
 
 Going through the 5 `error-handler` rows (finance 4 + inventory2 1), **nothing warranted mechanizing.**
