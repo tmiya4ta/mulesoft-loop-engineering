@@ -153,7 +153,8 @@ template/         What /mule-init distributes:
                   schema-index.sh (extracts connector definitions + XSDs from jars in ~/.m2),
                   plugin-root.sh (resolves the plugin and skills to paths),
                   k-new.sh (a machine picks the K filename),
-                  teeth-check.sh (a machine measures whether a test has teeth)
+                  teeth-check.sh (a machine measures whether a test has teeth),
+                  spec-check.sh (RAML/sample/implementation drift a machine can catch)
 .mcp.json         MuleSoft DX MCP Server (stdio) + Platform MCP Server (http)
 docs/methodology.md
 docs/mulesoft-tools.md
@@ -193,6 +194,52 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.24</b> — Two RAML/sample drifts a machine can catch. One found more than the ledger recorded</summary>
+
+Of the 5 `raml-mismatch` rows, 3 were already in `gotchas/apikit-http.md` and are semantic (base path in
+`requestPath`, the `error.description` format, a status pinned by an earlier test). **Both of the other two
+turned out to be machine-catchable.** New: `template/scripts/spec-check.sh`.
+
+**Check 1: samples exercising the same flow must agree on the shape of `instance`** (exits 2)
+
+Which sample belongs to which flow is **something MUnit already knows** (a `munit:test`'s `flow-ref` plus
+its `readUrl("classpath://samples/...")`). **Filenames are not guessed from** — finance-api uses
+`not-found.out.json` and inventory2-api uses `reserve-not-found.out.json`, so a name-based grouping works
+in one project and not the other (written that way first, it collapsed finance into groups of one).
+
+The ledger says "`reserve-not-found`'s `instance` was missing `/reserve`". Run for real, **2 of 3 were
+broken**:
+
+```
+flow reserve-inventory:
+  2 segments  /inventory/999          (reserve-not-found.out.json)
+  2 segments  /inventory/1            (reserve-upstream-error.out.json)   ← not in the ledger
+  3 segments  /inventory/3/reserve    (reserve-insufficient.out.json)
+```
+
+**It runs before the human approves** (`/mule-run` step 3). Found afterwards, the samples fall under
+"never change an expected value", so only the implementation can move — which is exactly what happened:
+inventory2-api reshaped `reserve-inventory` into a two-stage "re-append `/reserve` only after the lookup"
+to match approved samples. **Before approval, fixing the samples is the cheapest move.**
+
+**Check 2: a RAML-required property that appears nowhere in the implementation** (**warning only**)
+
+This is the `ReserveRequest.lastUpdated` row — required in RAML, never read, found by `mule-reviewer`
+reading the code. A machine can spot the same thing. **But it does not exit 2**: for a pass-through API
+that forwards the received body, the name legitimately never appears, so **a machine cannot decide
+right from wrong**. It runs first in `mule-reviewer`'s check 2, and the reviewer reads the implementation
+to judge — neither swallowing nor ignoring the output.
+
+**Both checks were verified to have teeth.** Check 2 was silent in both projects (`lastUpdated` is already
+fixed), and silent is indistinguishable from toothless, so it was tampered: adding a required property
+absent from the implementation produces
+`PUT /inventory/{inventoryId}/reserve の ReserveRequest.zzzNeverReferenced`. A property marked
+`required: false` is correctly **ignored**. Both RAMLs were restored. Check 1 passes all 4 flows in
+finance-api (no false positives) and reports the above in inventory2-api.
+
+</details>
 
 <details>
 <summary><b>v0.6.23</b> — One line of the shared knowledge was false (one target's measurement written as a fact about all)</summary>

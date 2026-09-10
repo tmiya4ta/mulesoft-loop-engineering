@@ -150,7 +150,8 @@ template/         /mule-init が配るもの:
                   schema-index.sh (~/.m2 の jar からコネクタ定義と XSD を抜く),
                   plugin-root.sh (プラグインとスキルの場所をパスに解決する),
                   k-new.sh (K ファイルの名前を機械が決める),
-                  teeth-check.sh (テストに牙があるかを機械が測る)
+                  teeth-check.sh (テストに牙があるかを機械が測る),
+                  spec-check.sh (RAML・サンプル・実装の機械で当てられるずれ)
 .mcp.json         MuleSoft DX MCP Server（stdio）+ Platform MCP Server（http）
 docs/methodology.md
 docs/mulesoft-tools.md
@@ -188,6 +189,50 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.24</b> — RAML とサンプルのずれ 2 つを機械で当てる。片方は台帳より 1 件多かった</summary>
+
+`raml-mismatch` 5 件のうち 3 件は既に `gotchas/apikit-http.md` にあり、意味の問題でした
+(`requestPath` にベースパスが付く、`error.description` の書式、先行テストが固定した status)。
+残る 2 件は**どちらも機械で当てられました**。`template/scripts/spec-check.sh` (新)。
+
+**検査 1: 同じ flow を叩くサンプルの `instance` の形が揃っているか** (exit 2 の対象)
+
+どのサンプルがどの flow のものかは **MUnit が持っています** (`munit:test` の中の `flow-ref` と
+`readUrl("classpath://samples/...")`)。**ファイル名からは推測しません** — finance-api は
+`not-found.out.json`、inventory2-api は `reserve-not-found.out.json` で命名規則が違い、
+名前で当てると片方で機能しません (実際にそう書いて finance 側が全部 1 件のグループになりました)。
+
+台帳には「`reserve-not-found` の `instance` が `/reserve` 無しだった」とあります。実際に走らせたら
+**3 つのうち 2 つが崩れていました**:
+
+```
+flow reserve-inventory:
+  2 段  /inventory/999          (reserve-not-found.out.json)
+  2 段  /inventory/1            (reserve-upstream-error.out.json)   ← 台帳に無い
+  3 段  /inventory/3/reserve    (reserve-insufficient.out.json)
+```
+
+**走らせる場所は「人に承認してもらう前」です** (`/mule-run` の手順 3)。承認後に見つけても、
+サンプルは「期待値は変えない」の対象になるので直せるのは実装側だけになります。実例がまさにそれで、
+inventory2-api は承認済みサンプルに合わせて実装を「見つかった後にだけ `/reserve` を付け直す」
+2 段構成にしていました。**承認前ならサンプルを揃えるのが一番安い。**
+
+**検査 2: RAML の必須項目が実装のどこにも出てこないか** (**警告のみ**)
+
+`ReserveRequest.lastUpdated` が必須なのに実装が一切参照しておらず、`mule-reviewer` が読んで
+見つけた件です。同じことを機械で当てられます。**ただし exit 2 にはしません** — 受けた body を
+そのまま次の API に渡す通過型では名前が出てこないのが正常で、**機械では正誤を決められない**からです。
+`mule-reviewer` の観点 2 の最初に走らせ、出力を鵜呑みにも無視にもせず、実装を読んで判定させます。
+
+**両方の検査に牙があることを実測しました。** 検査 2 は 2 プロジェクトとも無言だったので
+(`lastUpdated` は既に直っている)、無言と牙が無いのを区別するために細工しました:
+実装に無い必須項目を RAML に足す → `PUT /inventory/{inventoryId}/reserve の ReserveRequest.zzzNeverReferenced`
+と出る。`required: false` を付けた項目は**無視される**ことも確認。どちらも RAML を元に戻しました。
+検査 1 は finance-api で 4 flow すべて ok (誤検知なし)、inventory2-api で上記を検出。
+
+</details>
 
 <details>
 <summary><b>v0.6.23</b> — 共有ナレッジに嘘が 1 行あった (1 接続先の実測を全接続先の事実として書いていた)</summary>
