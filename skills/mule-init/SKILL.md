@@ -34,6 +34,12 @@ argument-hint: "[--kind api|batch|mcp|a2a] [--layer system|process|experience] [
    **版は 4.10.1 以降にする (既定 4.12.2)。** 4.9.0 は `mule-runtime-impl-no-services-bom` が公開リポジトリに無く、
    `ee:transform` を 1 つ書いた時点で MUnit が `Cannot create embedded container` で動かなくなる (`knowledge/gotchas/build.md` 参照)。
    **コネクタの GAV は推測せず、`anypoint-cli-v4 dx mule describe-connector` か Exchange で確かめる。** MCP コネクタの GAV もここで確認する (このプラグインは既知の版を決め打ちしない)。
+   **設定値を他のプロジェクトから写さないこと。読んでよいのは (1) このリポジトリの中 と
+   (2) プラグイン (`bash scripts/plugin-root.sh` で解決したパス) だけです。**
+   `git rev-parse --show-toplevel` より上には出ません。隣に Mule プロジェクトが並んでいることは
+   よくあり (monorepo、作業ディレクトリ)、そこの `pom.xml` には**別の組織の**組織 ID や
+   接続先が書いてあります。「実例を確認する」つもりで写すと、そのまま別の組織に publish します。
+
    **`--group-id` は Anypoint の組織 ID (UUID) です。人に聞くか
    `anypoint-cli-v4 account business-group list` で取ります。**
    **このマシンにある他のプロジェクトの pom から写さないこと。** 組織が違えば Exchange への publish が
