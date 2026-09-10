@@ -18,9 +18,26 @@ model: sonnet
 - `CLAUDE.md`、`context/`、`api/*.raml`、`samples/`、`CONTEXT.md` はそのプロジェクト直下にあります。自分で読んでください。
 
 ## 進め方
-**必ず `mule-tdd` スキルの順 (Red → Green → Refactor) で進めます。** 最初に Skill ツールで `mule-tdd` を読み込み、Red を確認してから実装に入ります。フロー XML の生成に公式スキル `build-mule-integration` や MCP `generate_mule_flow` を使ってよいですが、生成物は仮説であり MUnit が通るまで正しさはありません。
+**必ず `mule-tdd` の順 (Red → Green → Refactor) で進めます。** 最初にその中身を読み、Red を確認してから
+実装に入ります。**あなたは Skill ツールを持ちません** (`tools:` に無い) ので、スキルは名前では呼べません。
+**パスに解決してから Read します。**
+
+```bash
+bash scripts/plugin-root.sh --skill mule-tdd    # → SKILL.md の絶対パスが出る。それを Read する
+```
+
+フロー XML の生成に MCP `generate_mule_flow` を使ってよいですが、生成物は仮説であり MUnit が通るまで
+正しさはありません。公式スキル (`build-mule-integration` など) は**入っていないことがあります**。
+`--skill` が exit 1 を返したらそこで諦め、下の「困ったら」の順に戻ります。**探し回らない。**
 
 ## 書く前に読むもの (試行錯誤の大半はここで消える)
+`${CLAUDE_PLUGIN_ROOT}` はハーネスがプロンプト読み込み時に絶対パスへ展開します。**もし展開されずに
+`${CLAUDE_PLUGIN_ROOT}` という文字列のまま見えていたら、それは開けません** (シェルの環境変数には
+存在しないので `cat $CLAUDE_PLUGIN_ROOT/...` も空振りします)。そのときは
+`bash scripts/plugin-root.sh <プラグイン内の相対パス>` で絶対パスに直してから Read します。
+展開先は版つきのキャッシュなので、**得られた絶対パスを台帳や K ファイルに書き写さない**
+(次の版で開けなくなります)。
+
 - **`${CLAUDE_PLUGIN_ROOT}/knowledge/mule-basics.md`** — Mule の基礎知識の要約 (骨格 / 設定 / フロー / エラー処理 / DataWeave / DB / MUnit / 配備)。1 項目 1 事実。
 - **`${CLAUDE_PLUGIN_ROOT}/template/reference/`** — 通った実装から抜いた写経元 (global.xml、api-main.xml、resource-impl.xml、resource-test.xml、dwl、config)。新しいファイルはこれと同じ形で書く。
 - **`${CLAUDE_PLUGIN_ROOT}/template/reference/patterns/`** — `reference/` に無い部品の型。**全部読まず、使うものだけ読む。**
@@ -38,7 +55,13 @@ model: sonnet
 
 ## 困ったら、この順で調べます (手探りの前に)
 1. `${CLAUDE_PLUGIN_ROOT}/knowledge/gotchas.md` (主題別、根拠つき) と `knowledge/K-*.md`。同じ症状が既に書いてあることが多い。
-2. 同梱・導入済みのスキル。`platform-assistant` を辿って該当するスキルが無いか見る (`secure-api`、`apply-policy-to-api-instance`、`build-mule-integration` など)。実例では遠回りの 3 件がここに書いてあった。
+2. 同梱・導入済みのスキル。**名前では呼べないのでパスに解決します**:
+   `bash scripts/plugin-root.sh --skill platform-assistant` (これは同梱なので必ずある)。
+   Anypoint 側の操作なら `platform-assistant` を辿り、該当するスキル名が分かったら
+   `--skill <名前>` で在否を確かめる (`secure-api`、`apply-policy-to-api-instance`、
+   `build-mule-integration` など)。実例では遠回りの 3 件がここに書いてあった。
+   **exit 1 なら入っていないので、そこで諦めて 3 へ進む。** これらは `/mule-setup` が入れる外部スキルで、
+   未実行や導入失敗で無いことが普通にあります (探し回るのが一番時間を溶かす)。
 3. 公式マニュアル。context7 (`query-docs`) か WebFetch で docs.mulesoft.com を読む。コネクタの GAV や XML の書式を推測で書かない。
 4. それでも分からなければ最小の実験をして原文のエラーを取る。
 **調べて分かったことは、その場で `knowledge/K-<ゴール id>-<連番>.md` に書きます** (例 `K-T-003-1.md`。ゴール id を入れるのは並列の実行エージェントが同じ番号を取らないため)。中身は「症状 (原文) / 原因 / 直し方 / 根拠のコマンド / どこで調べたか」。
@@ -55,7 +78,15 @@ model: sonnet
 8. 同じ失敗が 3 回続いたら止まります。無限に回しません。
 
 ## policy 段 (stage: policy のときだけ)
-- **最初に同梱の公式スキルを読みます**: `secure-api`、`apply-policy-to-api-instance`、`platform-assistant`。手探りで API を叩く前に、そこに書いてある手順と項目名を使います (PR #2 の実例では遠回りの 3 件が既にそこに書いてあった)。
+- **最初にスキルをパスに解決して読みます** (名前では呼べません):
+  ```bash
+  bash scripts/plugin-root.sh --skill platform-assistant       # 同梱。必ずある
+  bash scripts/plugin-root.sh --skill secure-api               # 外部。無いこともある
+  bash scripts/plugin-root.sh --skill apply-policy-to-api-instance
+  ```
+  出たパスを Read し、手探りで API を叩く前にそこに書いてある手順と項目名を使います
+  (PR #2 の実例では遠回りの 3 件が既にそこに書いてあった)。**exit 1 のものは入っていないので飛ばします。**
+  `platform-assistant` だけは同梱なので必ず読めます。
 - 対象は Sandbox の API インスタンスへのポリシー適用 (client-id-enforcement、jwt-validation、rate-limiting など)。MUnit は書きません。
 - **ポリシーは適用しただけでは効きません** (201 が返り一覧にも出るが、経路にゲートウェイがいない)。`decisions.yaml` の `api.gateway` で経路を決めます。
   - `proxy-flex`: 同じ組織で既に配備されている API インスタンスの `technology` / `apiGatewayVersion` / `deployment.type` / `targetName` を読み、同じ形でインスタンスを作る。target URL はアプリの内部エンドポイント。

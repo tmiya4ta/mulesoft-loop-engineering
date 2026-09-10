@@ -144,7 +144,8 @@ template/         What /mule-init distributes:
   tasks/          The goal ledger (done_when + attempt log)
   scripts/        done.sh, add-munit.sh, budget-check.sh, coverage-check.sh, preflight.sh,
                   munit-coverage-mode.sh, run-log.sh, metrics.sh, cost-report.sh,
-                  schema-index.sh (~/.m2 の jar からコネクタ定義と XSD を抜く)
+                  schema-index.sh (~/.m2 の jar からコネクタ定義と XSD を抜く),
+                  plugin-root.sh (プラグインとスキルの場所をパスに解決する)
 .mcp.json         MuleSoft DX MCP Server (stdio) + Platform MCP Server (http)
 docs/methodology.md
 docs/mulesoft-tools.md
@@ -184,6 +185,54 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.10</b> — The executor has no Skill tool: hand it paths, not skill names</summary>
+
+`agents/mule-executor.md` said "first load `mule-tdd` **with the Skill tool**", while the same
+file's `tools:` line reads `Read, Edit, Write, Bash, Grep, Glob` — **no Skill**. The harness's
+resolved tool list doesn't show one either. The first instruction of the implementation loop was
+impossible to follow. The policy stage's "first read the bundled official skills: `secure-api`,
+`apply-policy-to-api-instance`" gave names with no paths, so they couldn't be followed either.
+
+**And those three do not exist in this environment.** `scripts/setup-deps.sh` tries to install them
+via `npx skills add mulesoft/mulesoft-dx`, but searching `~/.claude` finds none of `secure-api` /
+`apply-policy-to-api-instance` / `build-mule-integration`. The executor was being told to read
+things that aren't there — pure hunting time.
+
+Three measurements about paths:
+
+- `${CLAUDE_PLUGIN_ROOT}` **is expanded by the harness at load time**: in skill bodies it became
+  `/home/…/.claude/plugins/cache/mule-loop-marketplace/mule-loop/0.6.7/`.
+- But it is **not in the shell environment** (`env` has no such variable), so
+  `cat $CLAUDE_PLUGIN_ROOT/...` always misses.
+- **Reading a SKILL.md as a raw file gets no expansion.** An executor without the Skill tool reads
+  the file directly, so `${CLAUDE_PLUGIN_ROOT}` arrives as literal text.
+- The expansion target is a **version-scoped cache**, so a resolved absolute path written into the
+  ledger stops working at the next version.
+
+`scripts/plugin-root.sh` resolves all of it:
+
+```bash
+bash scripts/plugin-root.sh                       # plugin root (newest materialized version)
+bash scripts/plugin-root.sh knowledge/gotchas.md  # a file inside the plugin
+bash scripts/plugin-root.sh --skill secure-api    # a skill's SKILL.md, wherever it lives
+```
+
+Nothing found prints nothing and exits 1. The executor is told: "exit 1 means it isn't installed —
+**stop there** and fall back to gotchas → `reference/mule-schema/INDEX.md` → the manual. **Do not go
+hunting.**" `mule-tdd/SKILL.md` now opens with a note that a raw read leaves the variable
+unexpanded, so it can resolve its own paths.
+
+Whether `${CLAUDE_PLUGIN_ROOT}` is expanded in `agents/*.md` specifically is **unverified** (it needs
+a live agent to check). The fix works either way: both branches are written out — use it if expanded,
+run `plugin-root.sh` if it arrives literal.
+
+Verified across 7 cases (newest-cache selection, a file inside the plugin, a bundled skill, an
+uninstalled official skill → exit 1, a missing file → exit 1, an external skill under
+`~/.claude/skills`, and a broken `CLAUDE_PLUGIN_ROOT`), plus an end-to-end walk in finance-api:
+resolve the skill → read it raw → resolve the relative paths inside it.
+</details>
 
 <details>
 <summary><b>v0.6.9</b> — Stop guessing connector element names: generate version-matched schema from the jars in ~/.m2</summary>

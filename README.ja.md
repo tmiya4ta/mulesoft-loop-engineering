@@ -140,7 +140,8 @@ template/         /mule-init が配るもの:
   tasks/          ゴール台帳（done_when + 試行ログ）
   scripts/        done.sh, add-munit.sh, budget-check.sh, coverage-check.sh, preflight.sh,
                   munit-coverage-mode.sh, run-log.sh, metrics.sh, cost-report.sh,
-                  schema-index.sh (~/.m2 の jar からコネクタ定義と XSD を抜く)
+                  schema-index.sh (~/.m2 の jar からコネクタ定義と XSD を抜く),
+                  plugin-root.sh (プラグインとスキルの場所をパスに解決する)
 .mcp.json         MuleSoft DX MCP Server（stdio）+ Platform MCP Server（http）
 docs/methodology.md
 docs/mulesoft-tools.md
@@ -178,6 +179,51 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.10</b> — 実行エージェントは Skill ツールを持たない。スキルは名前ではなくパスで渡す</summary>
+
+`agents/mule-executor.md` は「最初に **Skill ツールで** `mule-tdd` を読み込み」と指示していましたが、
+同じファイルの `tools:` は `Read, Edit, Write, Bash, Grep, Glob` で **Skill が入っていません**。
+ハーネスが解決したツール一覧にも出ません。実行ループの一番最初の 1 行が実行不能でした。
+policy 段の「最初に同梱の公式スキルを読みます: `secure-api`、`apply-policy-to-api-instance`」も
+名前だけでパスが無く、辿れませんでした。
+
+しかも**その 3 つはこの環境に存在しません**。`scripts/setup-deps.sh` が
+`npx skills add mulesoft/mulesoft-dx` で入れようとしているものですが、`~/.claude` を探しても
+`secure-api` / `apply-policy-to-api-instance` / `build-mule-integration` は 1 つも見つかりません。
+**無いものを名前で読ませていた**ので、実行エージェントは探し回って時間を溶かすだけでした。
+
+パスの実測が 3 つ:
+
+- `${CLAUDE_PLUGIN_ROOT}` は**ハーネスが読み込み時に展開する**。skills の本文で確認したところ
+  `/home/…/.claude/plugins/cache/mule-loop-marketplace/mule-loop/0.6.7/` に置き換わっていた。
+- しかし **シェルの環境変数には無い** (`env` に存在しない)。`cat $CLAUDE_PLUGIN_ROOT/...` は必ず空振りする。
+- **生のファイルとして Read すると展開されない。** Skill ツールを使わない実行エージェントは
+  SKILL.md をそのまま読むので、中の `${CLAUDE_PLUGIN_ROOT}` は文字列のまま届く。
+- 展開先は **版つきのキャッシュ**。得た絶対パスを台帳や K ファイルに書き写すと次の版で開けなくなる。
+
+`scripts/plugin-root.sh` を追加しました。
+
+```bash
+bash scripts/plugin-root.sh                       # プラグインの実体 (最新版) の絶対パス
+bash scripts/plugin-root.sh knowledge/gotchas.md  # その中のファイルの絶対パス
+bash scripts/plugin-root.sh --skill secure-api    # スキルの SKILL.md の絶対パス
+```
+
+見つからなければ **何も出さず exit 1**。executor には「exit 1 なら入っていないので**そこで諦めて**
+gotchas → `reference/mule-schema/INDEX.md` → マニュアルの順に戻る。**探し回らない**」と書きました。
+`mule-tdd/SKILL.md` の冒頭にも、生で読んでいる場合は展開されていないという注記を入れ、
+自力で解決できるようにしています。
+
+`${CLAUDE_PLUGIN_ROOT}` が **agents/*.md でも展開されるかは未検証**です (エージェントを起動しないと
+確かめられない)。ただしどちらに転んでもこの修正で通ります — 展開されていればそのまま使い、
+文字列のままなら `plugin-root.sh` で直すよう両方書いてあります。
+
+7 ケースで検証 (最新版キャッシュの選択 / プラグイン内ファイル / 同梱スキル / 未導入の公式スキル →
+exit 1 / 無いファイル → exit 1 / `~/.claude/skills` 側の外部スキル / `CLAUDE_PLUGIN_ROOT` が
+壊れた値でも動く)。finance-api で「スキルを解決 → 生で読む → 中の相対パスを解決」の通しも確認しました。
+</details>
 
 <details>
 <summary><b>v0.6.9</b> — コネクタの要素名を推測させない。~/.m2 の jar から版の一致したスキーマを生成する</summary>
