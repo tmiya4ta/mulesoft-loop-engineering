@@ -132,6 +132,7 @@ git switch -c learn/<category>-<短い名前>
 # knowledge/gotchas/<主題>.md に追記 (症状 / 原因 / 直し方 / 根拠の件数)
 # 索引 (knowledge/gotchas.md) の件数と症状の欄も直す
 bash scripts/knowledge-index-check.sh   # exit 0 になるまで PR を開かない
+bash scripts/checks-audit.sh            # 検査を増やしたら docs/methodology.md の表にも足す
 gh pr create --title "gotcha: <symptom>" --body "<根拠: どのリポジトリで何回>"
 ```
 

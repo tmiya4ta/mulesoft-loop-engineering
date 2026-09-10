@@ -98,10 +98,11 @@ deploy の done_when は `smoke-check.sh`、policy の done_when は `policy-che
 | 14 | 止まる前 (**hook**) | `stop-guard.sh` → `goal-state.sh` | **止まらせない** | 0 = 全て passed / 1 = **まだ進められる → 差し戻す** / 2 = 人の判断待ち → **通す (待つのを邪魔しない)** |
 | 15 | 配る前 | `deploy-config.sh` → `bump-version.sh` | 置かない | pom に設定と `businessGroupId`、版を上げる |
 | 16 | **`mvn clean package` の後、`mvn deploy` の前** | `jar-leak-check.sh` | **publish しない** | 0 = ok / 2 = git が無視しているファイルが jar に入っている。**publish 後では取り返せない** |
-| 17 | 置いたあと | `smoke-check.sh` (段 4) | 完了にしない | 0 = 全ケースで status と body が一致 |
-| 18 | ポリシー適用後 | `policy-check.sh` | 効いたと言わない | 認証なし 401 / あり 2xx |
+| 17 | 置いたあと (`/mule-deploy` の手順 5、**および `stage: deploy` ゴールの `done_when`**) | `smoke-check.sh` (段 4) | 完了にしない | 0 = 全ケースで status と body が一致 |
+| 18 | **`stage: policy` ゴールの `done_when`** (実行エージェントが回す。`/mule-deploy` の手順には無い) | `policy-check.sh` | ゴールを `passed` にしない | 認証なし 401 / あり 2xx |
 | 19 | 昇格の PR の前 (プラグイン側) | `knowledge-index-check.sh` | PR を開かない | 0 = 索引と実体が一致 (件数まで) |
 | 20 | 昇格の PR の前 (プラグイン側) | `fixtures-check.sh` | 昇格したと言わない | 0 = 弾くべきものを弾き、**正しい形を弾かない** |
+| 21 | 昇格の PR の前 (プラグイン側) | `checks-audit.sh` | PR を開かない | 0 = **この表自身**が実体と一致 (載っているものが実在して呼ばれ、実在する検査が漏れていない) |
 
 **4、5、7、7b、14 は hook で、エージェントが忘れても走ります。** それ以外は手順書が呼びます。
 ただし **hook はセッション開始時の cache から読まれるので、入れた hook はその日は効きません**

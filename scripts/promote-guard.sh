@@ -9,6 +9,9 @@
 #   - hook の牙が無い → 弾いているつもりで素通りしている (台帳 test-toothless の 5/6 がこれ)
 # どちらも **PR がマージされた後に効いてくる**ので、PR を開く前が最後の関所です。
 #
+# v0.6.32 で `checks-audit.sh` も足しました。**表がずれると、表を見て探した人が見つけられません** —
+# 実測で 20 行のうち 1 行 (`policy-check.sh`) が呼ばれる場所を間違えていました。
+#
 # 対象は `gh pr create` を含む Bash コマンドで、**このリポジトリ (mule-loop 本体) にいるときだけ**。
 # 利用者のプロジェクトには knowledge/ の索引も fixtures も無いので、そこでは何もしません。
 set -u
@@ -20,7 +23,8 @@ printf '%s' "$cmd" | grep -q 'gh[[:space:]]\+pr[[:space:]]\+create' || exit 0
 [ -f scripts/knowledge-index-check.sh ] && [ -f scripts/fixtures-check.sh ] || exit 0
 
 fails=""
-for s in knowledge-index-check fixtures-check; do
+for s in knowledge-index-check fixtures-check checks-audit; do
+  [ -f "scripts/$s.sh" ] || continue
   out=$(bash "scripts/$s.sh" 2>&1) || fails="$fails\n--- $s.sh\n$out"
 done
 [ -z "$fails" ] && exit 0

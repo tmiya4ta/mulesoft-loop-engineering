@@ -133,7 +133,7 @@ agents/
   mule-reviewer.md  Read-only review
 hooks/hooks.json  Before a deploy: scripts/deploy-guard.sh (reads authorizations.yaml, answers allow/deny)
                   Before a write:  scripts/secret-guard.sh (denies a secret's own value entering a file)
-                  Before a PR:     scripts/promote-guard.sh (denies gh pr create until the index and fixtures pass)
+                  Before a PR:     scripts/promote-guard.sh (denies gh pr create until the index, fixtures and check table pass)
                   Before an edit:  scripts/wave-guard.sh (keeps the dispatcher off files it assigned to a goal)
                   On every edit: scripts/quick-check.sh (seconds-long validation)
                               └ scripts/mule-xml-shape.sh (shapes that fail XSD; ledger fingerprints only)
@@ -199,6 +199,54 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.32</b> — Measured that the hooks do not fire, and the ordered table had one wrong row</summary>
+
+**1. "A hook added today does not fire today" is now measured.**
+
+Restarting the session is not something I can do — but **the absence of firing is observable.**
+`echo gh pr create` matches `promote-guard`'s pattern while having **no side effects**. With the index
+deliberately broken, it returned **no deny**. `deploy-guard`, present since v0.6.8, likewise returned no
+deny when pointed at a project whose `deploy.sandbox` is `denied`. **Two independent hooks, neither
+firing** — the hook configuration in force is the one loaded at session start.
+
+**And one of my own claims turned out wrong.** v0.6.16 and v0.6.31 said the cache is materialised
+**only at session start**; but the `0.6.25` cache is stamped 22:09 and `0.6.29` 22:26 — **both mid
+conversation**. **What triggers materialisation is not observable from outside.** Only two things are:
+"it is absent at the moment of the push", and "**a new directory appearing does not change the hooks in
+force**". The assertion is withdrawn and rewritten as what was observed.
+
+**2. Auditing the 20-row table against reality found one wrong row.**
+
+The table was written in v0.6.28 to gather the checks scattered across the procedure docs — and it stood
+**on the author's word alone**. Checking every row by machine for "does the script exist" and "is it
+called from there", 19 matched and **`policy-check.sh` was invoked somewhere else entirely.**
+
+| | The table said (wrong) | Reality |
+|---|---|---|
+| 18 | after applying a policy (`/mule-deploy`'s steps) | **the `done_when` of a `stage: policy` goal**, run by the executor; it appears nowhere in `/mule-deploy` |
+
+**Anyone searching where the table said would not find it.** Like an index, **a table that has drifted is
+worse than no table** — being written, it is followed without checking. Row 17 now also states that it is
+both `/mule-deploy` step 5 **and** a `stage: deploy` goal's `done_when`.
+
+**3. So the table is machine-held too.** `scripts/checks-audit.sh` (new) checks three things:
+
+1. every script named in the table **exists**
+2. it is **called from somewhere** (listed but uncalled means a check that never runs)
+3. every existing check **appears in the table** — forget to add one and the "which are automatic, which
+   rely on the procedure" list becomes a lie
+
+**Item 3 caught one immediately** (`setup-deps.sh`; reading it showed it installs external skills for
+`/mule-setup` and is not a check, so it is classified into the exclusion list). Teeth, three ways: remove
+a row → `jar-leak-check.sh is not in the table`; name a nonexistent script → `no such file`; restore →
+passes.
+
+It is wired into `promote-guard.sh`, so **`gh pr create` is denied while the table has drifted** (the
+table lists itself as row 21). It is in `/mule-learn --share`'s steps too.
+
+</details>
 
 <details>
 <summary><b>v0.6.31</b> — A hook you add today is not running today, and hooks and knowledge come from different versions</summary>
