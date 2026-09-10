@@ -57,8 +57,22 @@ argument-hint: "[--share 汎用ナレッジをプラグインに PR する]"
    | 順 | 昇格先 | 条件 |
    |---|---|---|
    | 1 | `scripts/quick-check.sh` の検査 | grep や XML 解析で機械的に判定できる |
-   | 2 | `CLAUDE.md` か `mule-tdd` の規則 | 判定はできないが、書けば守れる |
-   | 3 | `mule-reviewer` の観点 | 文脈依存で、人の目に近い判断が要る |
+   | 2 | **主題別スキル** (`skills/mule-munit/` など) と、必要なら `template/reference/` の写経元 | 判定はできないが、書き方を示せば守れる |
+   | 3 | `CLAUDE.md` か `mule-tdd` の規則 | どの主題にも属さない横断的な規律 |
+   | 4 | `mule-reviewer` の観点 | 文脈依存で、人の目に近い判断が要る |
+
+   **主題別スキルへの追記先は category で決める** (指紋がどこにも溜まらなくなるのを防ぐため)。
+
+   | category | 追記先 |
+   |---|---|
+   | `munit-*` / `test-toothless` | `skills/mule-munit/SKILL.md` |
+   | それ以外 | 今は `knowledge/gotchas.md` (主題別スキルが増えたらこの表に足す) |
+
+   **`gotchas.md` への追記はやめない。** そこは根拠と日付つきの一次記録で、スキルはそこから
+   「順番」と「写経元の在処」だけを抜いた薄い層です。両方に書く。
+   **同じ形で 3 回以上解決しているものは、文章ではなく `template/reference/` の写経元にする。**
+   実例: APIkit の振り分け flow の直叩きは 6 回とも同じ形で解決できたが、写経元が無いため毎回踏んでいた
+   (`reference/router-test.xml` として v0.6.11 で追加)。
 
    **`loop-ops` だけは行き先が違う。** 上の 3 つは全てこのリポジトリの中で、Mule の書き方の誤りを対象に
    している。ループ自体の運用の誤り (worktree、配布、K ファイルの衝突、hook の誤検知) は、このリポジトリを

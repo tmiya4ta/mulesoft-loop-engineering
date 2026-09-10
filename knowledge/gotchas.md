@@ -198,9 +198,13 @@ DataWeave で `... as Object {class: "org.mule.extension.http.api.HttpRequestAtt
 に落ちる — それを「利用」して `httpStatus` が non-null であることだけを assert する手もあるが、
 実際のリクエスト内容による分岐を何も検証しない牙の弱いテストになる (`test-toothless` と同じ構造)。
 型付けして正常応答の中身まで assert する方が同じ手間で堅い。
+写経元は `template/reference/router-test.xml` (パス変数あり / 本文あり / 検索系の 3 形)。
 根拠: finance-api の T-001 (main flow) で組み立てて成功 (2026-09-06)。inventory2-api で振り分け flow
 側の同じ問題を 6 回再発 (T-002〜T-006、見出しが `main flow` に限定されていたため「別問題」と
-判断されて型付けせず、上記の弱いテストで代替していた。2026-09-09)。
+判断されて型付けせず、上記の弱いテストで代替していた。2026-09-09)。**振り分け flow に対する型付けを
+実測で確認 (2026-09-10)**: `get:\inventory\(inventoryId):inventory2-api-config` を型付け attributes で
+叩いて `payload.inventoryId` / `payload.warehouseCode` まで assert し 1 件 pass、期待値を壊すと
+Failed: 1 / exit 1 (牙も確認)。**弱いテストで代替する必要は無い。**
 
 ## queryParams が全て任意項目だと、attributes 無しの `flow-ref` が正常完走してしまう
 上の項目の「attributes 無しで NPE / 型エラーになり ANY(500) に落ちる」ことを前提にした確認は、

@@ -119,6 +119,7 @@ skills/
   mule-setup/     外部依存の導入（scripts/setup-deps.sh）
   mule-init/      テンプレート配置
   mule-tdd/       TDD の規律（実行エージェントが必ず従う）
+  mule-munit/     MUnit の罠を踏む順に並べたチェックリスト（台帳の最大クラスタ 17/62 件）
   mule-deploy/    デプロイのループ（Sandbox に置く → samples で疎通 → 失敗を学習へ）
   mule-learn/     学習ループ（失敗を数えて昇格・共有）
   mule-status/    現在地と次の一手のナビゲーション
@@ -179,6 +180,52 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.11</b> — 同じ指紋を 6 回踏んでいた。文章ではなく写経元を置く (mule-munit)</summary>
+
+台帳 62 件のうち **17 件が MUnit** で最大のクラスタでした。内訳は `mock-when` 漏れ、カバレッジ未達、
+牙の無い assert。しかもそのうち **7 件が同一の指紋** — APIkit の振り分け flow
+(`<method>:\<path>:<config 名>`) を `flow-ref` するとカバレッジ検査が要求するのに attributes が
+無くて動かない、という 1 つの問題です。6 件目の記録に理由がそのまま書かれていました:
+
+> 6回とも同じ形で解決できており、reference/ に写経元が無いために毎回この指紋を踏んでいる。
+
+さらに 7 件目 (`test-toothless`) が、その 6 回の回避策自体の問題を挙げていました。attributes 無しで
+`flow-ref` すると NPE で `global-error-handler` の `ANY` 枝 (500) に落ちるので、`vars.httpStatus` が
+non-null であることだけを assert すればカバレッジは通る — **通るが、リクエスト内容による分岐を
+何も検証していない**。その形のテストが 7 本残っていました。
+
+**`template/reference/router-test.xml` を追加しました。** attributes を型付けして振り分け flow を
+直叩きし、**正常応答の中身まで assert する**形です。パス変数あり / 本文あり (mediaType 込みの flow 名) /
+検索系の 3 形を入れています。
+
+型付け方式は finance-api の main flow で実証済みでしたが、**振り分け flow に対しては誰も実際に流して
+いなかった**ので (gotchas は「同じ問題」と書いているだけ)、実測しました:
+`get:\inventory\(inventoryId):inventory2-api-config` を型付け attributes で叩き、
+`payload.inventoryId` と `payload.warehouseCode` まで assert して **1 件 pass**。期待値を壊すと
+**Failed: 1 / exit 1** で、牙もあります。弱いテストで代替する必要はありませんでした。
+
+検索系の例外も写経元に入れました。`queryParams` が全て任意項目の振り分け flow では、attributes 無しでも
+DataWeave の null 伝播でエラーにならず**正常完走してしまう**ため、「500 に落ちる」前提の回避策は
+そもそも成り立ちません (T-003 の実測)。
+
+**`skills/mule-munit/` は薄く保っています。** gotchas.md は根拠と日付つきの一次記録なので、
+スキルは「踏む順のチェックリスト」と「写経元の在処」だけです。書く前に 30 秒で確かめる 5 つ、
+コネクタの戻り値の形、カバレッジ検査が何を見ていないか、**書いたテストに牙があるかの実測 2 手**
+(期待値を壊して落ちるか / 狙った case 名が失敗として出力に現れるか — 前処理が先に落ちて狙った
+チェックが一度も走らないまま exit 1 になる形が実際にあった)、MUnit で検証できないもの
+(トランザクションの commit/rollback、SQL 文、listener の直列化)。
+
+**`/mule-learn` の昇格先に主題別スキルを足しました。** これは前回「付いてくる設計上の宿題」として
+挙げたもので、gotchas を主題別に割ると新しい指紋の追記先が決まらなくなります。category ごとの
+追記先の表 (`munit-*` / `test-toothless` → `skills/mule-munit/`) と、
+**同じ形で 3 回以上解決しているものは文章ではなく `template/reference/` の写経元にする**という規則を
+入れました。今回の 6 回がまさにそれです。
+
+`mule-tdd` の Red 節と `agents/mule-executor.md` の読むものからも参照しています
+(v0.6.10 で入れた `plugin-root.sh --skill` 経由)。
+</details>
 
 <details>
 <summary><b>v0.6.10</b> — 実行エージェントは Skill ツールを持たない。スキルは名前ではなくパスで渡す</summary>

@@ -39,7 +39,10 @@ bash scripts/plugin-root.sh --skill mule-tdd    # → SKILL.md の絶対パス�
 (次の版で開けなくなります)。
 
 - **`${CLAUDE_PLUGIN_ROOT}/knowledge/mule-basics.md`** — Mule の基礎知識の要約 (骨格 / 設定 / フロー / エラー処理 / DataWeave / DB / MUnit / 配備)。1 項目 1 事実。
-- **`${CLAUDE_PLUGIN_ROOT}/template/reference/`** — 通った実装から抜いた写経元 (global.xml、api-main.xml、resource-impl.xml、resource-test.xml、dwl、config)。新しいファイルはこれと同じ形で書く。
+- **`${CLAUDE_PLUGIN_ROOT}/template/reference/`** — 通った実装から抜いた写経元 (global.xml、api-main.xml、resource-impl.xml、resource-test.xml、**router-test.xml**、dwl、config)。新しいファイルはこれと同じ形で書く。
+- **`mule-munit`** (`bash scripts/plugin-root.sh --skill mule-munit`) — MUnit を書く・直す・カバレッジが
+  通らないときは先にこれ。台帳の失敗の 17/62 件が MUnit で、踏む順のチェックリストがある。
+  APIkit の振り分け flow を `flow-ref` するなら `template/reference/router-test.xml` が写経元。
 - **`${CLAUDE_PLUGIN_ROOT}/template/reference/patterns/`** — `reference/` に無い部品の型。**全部読まず、使うものだけ読む。**
 - **プロジェクト直下の `reference/mule-schema/INDEX.md`** — このプロジェクトが解決した版のコネクタ定義と
   ランタイム XSD の索引 (`scripts/schema-index.sh` が `~/.m2` の jar から生成)。**コネクタの要素名、

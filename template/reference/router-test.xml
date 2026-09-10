@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 写経元: APIkit の振り分け flow を MUnit から直叩きする。
+     振り分け flow = `<method>:\<path>[:<mediaType>]:<config 名>` という名前の、リソースごとの受け口 flow。
+     実処理 flow は HTTP を知らないので普通に flow-ref できるが、振り分け flow は
+     `attributes.uriParams` を読むため、**attributes を型付けして渡さないと動かない**。
+
+     なぜこのファイルがあるか: この写経元が無かったため、inventory2-api で同じ指紋を 6 回
+     (T-001〜T-006) 踏んだ。しかも 6 回とも「attributes 無しで flow-ref すると NPE で
+     global-error-handler の ANY 枝 (500) に落ちる」ことを利用して `vars.httpStatus` が
+     non-null であることだけを assert する形で回避しており、リクエスト内容による分岐を
+     何も検証していない牙の弱いテストが 7 本残った (failures.jsonl: munit-coverage ×6 +
+     test-toothless ×1)。**下の型付け方式なら同じ手間で正常応答の中身まで assert できる。**
+
+     根拠: inventory2-api の振り分け flow `get:\inventory\(inventoryId):inventory2-api-config` に
+     対して実測 (2026-09-10)。1 件 pass、期待値を壊すと Failed: 1 で exit 1 (牙も確認)。
+     型付けの手法そのものは finance-api の T-001 (main flow) が初出 (knowledge/gotchas.md 参照)。
+
+     型の指定を間違えると動かない。3 つとも必要:
+       headers / queryParams → org.mule.runtime.api.util.MultiMap
+       uriParams            → java.util.HashMap
+       全体                 → org.mule.extension.http.api.HttpRequestAttributes
+
+     どのフィールドが効くかは、どこを叩くかで違う:
+       - **振り分け flow を直叩き** (このファイル): その flow が実際に読むもの
+         (ふつう `uriParams`、検索系なら `queryParams`) だけが効く。残りは
+         HttpRequestAttributes への変換を成立させるために埋めておく。
+       - **main flow を叩く** (listener + apikit:router。本物の APIkit 検証を通したいとき):
+         APIkit が経路とスキーマを判定するので `method` / `listenerPath` / `relativePath` /
+         `requestPath` と、`headers` の `content-type` が効く。 -->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:munit="http://www.mulesoft.org/schema/mule/munit"
+      xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools"
+      xmlns:db="http://www.mulesoft.org/schema/mule/db"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+        http://www.mulesoft.org/schema/mule/munit-tools http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd
+        http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
+
+    <munit:config name="profile-get-router-test.xml"/>
+
+    <!-- 承認済みの `<resource>-test.xml` は変更しない。振り分け flow のカバレッジは別ファイルに分ける。 -->
+
+    <!-- ================================================================
+         パス変数のある振り分け flow (GET /profile/{profileId} など)。
+         ================================================================ -->
+    <munit:test name="profile-get-router"
+                description="振り分け flow を型付け attributes で叩き、正常応答の中身まで検証する">
+        <munit:behavior>
+            <!-- 実処理 flow が呼ぶ外部操作は全部モックする。振り分け flow を経由しても
+                 実処理はそのまま走るので、モックを省くと実 DB に行く。 -->
+            <munit-tools:mock-when doc:name="profile を取得をモック" processor="db:select">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="profile を取得"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <!-- 列名は DB が返す形 (大文字など) に合わせる。dwl がそれを読む。 -->
+                    <munit-tools:payload value="#[[{ PROFILE_ID: 1, DISPLAY_NAME: '山田太郎' }]]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+        </munit:behavior>
+
+        <munit:execution>
+            <munit:set-event>
+                <munit:attributes value='#[
+                    {
+                        headers: {} as Object {class: "org.mule.runtime.api.util.MultiMap"},
+                        listenerPath: "/api/*",
+                        relativePath: "/profile/1",
+                        version: "HTTP/1.1",
+                        scheme: "http",
+                        method: "GET",
+                        requestPath: "/api/profile/1",
+                        requestUri: "/api/profile/1",
+                        queryString: "",
+                        queryParams: {} as Object {class: "org.mule.runtime.api.util.MultiMap"},
+                        uriParams: {profileId: "1"} as Object {class: "java.util.HashMap"},
+                        localAddress: "127.0.0.1:0",
+                        remoteAddress: "127.0.0.1:0"
+                    } as Object {class: "org.mule.extension.http.api.HttpRequestAttributes"}
+                ]'/>
+            </munit:set-event>
+            <!-- flow 名は実装の `<flow name=...>` を 1 文字ずつ写す (バックスラッシュを含む)。 -->
+            <flow-ref name="get:\profile\(profileId):profile-api-config"/>
+        </munit:execution>
+
+        <munit:validation>
+            <!-- **`httpStatus` が non-null であることだけを見る形にしない。** 応答の中身を見る。
+                 assert の式に `default` を付けない (未設定でも通る牙の無い検証になる)。 -->
+            <munit-tools:assert-that doc:name="profileId が本文に出ている"
+                                     expression="#[payload.profileId]"
+                                     is="#[MunitTools::equalTo(1)]"/>
+            <munit-tools:assert-that doc:name="displayName が本文に出ている"
+                                     expression="#[payload.displayName]"
+                                     is="#[MunitTools::equalTo('山田太郎')]"/>
+        </munit:validation>
+    </munit:test>
+
+    <!-- ================================================================
+         POST / PUT の振り分け flow は名前に mediaType が入る
+         (`put:\profile\(profileId):application\json:profile-api-config`)。
+         payload も渡し、headers の content-type を埋める。
+         ================================================================ -->
+    <munit:test name="profile-update-router"
+                description="本文のある振り分け flow。mediaType 込みの flow 名と content-type に注意">
+        <munit:behavior>
+            <munit-tools:mock-when doc:name="profile を更新をモック" processor="db:update">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="profile を更新"/>
+                </munit-tools:with-attributes>
+                <!-- db:update の戻りは {affectedRows}。操作ごとに形が違う (mule-basics 6 節)。 -->
+                <munit-tools:then-return><munit-tools:payload value="#[{affectedRows: 1}]"/></munit-tools:then-return>
+            </munit-tools:mock-when>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:payload value='#[output application/json --- { displayName: "山田次郎" }]'/>
+                <munit:attributes value='#[
+                    {
+                        headers: {"content-type": "application/json"} as Object {class: "org.mule.runtime.api.util.MultiMap"},
+                        listenerPath: "/api/*",
+                        relativePath: "/profile/1",
+                        version: "HTTP/1.1",
+                        scheme: "http",
+                        method: "PUT",
+                        requestPath: "/api/profile/1",
+                        requestUri: "/api/profile/1",
+                        queryString: "",
+                        queryParams: {} as Object {class: "org.mule.runtime.api.util.MultiMap"},
+                        uriParams: {profileId: "1"} as Object {class: "java.util.HashMap"},
+                        localAddress: "127.0.0.1:0",
+                        remoteAddress: "127.0.0.1:0"
+                    } as Object {class: "org.mule.extension.http.api.HttpRequestAttributes"}
+                ]'/>
+            </munit:set-event>
+            <flow-ref name="put:\profile\(profileId):application\json:profile-api-config"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that doc:name="更新後の displayName が返る"
+                                     expression="#[payload.displayName]"
+                                     is="#[MunitTools::equalTo('山田次郎')]"/>
+        </munit:validation>
+    </munit:test>
+
+    <!-- ================================================================
+         検索系 (queryParams が全て任意項目) の振り分け flow。
+         **attributes 無しの「500 に落ちることを利用する」やり方はここでは成り立たない。**
+         任意項目だけなら DataWeave の null 伝播でエラーにならず、flow が正常完走してしまう
+         (inventory2-api の T-003 で実測)。型付けすればこの穴自体が消える。
+         limit / offset のような既定値を確かめたいときは queryParams を空にして叩く。
+         ================================================================ -->
+    <munit:test name="profile-search-router"
+                description="検索系の振り分け flow。queryParams を空で渡し、既定値で応答が返ることを検証する">
+        <munit:behavior>
+            <munit-tools:mock-when doc:name="profile を検索をモック" processor="db:select">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="profile を検索"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[[{ PROFILE_ID: 1, DISPLAY_NAME: '山田太郎' }]]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:attributes value='#[
+                    {
+                        headers: {} as Object {class: "org.mule.runtime.api.util.MultiMap"},
+                        listenerPath: "/api/*",
+                        relativePath: "/profile",
+                        version: "HTTP/1.1",
+                        scheme: "http",
+                        method: "GET",
+                        requestPath: "/api/profile",
+                        requestUri: "/api/profile",
+                        queryString: "",
+                        queryParams: {} as Object {class: "org.mule.runtime.api.util.MultiMap"},
+                        uriParams: {} as Object {class: "java.util.HashMap"},
+                        localAddress: "127.0.0.1:0",
+                        remoteAddress: "127.0.0.1:0"
+                    } as Object {class: "org.mule.extension.http.api.HttpRequestAttributes"}
+                ]'/>
+            </munit:set-event>
+            <flow-ref name="get:\profile:profile-api-config"/>
+        </munit:execution>
+        <munit:validation>
+            <!-- 応答の形 (配列そのものか、items で包むか) は RAML に合わせて片方に決め打つ。
+                 `payload.items default payload` のように `default` で両対応にしない
+                 (どちらでも通る = 形の間違いを検出しない牙の無い assert になる)。 -->
+            <munit-tools:assert-that doc:name="1 件返る"
+                                     expression="#[sizeOf(payload)]"
+                                     is="#[MunitTools::equalTo(1)]"/>
+        </munit:validation>
+    </munit:test>
+
+</mule>

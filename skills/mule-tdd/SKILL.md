@@ -18,6 +18,9 @@ description: MuleSoft の実装を TDD (Red → Green → Refactor) で進める
 - 既存の MUnit (`src/test/munit/`) の書き方に合わせる。
 
 ## 1. Red: 失敗するテストを先に書く
+**先に `mule-munit` を読む** (`bash scripts/plugin-root.sh --skill mule-munit`)。台帳の失敗 62 件のうち
+17 件が MUnit で最大のクラスタです。踏む順に並べたチェックリストと、APIkit の振り分け flow を
+直叩きする写経元 (`template/reference/router-test.xml`) がそこにあります。
 - `src/test/munit/<resource>-test.xml` に、samples のケースごとに 1 つ `munit:test` を書く。
   - `munit:behavior` で外部呼び出し (`http:request`, `db:select`, `sap:*` など) を `mock-when` で固定する。`processor` + `doc:name` で操作を特定する。返す値は samples の in から導き、**戻り値の形はコネクタごとに違う** (`db:select` は配列、`db:update` は `{affectedRows}`。mule-basics 6 節)。要素名・操作名・パラメータ名は推測せず `reference/mule-schema/INDEX.md` から引く (`munit-tools.xml` に `mockWhen` / `assertThat` の、コネクタの `.xml` に操作の定義がある。版が一致している)。コネクタのエラー型は `then-return` の `<munit-tools:error typeId="DB:CONNECTIVITY"/>` で起こす。
   - `munit:execution` で対象フローを `flow-ref` する。

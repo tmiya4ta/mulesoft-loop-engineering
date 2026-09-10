@@ -121,6 +121,7 @@ skills/
   mule-setup/     Install external dependencies (scripts/setup-deps.sh)
   mule-init/      Lay down the template
   mule-tdd/       The TDD discipline (executors always follow it)
+  mule-munit/     MUnit traps in the order you hit them (the ledger's biggest cluster, 17/62)
   mule-deploy/    Deploy loop — Sandbox, verify with samples, failures back to learning
   mule-learn/     Learning loop — count failures, promote, share
   mule-status/    Navigation: where you are, what's next
@@ -185,6 +186,53 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.11</b> — The same fingerprint six times: ship a template, not prose (mule-munit)</summary>
+
+**17 of the ledger's 62 failures are MUnit** — the biggest cluster: missing `mock-when`, coverage
+gaps, toothless assertions. **Seven of them are one fingerprint**: an APIkit routing flow
+(`<method>:\<path>:<config>`) that the coverage check demands be `flow-ref`'d, which doesn't work
+without attributes. The sixth entry states the reason outright:
+
+> All six were solved the same way; the fingerprint recurs because there is no template in reference/.
+
+The seventh (`test-toothless`) then indicts the workaround itself. Without attributes, `flow-ref`
+NPEs into `global-error-handler`'s `ANY` branch (500), so asserting only that `vars.httpStatus` is
+non-null satisfies coverage — **and verifies nothing about request-driven branching**. Seven tests
+of that shape were left behind.
+
+**Added `template/reference/router-test.xml`**: typed attributes, calling the routing flow directly,
+**asserting the response body**. Three shapes — path variable, request body (mediaType in the flow
+name), and the search case.
+
+The typing method was proven on finance-api's main flow, but **nobody had ever run it against a
+routing flow** (gotchas only asserted it was "the same problem"), so it was measured:
+`get:\inventory\(inventoryId):inventory2-api-config` called with typed attributes, asserting
+`payload.inventoryId` and `payload.warehouseCode` — **1 passed**. Break the expected value and it is
+**Failed: 1 / exit 1**, so it has teeth. The weak substitute was never necessary.
+
+The search exception is in the template too: when a routing flow's `queryParams` are all optional,
+DataWeave's null propagation means it **completes normally** even without attributes, so the
+"falls to 500" workaround does not hold at all (measured in T-003).
+
+**`skills/mule-munit/` is deliberately thin.** gotchas.md is the primary record with evidence and
+dates; the skill carries only the order to check things in and where the templates are: five
+30-second pre-write checks, connector return shapes, what the coverage check does *not* look at,
+**two measurements for whether a test has teeth** (break the expectation and see it fail; confirm the
+intended case name appears as a failure — a preflight step failing first and exiting 1 without ever
+running the intended check actually happened), and what MUnit cannot verify (transaction
+commit/rollback, the SQL itself, listener serialization).
+
+**`/mule-learn` gained topic skills as a promotion target.** This was the open design consequence
+flagged last time: split gotchas by topic and new fingerprints have nowhere to land. There is now a
+per-category table (`munit-*` / `test-toothless` → `skills/mule-munit/`) and a rule that **anything
+solved the same way three or more times becomes a `template/reference/` template rather than prose**.
+These six were exactly that.
+
+Referenced from `mule-tdd`'s Red section and `agents/mule-executor.md`'s reading list, via the
+`plugin-root.sh --skill` path added in v0.6.10.
+</details>
 
 <details>
 <summary><b>v0.6.10</b> — The executor has no Skill tool: hand it paths, not skill names</summary>
