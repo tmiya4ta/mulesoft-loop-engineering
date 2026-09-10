@@ -192,6 +192,30 @@ export ANYPOINT_REGION=PROD_JP
 ## Release notes
 
 <details>
+<summary><b>v0.6.16</b> — plugin-root.sh was handing back a stale version (the cache is only built at session start)</summary>
+
+Right after pushing v0.6.15, `bash scripts/plugin-root.sh knowledge/gotchas/munit.md` answered
+**"not in the plugin"**. The file exists. What the script had picked was v0.6.8.
+
+The delivery chain is working repo → push → the `marketplaces/` clone → `cache/<marketplace>/mule-loop/<version>/`,
+and **the cache is materialised only at session start**. In a running session the cache stays older than the
+clone you just pulled: measured here as a 0.6.15 clone against a newest-cache of 0.6.8.
+
+The old implementation listed candidates as "cache sorted `-V -r`, then marketplaces" and took **the first
+hit**, assuming candidate order tracks version. It doesn't on this path. It now reads `plugin.json` from
+every candidate and takes **the highest version** (compared with `sort -V`; an unreadable version is
+treated as `0.0.0` and kept only as a last resort).
+
+This is a single observation, but it is the kind a machine can catch, so it gets caught on the first one
+(v0.6.14). Left alone, the session right after a version bump has executors silently reading old knowledge
+and being told the new reference template does not exist.
+
+Verified: cache 9.9.9 + marketplace 1.0.0 → 9.9.9; cache 0.6.8 only + marketplace 1.0.0 → 1.0.0;
+no candidate → exit 1.
+
+</details>
+
+<details>
 <summary><b>v0.6.15</b> — Split the files that get read every time into an index plus topics (fewer tokens, same words)</summary>
 
 The answer to "can I cut token spend by writing everything in English" was **yes, but splitting wins**.

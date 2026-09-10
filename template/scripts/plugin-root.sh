@@ -18,23 +18,34 @@
 #
 # 見つからなければ **何も出さず exit 1**。呼ぶ側は「無い」と分かったらそこで諦めて、
 # gotchas → reference/mule-schema/INDEX.md → マニュアルの順に戻る。探し回らない。
+#
+# **候補の順ではなく plugin.json の版で選ぶ。** cache は**セッション開始時にだけ**作られるので、
+# git push 済みでも走っているセッションの cache には現れない。実測 (2026-09-10、v0.6.15):
+# marketplaces のクローンは 0.6.15 なのに cache の最新は 0.6.8 で、「候補の先頭から」選ぶ実装は
+# **0.6.8 を返した**。その版に無いファイルを指定すると「プラグイン内に無い」と嘘を言う。
+# 全候補の plugin.json を読んで版が最大のものを採る。ナレッジは版が上がっても足されるだけなので、
+# 新しい方を渡して困ることはない。
 set -u
 
-# 候補を新しい版から並べる。knowledge/mule-basics.md の有無で「これは mule-loop の実体か」を判定する。
+# 候補。knowledge/mule-basics.md の有無で「これは mule-loop の実体か」を判定する。
 candidates() {
   if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -d "${CLAUDE_PLUGIN_ROOT}" ]; then
     printf '%s\n' "${CLAUDE_PLUGIN_ROOT}"
   fi
-  ls -d "$HOME"/.claude/plugins/cache/*/mule-loop/*/ 2>/dev/null | sort -V -r
+  ls -d "$HOME"/.claude/plugins/cache/*/mule-loop/*/ 2>/dev/null
   ls -d "$HOME"/.claude/plugins/marketplaces/*/ 2>/dev/null
 }
 
-root=""
-while IFS= read -r d; do
-  [ -n "$d" ] || continue
-  d=${d%/}
-  [ -f "$d/knowledge/mule-basics.md" ] && { root=$d; break; }
-done < <(candidates)
+# 「版<TAB>パス」を並べて sort -V の最後を採る。版が読めないものは 0.0.0 扱い (最後の手段として残す)。
+root=$(
+  while IFS= read -r d; do
+    [ -n "$d" ] || continue
+    d=${d%/}
+    [ -f "$d/knowledge/mule-basics.md" ] || continue
+    v=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$d/.claude-plugin/plugin.json" 2>/dev/null | head -1)
+    printf '%s\t%s\n' "${v:-0.0.0}" "$d"
+  done < <(candidates) | sort -V -k1,1 | tail -1 | cut -f2-
+)
 
 [ -n "$root" ] || { echo "plugin-root: mule-loop の実体が見つからない (プラグインが入っていない)" >&2; exit 1; }
 
