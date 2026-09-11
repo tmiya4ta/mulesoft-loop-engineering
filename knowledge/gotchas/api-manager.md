@@ -82,7 +82,7 @@ target が `targetType: private-space` かつ `kind: managed` のとき (`getGat
 **外部から実際に叩けるホスト名がどのAPIレスポンスにも出てこない。**
 
 試して失敗したもの (inventory3-api T-007, 2026-09-11):
-- Private Space の `network.dnsTarget` (例 `pnwfdv.jpn-e1.cloudhub.io`) をそのまま使う → 404
+- Private Space の `network.dnsTarget` (`<Private Space の ID>.<リージョン>.cloudhub.io` の形) をそのまま使う → 404
   (ワイルドカードは解決するが、この API 用のルートが無い)
 - `<targetName>.<dnsTarget>` / `<apiId>.<dnsTarget>` などの推測 → 同じく 404
 - Private Space の `network.inboundStaticIps` へ配備した port (8081/8082) で直接接続 → タイムアウト
