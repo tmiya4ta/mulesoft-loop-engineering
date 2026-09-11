@@ -94,6 +94,9 @@ argument-hint: "[T-NNN だけ実行] [--parallel N (既定は予算が許す最�
        直列に落ちたら `max_parallel` どおりの速度は出ないので、予算の消費ペースが変わることを報告に書く。
      - `deploy` → 実行エージェントには配れない (デプロイ禁止)。**進捗エージェント自身が `mule-deploy` スキルの手順 1〜5 を実行する。** 先に done_when を 1 回流して失敗を確認する (red)。配置先 URL が決まったら done_when の base-url を書き換えてよい (期待値ではなく所在なので)。
      - `policy` → `authorizations.yaml` の `policy.sandbox` が allowed のときだけ `mule-executor` に配る (worktree 不要、`isolation` 無し)。denied なら blocked にして人に 1 行で伝える。
+       **進捗エージェント自身が API Manager / Flex Gateway を直接叩いて調べ始めない。** `knowledge/gotchas/api-manager.md` に
+       ポリシー適用・flexGateway インスタンス作成・配備の既知の形が書いてある。読まずに再探索すると
+       同じ壁を何度も踏む (inventory3-api T-007 で実測、2026-09-11)。
    - **マニュアルは読まない。** 段を進めるのに足りない事実 (CLI の書式、ポリシー名、API インスタンスの id) は、進捗エージェントが docs を fetch して探すのではなく、実行エージェントに「gotchas → スキル (platform-assistant) → マニュアルの順で調べて、`bash scripts/k-new.sh <ゴール id>` が出したパスに書いてから使う」よう配る。進捗エージェントが読むのは台帳、context/、knowledge/ だけ。
    - **1 波を配り終えたら budget-check を再実行する** (並列でも 1 件ずつ数える)。`remaining_runs` を超える分は次の波に回す。
 3. 戻ってきたら diff を取り込み、**`done_when` を自分で実行する**。実行エージェントの自己申告は信じない。
