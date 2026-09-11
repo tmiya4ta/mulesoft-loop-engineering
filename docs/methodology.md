@@ -96,6 +96,7 @@ deploy の done_when は `smoke-check.sh`、policy の done_when は `policy-che
 | 12 | 取り込み | `mvn -q clean test` 全体 (段 3) | 取り込まない | 全スイート緑 |
 | 13 | 取り込み | `mule-reviewer` → `spec-check.sh` | 指摘を台帳に戻す | 読み取りだけ。RAML の必須項目の未参照は**警告** (通過型では正常) |
 | 14 | 止まる前 (**hook**) | `stop-guard.sh` → `goal-state.sh` | **止まらせない** | 0 = 全て passed / 1 = **まだ進められる → 差し戻す** / 2 = 人の判断待ち → **通す (待つのを邪魔しない)** |
+| 14b | `/mule-deploy` の最初 | `deploy-precheck.sh` | **人に聞くことを 1 回にまとめる** | 0 = 聞くこと無し / 1 = 資格情報・デプロイ先・`SET_` プレースホルダを**まとめて**列挙 (1 件ずつ聞き直さない) |
 | 15 | 配る前 | `deploy-config.sh` → `bump-version.sh` | 置かない | pom に設定と `businessGroupId`、版を上げる |
 | 16 | **`mvn clean package` の後、`mvn deploy` の前** | `jar-leak-check.sh` | **publish しない** | 0 = ok / 2 = git が無視しているファイルが jar に入っている。**publish 後では取り返せない** |
 | 17 | 置いたあと (`/mule-deploy` の手順 5、**および `stage: deploy` ゴールの `done_when`**) | `smoke-check.sh` (段 4) | 完了にしない | 0 = 全ケースで status と body が一致 |
