@@ -123,7 +123,14 @@
         </munit:behavior>
         <munit:execution>
             <munit:set-event>
-                <munit:payload value='#[output application/json --- { displayName: "山田次郎" }]'/>
+                <!-- **`output application/json` の宣言を付けない。** プレーンな DataWeave オブジェクトで渡す。
+                     付けると payload が JSON の**ストリーム**になり、後段の choice などで payload のフィールドを
+                     読んだ瞬間に `'application/json' requires a Stream Compatible content ... MULE:EXPRESSION`
+                     で落ちる。以前この写経元は付けていて、そのまま写した実装が落ちた (inventory3-api T-003)。
+                     inventory2-api の update 振り分け flow で再現し、外すと通ることを確認 (2026-09-11)。
+                     samples から読むなら `readUrl("classpath://samples/...", "application/json").body` でよい
+                     (readUrl はオブジェクトを返すので同じく安全)。 -->
+                <munit:payload value='#[{ displayName: "山田次郎" }]'/>
                 <munit:attributes value='#[
                     {
                         headers: {"content-type": "application/json"} as Object {class: "org.mule.runtime.api.util.MultiMap"},

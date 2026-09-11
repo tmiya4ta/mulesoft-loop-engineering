@@ -28,4 +28,7 @@ if [ -z "$url" ]; then
   done
 fi
 [ -n "$url" ] || { echo "ch2-public-url: 公開 URL がまだ付きません (Runtime Manager で確認)" >&2; exit 1; }
-echo "https://$url"
+# Application Manager API の publicUrl は **既に https:// を含んで返ることがある**。
+# 無条件に付けると `https://https://...` の壊れた URL になる (inventory3-api T-006 で実測)。
+case "$url" in http://*|https://*) ;; *) url="https://$url" ;; esac
+echo "$url"

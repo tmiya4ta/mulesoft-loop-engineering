@@ -38,6 +38,23 @@ mkdir -p knowledge
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 fail=0; n=0
 
+# RAML の baseUri のパス部分 (http://localhost:8081/api → /api) を base-url に**まだ付いていなければ**足す。
+# base-url をホストだけで渡しても (https://app.cloudhub.io)、/api まで付けて渡しても動くようにする。
+# 無条件に足すと、/api 付きで渡したときに /api/api になって全件 404 になる (実測: 利用者のプロジェクトで
+# 「足さないと No listener for endpoint になる」と現地で直した版と、このスクリプトの説明が
+# 「/api まで付けて渡す」だったのが重なって二重になった。inventory3-api T-006、2026-09-11)。
+basepath=$(python3 -c "
+import pathlib, re
+for r in sorted(pathlib.Path('api').glob('*.raml')) if pathlib.Path('api').is_dir() else []:
+    m = re.search(r'^baseUri:\s*(\S+)', r.read_text(), re.M)
+    if m:
+        print(re.sub(r'^[a-zA-Z]+://[^/]+', '', m.group(1).strip()).rstrip('/')); break
+" 2>/dev/null)
+base=${base%/}
+if [ -n "${basepath:-}" ]; then
+  case "$base" in *"$basepath") ;; *) base="$base$basepath" ;; esac
+fi
+
 # RAML から case ごとの method / path を導いて表にする。**導けなくても止めない** (既定に落ちる)。
 map=$(mktemp); trap 'rm -f "$map"' EXIT
 python3 - > "$map" <<'PY' 2>/dev/null || true
@@ -49,14 +66,16 @@ except Exception:
 class L(yaml.SafeLoader): pass
 L.add_multi_constructor("!", lambda l, s, n: None)
 
-eps = []   # (method, path, takes_body)
+eps = []   # (method, path, takes_body, query_param_names)
 def walk(node, path):
     if not isinstance(node, dict): return
     for k, v in node.items():
         if isinstance(k, str) and k.startswith("/"):
             walk(v, path + k)
         elif k in ("get", "post", "put", "patch", "delete") and isinstance(v, dict):
-            eps.append((k.upper(), path, isinstance(v.get("body"), dict)))
+            qp = v.get("queryParameters") or {}
+            names = [n.rstrip("?") for n in qp] if isinstance(qp, dict) else []
+            eps.append((k.upper(), path, isinstance(v.get("body"), dict), names))
 for r in sorted(pathlib.Path("api").glob("*.raml")) if pathlib.Path("api").is_dir() else []:
     try: walk(yaml.load(r.read_text(), Loader=L) or {}, "")
     except Exception: pass
@@ -70,18 +89,20 @@ for f in sorted(pathlib.Path("samples").glob("*/*.in.json")):
     has_body = isinstance(doc, dict) and "body" in doc
     token = case.split("-")[0]
     best, score_best = None, 0
-    for method, path, tb in eps:
+    for method, path, tb, qnames in eps:
         segs = [x for x in path.split("/") if x]
         params = {x[1:-1] for x in segs if x.startswith("{")}
-        if not params <= keys: continue
+        # トップレベルのキーのうち、この操作が宣言している queryParameters は「パス変数ではない」
+        pkeys = keys - set(qnames)
+        if not params <= pkeys: continue
         if has_body != tb: continue
         sc = 1
-        if params == keys: sc += 3      # パス変数と in.json のキーが完全一致 (集合 vs 個別の取り違えを防ぐ)
+        if params == pkeys: sc += 3     # パス変数と in.json のキーが完全一致 (集合 vs 個別の取り違えを防ぐ)
         if segs and segs[-1] == token: sc += 2
         if res in segs: sc += 1
-        if sc > score_best: best, score_best = (method, path), sc
+        if sc > score_best: best, score_best = (method, path, qnames), sc
     if best:
-        print(f"{res}/{case}\t{best[0]}\t{best[1]}")
+        print(f"{res}/{case}\t{best[0]}\t{best[1]}\t{','.join(best[2])}")
 PY
 
 for in in samples/*/*.in.json; do
@@ -91,9 +112,10 @@ for in in samples/*/*.in.json; do
   case=$(basename "$in" .in.json)
   out="${in%.in.json}.out.json"; req="${in%.in.json}.req.json"
 
-  method=POST; path="/$res"; hdrs=(); src=既定
+  method=POST; path="/$res"; hdrs=(); src=既定; qdecl=""
   if row=$(grep -m1 -P "^\Q$res/$case\E\t" "$map" 2>/dev/null); then
     method=$(printf '%s' "$row" | cut -f2); path=$(printf '%s' "$row" | cut -f3); src=RAML
+    qdecl=$(printf '%s' "$row" | cut -f4)
   fi
   if [ -f "$req" ]; then
     src=req.json
@@ -106,7 +128,24 @@ for in in samples/*/*.in.json; do
   done < <(jq -r 'to_entries[] | select(.key != "body" and .key != "query") | "\(.key)\t\(.value)"' "$in" 2>/dev/null)
 
   # in.json の `query` (検索系のサンプルはこの形) をクエリ文字列にする
-  qs=$(jq -r 'if (.query? // empty) | type == "object" then (.query | to_entries | map("\(.key)=\(.value|tostring)") | join("&")) else "" end' "$in" 2>/dev/null)
+  # **値が null のキーは送らない。** サンプルの null は「その検索条件を指定しない」の意味で、
+  # そのまま送ると文字列 "null" で絞り込んでしまう (inventory3-api のサンプルで確認)。
+  qs=$(jq -r 'if (.query? // empty) | type == "object" then (.query | to_entries | map(select(.value != null)) | map("\(.key)=\(.value|tostring)") | join("&")) else "" end' "$in" 2>/dev/null)
+  # **トップレベルのキーのうち、RAML がこの操作の queryParameters として宣言しているもの**もクエリにする。
+  # MUnit は vars の名前に合わせてトップレベルに置くことが多く、入れ子の query だけを見ていると
+  # 絞り込み無しで送ってしまう (inventory3-api T-006 で実測。回避のためにサンプルへ同じ値を
+  # 二重に持たせていた)。宣言に無いキーは送らない (パス変数や MUnit 専用の値を混ぜないため)。
+  if [ -n "${qdecl:-}" ]; then
+    top=$(jq -r --arg d "$qdecl" '($d | split(",")) as $names
+      | to_entries[] | select(.key as $k | $names | index($k)) | select(.value != null) | select(.value | type != "object")
+      | "\(.key)=\(.value|tostring)"' "$in" 2>/dev/null | paste -sd'&')
+    if [ -n "${top:-}" ]; then
+      # 入れ子の query と同じキーがあれば入れ子の方を優先 (重複させない)
+      for kv in $(printf '%s' "$top" | tr '&' ' '); do
+        k=${kv%%=*}; printf '%s' "${qs:-}" | grep -qE "(^|&)$k=" || qs="${qs:+$qs&}$kv"
+      done
+    fi
+  fi
   [ -n "${qs:-}" ] && path="$path?$qs"
 
   # ボディ: in.json に body があればその中身だけ
