@@ -43,10 +43,20 @@ MCP の `deploy_mule_application` は使わない。経路は下の `mvn clean d
 2. `context/deployment/authorizations.yaml`
 3. `samples/` — 疎通確認の期待値。これを変えない。
 4. 環境変数 `ANYPOINT_CLIENT_ID` / `ANYPOINT_CLIENT_SECRET` (Connected App、client_credentials)。無ければ人に export してもらう。値を会話や pom に書かない。
+5. `config/*.yaml` の `SET_` プレースホルダ (`scripts/deploy-precheck.sh` が列挙する)。実値のうち
+   password / secret / credential を含むものは人が Runtime Manager の secure property で入れる
+   (エージェントが API 経由で設定しない)。それ以外は `sandbox.yaml` の `properties` に書いてよい。
 
 ## 手順
 
-1. **前提を確かめる。** ゲート 2 つ、`git status` が clean で `main` (または PR をマージしたブランチ) にいること、`mvn -q clean test` が通ること。通らないものは置かない。
+1. **前提を確かめる。** まず `bash scripts/deploy-precheck.sh` を 1 回走らせる。**exit 1 なら、
+   出力に列挙された項目 (Connected App の資格情報、デプロイ先 (shared か Private Space か)、
+   `config/*.yaml` に残っている `SET_` プレースホルダ) を 1 回のやり取りでまとめて人に確認する。**
+   1 件ずつ聞き直さない (実測: inventory3-api T-006 で Connected App の資格情報・DB のパスワード・
+   Private Space の指定が別々のタイミングで発覚し、そのたびに止まってやり取りが 5 往復以上に
+   膨らんだ。まとめて 1 回聞けば防げた)。
+   確認が終わったら、ゲート 2 つ、`git status` が clean で `main` (または PR をマージしたブランチ) に
+   いること、`mvn -q clean test` が通ることを確かめる。通らないものは置かない。
 2. **pom にデプロイ設定を入れる。** `bash scripts/deploy-config.sh`。sandbox.yaml から `cloudhub2Deployment` か `runtimeFabricDeployment` と Exchange の `distributionManagement` を入れる。認証は `${env.*}` 参照なので秘密は pom に残らない。
    - `groupId` が組織 ID (UUID) でないと止まる。CH2 / RTF は Exchange 経由でしか置けず、Exchange のアセットは組織 ID を groupId にする決まり。`dx mule project create --group-id <組織 ID>` で作っていれば通る。
    - `~/.m2/settings.xml` に `<server><id>anypoint-exchange-v3</id>` (Connected App の `~~~Client~~~` / `<id>~~~Secret~~~` 形式) が無いと `mvn deploy` が 401 になる。docs/mulesoft-tools.md を案内する。
