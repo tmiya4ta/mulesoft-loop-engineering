@@ -13,7 +13,7 @@ echo "== /mule-deploy 前の確認事項 (見つかったものを 1 回でま�
 
 for v in ANYPOINT_CLIENT_ID ANYPOINT_CLIENT_SECRET; do
   if [ -z "${!v:-}" ]; then
-    echo "- 環境変数 $v が未設定 (Connected App の client_credentials)。エクスポートしてもらう"
+    echo "- 環境変数 $v が未設定 (Connected App の client_credentials)。export してから claude を起動し直してもらう (Bash は毎回新しいシェル)"
     need_ask=1
   fi
 done

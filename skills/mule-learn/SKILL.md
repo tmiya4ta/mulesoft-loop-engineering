@@ -131,6 +131,9 @@ gh repo clone tmiya4ta/mulesoft-loop-engineering /tmp/ml && cd /tmp/ml
 git switch -c learn/<category>-<短い名前>
 # knowledge/gotchas/<主題>.md に追記 (症状 / 原因 / 直し方 / 根拠の件数)
 # 索引 (knowledge/gotchas.md) の件数と症状の欄も直す
+# 「API から取れない」を【未解決】で書くなら、その前に template/scripts/portal-search.sh で項目名を
+# 3 語引き、引いた語と結果を本文に書く (無ければ knowledge-index-check が弾く)。v0.6.37 の【未解決】は
+# 36 本中 2 本の API しか見ておらず、実際は Gateway Manager API の応答に載っていた
 # **検査と PR を同じコマンドの && で繋ぐ。** 1 つでも落ちたら PR は開かれない。
 # hook (promote-guard) にも同じ検査があるが、hook はセッション開始時の版で固定されるので
 # 載っていないことがある (knowledge/gotchas/build.md)。手順だけで止まる形にしておく。

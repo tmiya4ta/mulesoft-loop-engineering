@@ -19,6 +19,10 @@
 食い違うのは、ポリシーが無いより危険。**
 根拠: CloudHub 2.0 の Mule アプリに client-id-enforcement を掛ける過程で実測 (2026-09-06)。
 適用は 201、認証なしのリクエストは 200 のまま通った。
+2 回目 (inventory3-api T-007、2026-09-12): Proxy 型で**ゲートウェイ経由は 401 になった**が、upstream が
+アプリの**公開** URL のままで、そちらを認証なしで叩くと `GET /inventory` が 200。**ゲートウェイで 401 が
+出ても、迂回路が開いていれば守れていない。** `scripts/gateway-public-url.sh` は upstream に外から届くかを
+見て注意を出す。
 
 ## autodiscovery は EE の成果物が要る
 `com.mulesoft.mule.modules:mule-api-gateway-module` は EE 側にあり、
@@ -76,18 +80,39 @@ curl -H "Authorization: bearer $TOKEN" -H 'x-sync-publication: true' \
 根拠: `mulesoft-labs/exchange-documentation-samples` の `raml-fragment/README.md` と
 `raml-with-dependencies/README.md` に実例がある。inventory3-api T-007 で実測して通った (2026-09-11)。
 
-## 【未解決】Managed Flex Gateway (Private Space) の実際の公開URLがAPIから分からない
-target が `targetType: private-space` かつ `kind: managed` のとき (`getGatewayTargets` で
-`kind: "managed"` と出る)、API インスタンスを作成・配備 (`type: HY`、上の表の形) しても、
-**外部から実際に叩けるホスト名がどのAPIレスポンスにも出てこない。**
+## Managed Flex Gateway に置いた API の公開 URL は、インスタンスではなくゲートウェイの側にある
+API Manager のインスタンスには upstream (`endpoint.uri`) とゲートウェイ内の待ち受け
+(`endpoint.proxyUri`、例 `http://0.0.0.0:8081/inventory3-api/`) しか無く、**外からの URL は載っていない。**
+載っているのは **Gateway Manager API の `getGatewayById`** (`/gatewaymanager/api/v1/organizations/{org}/environments/{env}/gateways/{gatewayId}`、
+`{gatewayId}` はインスタンスの `deployment.targetId`):
 
-試して失敗したもの (inventory3-api T-007, 2026-09-11):
-- Private Space の `network.dnsTarget` (`<Private Space の ID>.<リージョン>.cloudhub.io` の形) をそのまま使う → 404
-  (ワイルドカードは解決するが、この API 用のルートが無い)
-- `<targetName>.<dnsTarget>` / `<apiId>.<dnsTarget>` などの推測 → 同じく 404
-- Private Space の `network.inboundStaticIps` へ配備した port (8081/8082) で直接接続 → タイムアウト
-  (`managedFirewallRules` が 80/443/30500-32500 しか inbound を許可していない。個別 port は
-  ファイアウォールで塞がれている)
+| 項目 | 例 | 意味 |
+|---|---|---|
+| `configuration.ingress.publicUrl` (`endpoints[]` の `access: external`) | `https://ft1-xxxxxx.<dnsTarget>` | ゲートウェイの公開 URL |
+| `configuration.ingress.internalUrl` (`access: internal`) | `https://ft1-xxxxxx.internal-<dnsTarget>` | 同じ Private Space の内側から |
+| `portConfiguration.ingress.port` | `8081` | **公開 URL が届く港** |
+| `portConfiguration.egress.port` | `8082` | 内側 (`clusterUrl`、例 `http://ft1:8082/`) からだけ届く港。Agent Network の接続が使う |
 
-**現時点の回避策:** Runtime Manager の UI (`https://anypoint.mulesoft.com/cloudhub/#/console/home/managed-gateways/<targetId>/dashboard`) を人に開いてもらい、実際の公開 URL を教えてもらう。
-API 経由で解決する方法が分かったら、この項目を書き換えて `【未解決】` を外すこと。
+**API の URL = 公開 URL + proxyUri のパス** (末尾の `/` を外し、後ろにリソースを付けて叩く)。
+proxyUri の港が ingress の港のときだけ外から届く。まとめて出すのが `scripts/gateway-public-url.sh`:
+
+```bash
+bash scripts/gateway-public-url.sh inventory3-api      # instanceLabel / assetId / インスタンス ID のどれでも
+# → https://ft1-xxxxxx.<dnsTarget>/inventory3-api     (これを policy-check.sh の 1 つ目に渡す)
+```
+
+| 叩いたもの | 結果 |
+|---|---|
+| `<公開 URL>/inventory3-api/inventory` (認証なし) | 401 `{"error":"Client ID is not present"}` (ポリシーが応答している) |
+| `<公開 URL>/inventory3-api` (末尾の `/` 無し) / ゲートウェイに無いパス | 404 |
+| egress (8082) に置いた API を公開 URL で | 404 |
+| self-managed のゲートウェイ (`kind: selfManaged`) を `getGatewayById` で | 404 `AMC Error: Deployment not found`。URL は動かしている側が決める |
+
+**以前はここを【未解決】として、人に Runtime Manager の画面を見てもらっていた。** 試したのは
+Private Space の `network.dnsTarget` / `inboundStaticIps` (ゲートウェイではなく土台の方) とホスト名の
+推測だけで、36 本ある公式 API のうち Gateway Manager を見ていなかった。
+`bash scripts/portal-search.sh publicUrl` なら 1 手で 2 本に絞れ、`getGatewayById` と叩く行まで出る。
+**「API から取れない」と書く前に `portal-search.sh` で項目名を引くこと。** 根拠に `portal-search.sh` の
+無い【未解決】は `scripts/knowledge-index-check.sh` が弾く。
+根拠: managed のゲートウェイ (Private Space、1.13.4) で上の表をすべて実測 (2026-09-12)。
+inventory3-api T-007 で 2026-09-11 に【未解決】と記録されたもの (PR #9) を、同じ環境で解いた。

@@ -25,7 +25,7 @@ Mule を知らないまま試行錯誤すると、1 本の API に半日かか�
 | 5 | DataWeave | `basics/dataweave.md` | 外部 `.dwl`、`dw validate`、null の扱い、型強制 |
 | 6 | DB コネクタ | `basics/db.md` | 操作の使い分け、SQL は子要素、戻り値の形、プール |
 | 7 | MUnit | `basics/munit.md` | `mock-when` / `assert` / `verify-call`、samples を `readUrl`、カバレッジ |
-| 8 | ビルドと配備 | `basics/deploy.md` | 検証の速い順、Exchange 経由の配備、版上げ、API Manager、`settings.xml` |
+| 8 | ビルドと配備 | `basics/deploy.md` | 検証の速い順、Exchange 経由の配備、版上げ、API Manager、ゲートウェイの公開 URL、**Anypoint の値を API で引く**、`settings.xml` |
 | 9 | 命名と分割 (このプラグインの規約) | `basics/naming.md` | ファイル分割、flow 名、dwl 名、層の責務 |
 | 10 | Batch / MCP / A2A | `basics/kind.md` | `kind` が `api` 以外のとき。**実測 ([G]) はまだ無く、方向づけだけ** |
 

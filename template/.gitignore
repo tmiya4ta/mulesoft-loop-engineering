@@ -10,3 +10,7 @@ target/
 # 波の所有権宣言。**コミットしない。** worktree に無いことで「進捗エージェントだけを弾く」が成立する
 # (scripts/wave-guard.sh)。コミットすると実行エージェントも自分の担当ファイルを書けなくなる。
 .claude/wave-owned
+
+# 個人の設定 (「今後聞かない」で許可したコマンド、env)。**コミットしない。** 上の !.claude/ で追跡対象に
+# 戻っているので、ここで外さないと /mule-run の git add -A で入る。許可したコマンドに秘密が入っていれば一緒に載る。
+.claude/settings.local.json

@@ -24,6 +24,7 @@ name: __NAME__
 - **台帳の外で作業しない。** 実装もデプロイもポリシーも `tasks/T-*.md` のゴール (stage: impl | deploy | policy) にしてから動く。done_when が無い作業は始めない。
 - 実行エージェントは書く前にプラグインの `knowledge/mule-basics.md` と `template/reference/`、それに `reference/mule-schema/INDEX.md` (コネクタの要素名と操作名の地の情報) を読み、同じ形で書く。**`mule-basics.md` と `gotchas.md` は索引で、本文は `knowledge/basics/<主題>.md` と `knowledge/gotchas/<主題>.md` にある。索引を読んで、これから触る主題だけを開く (丸ごと読まない)。**プラグイン内のパスは `bash scripts/plugin-root.sh <相対パス>` で解決する。困ったら gotchas → スキル (platform-assistant) → マニュアルの順で調べ、1 回でも詰まったことは K ファイルに残す。
 - **迷ったら `bash scripts/plugin-root.sh --skill mule-guide` を Read。** 状況ごとに次の 1 手が書いてある。**エラーが出たら Web 検索の前に `bash scripts/gotcha-lookup.sh '<エラーの原文の一部>'`**。既に分かっていることを調べ直さない。
+- **Anypoint にある値 (URL、ID、状態) は API で取る。** 人に画面を見てもらう前に `bash scripts/portal-search.sh '<項目名>'` でどの API が返すかを引き、出た `bash scripts/anypoint-api.sh ...` を流す (読むだけ。Secret は環境変数から読むのでコマンド行に書かない)。
 - **このリポジトリの外の設定値を写さない。** 読んでよいのは (1) このリポジトリの中 と (2) プラグイン (`bash scripts/plugin-root.sh` で解決したパス) だけ。`git rev-parse --show-toplevel` より上には出ない。隣に別の Mule プロジェクトが並んでいることはよくあり、そこの `pom.xml` には**別の組織の**組織 ID や接続先が書いてある。「実例を確認する」つもりで写すと別の組織に publish する。組織 ID・接続情報・資格情報は**人に聞く**。分からなければ空のまま止まって聞く。
 - **進捗エージェントはマニュアルを読まない。** 読むのは台帳、context/、knowledge/ だけ。足りない事実は実行エージェントに調べさせ、K ファイルに書かせてから使う。
 - **K ファイルの名前は手で決めない。** `bash scripts/k-new.sh <ゴール id>` が出したパスを使う (`knowledge/K-T-003-1.md` の形)。並列の実行エージェントが同じ番号を独立に選んで衝突した実例があり、名前にゴール id が入っていれば構造的に起きない。

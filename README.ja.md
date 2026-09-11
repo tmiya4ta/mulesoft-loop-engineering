@@ -159,7 +159,10 @@ template/         /mule-init が配るもの:
                   jar-leak-check.sh (配る jar に git が無視しているファイルが入っていないか),
                   goal-state.sh (エージェント側で進められるゴールがあるかを exit で返す),
                   gotcha-lookup.sh (エラーの原文から既知の地雷を引く),
-                  deploy-precheck.sh (デプロイ前に人に聞くことを 1 回にまとめる)
+                  deploy-precheck.sh (デプロイ前に人に聞くことを 1 回にまとめる),
+                  portal-search.sh (Anypoint の値の項目名から、それを返す Platform API の操作を引く),
+                  anypoint-api.sh (Platform API を GET だけで叩く。{org} {env} を埋め、--find で応答から探す),
+                  gateway-public-url.sh (Flex Gateway に置いた API の外からの URL)
 .mcp.json         MuleSoft DX MCP Server（stdio）+ Platform MCP Server（http）
 docs/methodology.md  考え方、検証器 4 段、**検査の並び (走る順。20 件の通し番号)**
 docs/mulesoft-tools.md
@@ -197,6 +200,76 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.41</b> — Anypoint にある値は API で取る。【未解決】だったゲートウェイの公開 URL を解き、引き方を道具にした</summary>
+
+**v0.6.37 (PR #9) で「Managed Flex Gateway の公開 URL は API から取れない」を【未解決】として取り込み、
+v0.6.40 の `mule-guide` にも「人に Runtime Manager の画面で確かめてもらう」と書きました。** inventory3-api の
+T-007 はそれに忠実に従い、blocked のまま人に URL を聞き続けました。「分からないことを PR してスキルとして
+取り込む」という依頼に対して、**「分からない」をそのまま手順にしていた**ことになります。PR をマージした
+のはこのリポジトリ側で、【未解決】の中身を確かめずに通しました。
+
+**実際は API の応答にそのまま載っていました。** Gateway Manager API の `getGatewayById` の
+`configuration.ingress.publicUrl`。API インスタンスには upstream とゲートウェイ内の待ち受け
+(`proxyUri`) しか無いので、インスタンスをいくら読んでも出てきません。当時試していたのは
+API Manager と CloudHub 2.0 (Private Space の `dnsTarget` と固定 IP) だけで、**公式の API 36 本のうち
+2 本しか見ていませんでした。** 項目名で全部の仕様を引けば 1 手で 2 本に絞れます。
+
+弱いモデルには長い文書より検索道具が効く (v0.6.40) ので、**Platform API の引き方を道具にしました。**
+
+| 道具 (新) | すること |
+|---|---|
+| `scripts/portal-search.sh '<項目名>'` | 公式ポータルの全 API 仕様 (36 本) を手元に写し、項目名で引く。**その項目を応答で返す操作**まで `$ref` を辿り、そのまま流せる `anypoint-api.sh` の行と、パスに残る変数 (`{gatewayId}`) をどの一覧操作から取るか (仕様の `x-origin`) を出す。依存は python3 の標準ライブラリだけ |
+| `scripts/anypoint-api.sh '<パス>' [--find <項目名>]` | Platform API を **GET だけ**で叩く。`{org}` `{env}` を pom と sandbox.yaml から埋め、Secret は環境変数から読む (Sonnet は毎回 `export ...SECRET=<値> && curl` と書いて会話の記録に残していた)。`--find` で応答の中から項目を探す |
+| `scripts/gateway-public-url.sh <インスタンス>` | インスタンス → ゲートウェイ → 公開 URL + proxyUri のパス。港が egress なら「内側からだけ」、self-managed なら「動かしている側が決める」と言い分ける |
+
+**仕様だけには頼れないことも実測で分かりました。** Sonnet が読んだ Private Space の `dnsTarget` と
+`inboundStaticIps` は、実際の応答にはあるのに公式の仕様には書かれていません。`portal-search.sh` が
+外れたら「一覧か詳細を GET して `--find`」に進むよう案内し、その流れ (一覧 → 詳細 → `--find dns`) で
+実際に取れることを確かめました。
+
+実機で確かめたこと (managed のゲートウェイ、Private Space、1.13.4。ホスト名は形に置き換えて記録):
+
+| 叩いたもの | 結果 |
+|---|---|
+| `gateway-public-url.sh inventory3-api` | `https://ft1-xxxxxx.<dnsTarget>/inventory3-api`。ID でも assetId でも同じ |
+| その URL + `/inventory` (認証なし) | 401 `Client ID is not present` = ポリシーが応答している |
+| 末尾の `/` 無し / ゲートウェイに無いパス | 404 |
+| egress (8082) に置いた API | exit 1「内側 `http://ft1:8082/...` からだけ」。公開 URL で叩くと 404 |
+| self-managed のゲートウェイに置いた API | exit 1。`getGatewayById` は 404 `Deployment not found` |
+| 同じ assetId のインスタンスが 2 つ | exit 2 で候補の ID を並べる |
+
+**ついでに 2 つ見つかりました。**
+
+1. **`policy-check.sh` は URL が分かっても通らなかった。** 最初の `*.req.json` をそのまま GET していたので、
+   inventory3 では `PUT /inventory/{inventoryId}/reserve` が選ばれ、ポリシーが効いていても認証ありで 405 に
+   なります。3 つ目の引数で GET するリソースを渡せるようにし、省いたときは GET で変数の無い `*.req.json` を
+   選ぶようにしました。404 (経路が無い) / 401 (契約が無い) / 405 (GET できない) で次の手を出し分けます。
+2. **inventory3 はゲートウェイを迂回できる状態でした。** ゲートウェイ経由は 401 になるのに、upstream が
+   アプリの**公開** URL のままで、そちらを認証なしで叩くと `GET /inventory` が 200。`gotchas/api-manager.md` の
+   最初の項目 (Proxy 型ならアプリの公開 URL を消す) の 2 回目です。`gateway-public-url.sh` は upstream に
+   外から届くかを見て注意を出します。
+
+**同じことを機械で塞ぎます。** `knowledge-index-check.sh` に 4 つ目の検査を足しました: **【未解決】の項目に
+`portal-search.sh` で引いた記録が無ければ通さない。** `/mule-learn --share` は PR の前にこれを流し、
+`promote-guard.sh` も hook で流すので、「探していないことを取れないと書いた」項目はもう入りません
+(弾くことと、記録があれば通すことを両方確かめた)。
+
+`mule-guide` は 5 に「Anypoint にある値の取り方」を足し、7 の「人に画面を見てもらう」を
+`gateway-public-url.sh` に置き換えました。`mule-executor`、`/mule-run` (「API から取れない」を blocked の
+理由にしない)、`template/CLAUDE.md`、`gotcha-lookup.sh` の外れたときの案内も同じ順に揃えています。
+
+**資格情報の渡し方も具体的にしました。** Claude Code の Bash は毎回新しいシェルなので、「export してもらう」
+では人が何をすればよいか分からず、Sonnet は会話で渡された Secret を毎回コマンド行に書いていました。
+`anypoint-api.sh` と `deploy-precheck.sh` は「export してから claude を起動し直す」を頼むよう案内します。
+あわせて**テンプレートの `.gitignore` で `.claude/settings.local.json` を外しました。** `!.claude/` で `.claude/` を
+追跡対象に戻しているため、「今後聞かない」で許可したコマンドに秘密が入っていると `/mule-run` の `git add -A` で
+コミットに載る経路がありました (新規プロジェクトから効きます)。
+
+既存のプロジェクトは `preflight.sh` が新しい 3 本を「(無し)」と名指しして `cp` のコマンドを出します。
+
+</details>
 
 <details>
 <summary><b>v0.6.40</b> — Sonnet 向けの手引き (`mule-guide`) と、エラーの原文から既知の地雷を引く道具</summary>

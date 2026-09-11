@@ -100,7 +100,8 @@ argument-hint: "[T-NNN だけ実行] [--parallel N (既定は予算が許す最�
        **進捗エージェント自身が API Manager / Flex Gateway を直接叩いて調べ始めない。** `knowledge/gotchas/api-manager.md` に
        ポリシー適用・flexGateway インスタンス作成・配備の既知の形が書いてある。読まずに再探索すると
        同じ壁を何度も踏む (inventory3-api T-007 で実測、2026-09-11)。
-   - **マニュアルは読まない。** 段を進めるのに足りない事実 (CLI の書式、ポリシー名、API インスタンスの id) は、進捗エージェントが docs を fetch して探すのではなく、実行エージェントに「gotchas → スキル (platform-assistant) → マニュアルの順で調べて、`bash scripts/k-new.sh <ゴール id>` が出したパスに書いてから使う」よう配る。進捗エージェントが読むのは台帳、context/、knowledge/ だけ。
+   - **マニュアルは読まない。** 段を進めるのに足りない事実 (CLI の書式、ポリシー名、API インスタンスの id) は、進捗エージェントが docs を fetch して探すのではなく、実行エージェントに「gotchas → (Anypoint にある値なら `portal-search.sh` → `anypoint-api.sh`) → スキル (platform-assistant) → マニュアルの順で調べて、`bash scripts/k-new.sh <ゴール id>` が出したパスに書いてから使う」よう配る。
+   - **「API から取れない」を blocked の理由にしない。** 人に Anypoint の画面を見てもらう前に、`mule-guide` の 5 「Anypoint にある値の取り方」をやったか (引いた語と叩いたパス) を確かめる。やっていなければ blocked にせず、それを実行エージェントに配り直す (inventory3-api T-007 は、ゲートウェイの公開 URL を API で取れるのに 1 日 blocked だった)。進捗エージェントが読むのは台帳、context/、knowledge/ だけ。
    - **1 波を配り終えたら budget-check を再実行する** (並列でも 1 件ずつ数える)。`remaining_runs` を超える分は次の波に回す。
 3. 戻ってきたら diff を取り込み、**`done_when` を自分で実行する**。実行エージェントの自己申告は信じない。
    - **並列の取り込みは 1 件ずつ、取り込むたびに done_when を流す。** 独立なのは順序だけで、ファイルは独立ではない (pom.xml、global.xml、RAML は複数のゴールが触る)。

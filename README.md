@@ -162,7 +162,10 @@ template/         What /mule-init distributes:
                   jar-leak-check.sh (does the jar being shipped contain git-ignored files?),
                   goal-state.sh (exit code says whether any goal can still advance agent-side),
                   gotcha-lookup.sh (look up known traps from an error's raw text),
-                  deploy-precheck.sh (gather everything to ask before a deploy into one round)
+                  deploy-precheck.sh (gather everything to ask before a deploy into one round),
+                  portal-search.sh (from a field name, find the Platform API operation that returns it),
+                  anypoint-api.sh (GET-only Platform API caller; fills {org} {env}, --find searches the response),
+                  gateway-public-url.sh (the outside URL of an API deployed to a Flex Gateway)
 .mcp.json         MuleSoft DX MCP Server (stdio) + Platform MCP Server (http)
 docs/methodology.md  The method, the 4 validator tiers, **the ordered check list (20, numbered)**
 docs/mulesoft-tools.md
@@ -202,6 +205,74 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.41</b> — Values that live in Anypoint are fetched from the API. The "unresolved" gateway public URL is solved, and the lookup is now a tool</summary>
+
+**v0.6.37 (PR #9) took in "a Managed Flex Gateway's public URL cannot be obtained from the API" as an
+unresolved item, and v0.6.40's `mule-guide` told the agent to "have a human check the Runtime Manager UI".**
+inventory3-api's T-007 followed that faithfully and stayed blocked, asking a human for the URL. The request was
+"PR what you don't know and have it taken in as a skill" — and **the "don't know" itself had become the procedure.**
+The PR was merged on this repository's side without checking the unresolved claim.
+
+**The value was sitting in an API response.** Gateway Manager API, `getGatewayById`,
+`configuration.ingress.publicUrl`. An API instance only carries the upstream and the listener inside the gateway
+(`proxyUri`), so no amount of reading the instance shows it. What had been tried was API Manager and CloudHub 2.0
+(the Private Space's `dnsTarget` and static IPs) — **2 of the 36 official APIs.** Searching every spec by field
+name narrows it to 2 APIs in one step.
+
+A lookup tool beats a long document for a weaker model (v0.6.40), so **the way to use the Platform API is now a tool.**
+
+| Tool (new) | What it does |
+|---|---|
+| `scripts/portal-search.sh '<field>'` | Mirrors all 36 API specs from the official portal and searches by field name. Follows `$ref` up to **the operations that return the field in a response**, prints a ready-to-run `anypoint-api.sh` line, and says which list operation supplies each leftover path variable (`{gatewayId}`, from the spec's `x-origin`). Python 3 standard library only |
+| `scripts/anypoint-api.sh '<path>' [--find <field>]` | Calls the Platform API **GET only**. Fills `{org}` `{env}` from the pom and sandbox.yaml, reads the secret from the environment (Sonnet had been writing `export ...SECRET=<value> && curl` each time, leaving it in the transcript). `--find` searches the response for a field |
+| `scripts/gateway-public-url.sh <instance>` | Instance → gateway → public URL + the `proxyUri` path. Distinguishes "egress port: reachable only from inside" and "self-managed: whoever runs it decides" |
+
+**The specs alone are not enough, as measured.** The Private Space's `dnsTarget` and `inboundStaticIps` that
+Sonnet read exist in the real response but are not in the official spec. When `portal-search.sh` misses, it points
+to "GET the list or detail and use `--find`", and that path (list → detail → `--find dns`) was confirmed to work.
+
+Verified live (a managed gateway in a Private Space, 1.13.4; hostnames recorded as shapes):
+
+| Called | Result |
+|---|---|
+| `gateway-public-url.sh inventory3-api` | `https://ft1-xxxxxx.<dnsTarget>/inventory3-api`. Same by ID or assetId |
+| That URL + `/inventory` (no auth) | 401 `Client ID is not present` = the policy is answering |
+| Without the trailing `/` / a path the gateway doesn't have | 404 |
+| An API on the egress port (8082) | exit 1, "only from inside `http://ft1:8082/...`". 404 via the public URL |
+| An API on a self-managed gateway | exit 1. `getGatewayById` returns 404 `Deployment not found` |
+| Two instances with the same assetId | exit 2, listing candidate IDs |
+
+**Two more things turned up.**
+
+1. **`policy-check.sh` would have failed even with the right URL.** It GET-ed the first `*.req.json` as-is, which in
+   inventory3 is `PUT /inventory/{inventoryId}/reserve` — a 405 with auth even when the policy works. A third
+   argument now names the resource to GET; without it, a GET `*.req.json` with no path variables is picked. It now
+   says what to do next for 404 (no route) / 401 (no contract) / 405 (not GET-able).
+2. **inventory3 could bypass the gateway.** Through the gateway it gets 401, but the upstream is still the app's
+   **public** URL, and hitting that without auth returns 200 for `GET /inventory`. This is the second occurrence of
+   the first item in `gotchas/api-manager.md` (for a proxy, remove the app's public URL). `gateway-public-url.sh`
+   now checks whether the upstream is reachable from outside and warns.
+
+**The same mistake is now blocked by a machine.** `knowledge-index-check.sh` gained a fourth check: **an unresolved
+item with no record of a `portal-search.sh` lookup does not pass.** `/mule-learn --share` runs it before a PR and
+`promote-guard.sh` runs it as a hook, so "wrote 'cannot be obtained' without searching" no longer gets in (both the
+rejection and the pass-with-record were confirmed).
+
+`mule-guide` section 5 gained "how to get a value that lives in Anypoint", and section 7's "have a human look at
+the UI" became `gateway-public-url.sh`. `mule-executor`, `/mule-run` ("cannot get it from the API" is not a reason
+to block), `template/CLAUDE.md` and `gotcha-lookup.sh`'s miss message now follow the same order.
+
+**Credential handoff is now concrete too.** Claude Code's Bash is a fresh shell every time, so "have them export
+it" did not tell a human what to do, and Sonnet kept typing the secret it was given in chat onto the command line.
+`anypoint-api.sh` and `deploy-precheck.sh` now ask the human to "export, then restart claude". **The template
+`.gitignore` also excludes `.claude/settings.local.json`:** `!.claude/` re-includes `.claude/`, so a permanently
+allowed command containing a secret could ride into a commit via `/mule-run`'s `git add -A` (applies to new projects).
+
+Existing projects: `preflight.sh` names the three new scripts as "(missing)" and prints the `cp` command.
+
+</details>
 
 <details>
 <summary><b>v0.6.40</b> — A step-by-step guide for Sonnet (`mule-guide`), and a tool that looks up known traps from an error's raw text</summary>

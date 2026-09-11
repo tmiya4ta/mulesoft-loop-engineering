@@ -22,6 +22,8 @@ description: 迷ったら最初に開く手引き。エラーが出た、次に�
    そこの `pom.xml` の組織 ID や接続先を写すと、**別の組織に publish する事故**になる。
 3. **分からない値は推測で埋めない。** 組織 ID・接続情報・パスワード・版は、人に聞くか、下に書いた
    コマンドで取る。**分からなければ止まって聞く。** 推測で書いて試すのが一番時間を失う。
+   ただし **Anypoint にある値 (URL・ID・状態) は API で取れる。** 人に画面を見てもらう前に
+   5 の「Anypoint にある値の取り方」をやる。
 
 ---
 
@@ -43,7 +45,8 @@ description: 迷ったら最初に開く手引き。エラーが出た、次に�
    ```
 5. それでも無ければ、次の順に調べる。**上から順に。当たったらそこで止まる。**
    1. コネクタの要素名・操作名・パラメータ名の話 → `reference/mule-schema/INDEX.md` を開く
-   2. Anypoint 側 (API Manager、Exchange、Runtime Manager) の話 → `bash scripts/plugin-root.sh --skill platform-assistant` を Read
+   2. Anypoint 側 (API Manager、Exchange、Runtime Manager、ゲートウェイ) の話 → 5 の「Anypoint にある値の取り方」。
+      手順そのものが要るなら `bash scripts/plugin-root.sh --skill platform-assistant` を Read
    3. 公式マニュアル
 6. 分かったら**必ず書き残す**。次の人が手順 2 で引けるように。
    ```bash
@@ -144,12 +147,43 @@ exit 0 なら牙あり。exit 2 なら出てきた理由をそのまま読む。
 | DB のパスワード、Client Secret | **人に聞く。ファイルに書かない** | 環境変数 / Runtime Manager の secure property |
 | コネクタの版 | `reference/mule-schema/INDEX.md` | pom |
 | Mule ランタイムの版 | `context/sources.yaml` の `mule_version` | pom の `app.runtime` |
+| CloudHub 2.0 に置いたアプリの公開 URL | `bash scripts/ch2-public-url.sh <app> <environment>` | sandbox.yaml の `public_url`、deploy ゴールの `done_when` |
+| Flex Gateway に置いた API の公開 URL | `bash scripts/gateway-public-url.sh <インスタンス ID か instanceLabel>` | policy ゴールの `done_when` |
+| そのほか Anypoint にある値 (ID、状態、設定) | 下の「Anypoint にある値の取り方」 | 使う場所 |
 
 - **聞くときは、分からないものを全部まとめて 1 回で聞く。** 1 つずつ聞き直さない
   (1 つのゴールで 5 往復した実例があります)。
 - 設定ファイルの既定値に `SET_...` を置くとき、**`port` のような数値の項目だけは `"0"` にする**。
   `SET_...` のままだと MUnit が起動時に `NumberFormatException` で落ちる。
 - 秘密の値 (パスワード、Secret) を **ファイル・コメント・進捗メモに書かない**。書くのは「どこから読むか」。
+
+### Anypoint にある値の取り方 (人に画面を見てもらう前に)
+
+**Anypoint の画面に出ている値は、ほぼすべて API でも取れる。** 「API から取れない」と決める前に、
+上から順にやる。
+
+1. 値の**項目名**で、公式の API 仕様 (36 本) を引く。項目名は英語の camelCase。画面の表示名から推測してよい:
+   ```bash
+   bash scripts/portal-search.sh publicUrl
+   ```
+   どの API のどの操作がその項目を返すかと、そのまま流せる `anypoint-api.sh` の行が出る。
+2. 出た行をそのまま流す。パスに `{gatewayId}` のような変数が残っていたら、「の値」の行に書いてある
+   一覧の操作で先に ID を取る:
+   ```bash
+   bash scripts/anypoint-api.sh '/gatewaymanager/api/v1/organizations/{org}/environments/{env}/gateways'
+   bash scripts/anypoint-api.sh '/gatewaymanager/api/v1/organizations/{org}/environments/{env}/gateways/<id>' --find publicUrl
+   ```
+   `{org}` と `{env}` は自動で埋まる (pom の groupId と sandbox.yaml の environment)。資格情報は環境変数
+   `ANYPOINT_CLIENT_ID` / `ANYPOINT_CLIENT_SECRET` から読む。**Secret をコマンド行に書かない。**
+   無ければ exit 2。人に「export してから claude を起動し直す」を頼む (Bash は毎回新しいシェル)。
+3. 外れたら (exit 1) 別の言い方で 1 に戻る (`url` / `host` / `endpoint` / `domain`)。
+   **仕様に書かれていない項目もある** (Private Space の `dnsTarget` は応答にあるが仕様に無い)。
+   値を持っていそうなもの (ゲートウェイ、Private Space、アプリ) の名前で 1 を引き、その一覧か詳細を
+   `--find <項目名>` 付きで GET する。
+4. 3 語引いて、GET の応答にも無ければ、そこで初めて人に聞く。**引いた語と叩いたパスを全部**添える。
+5. 取れたら `bash scripts/k-new.sh <ゴール id>` が出したパスに「どの API のどの項目か」を書く。
+
+`anypoint-api.sh` は **読むだけ** (GET)。作る・変える操作はゴールの手順と `authorizations.yaml` の許可に従う。
 
 ---
 
@@ -171,7 +205,10 @@ bash scripts/smoke-check.sh <URL>             # 9) 実際に当てる
 
 - **`mvn clean deploy -DmuleDeploy` を 1 行で打たない。** Exchange の 404 で必ず落ちる。
 - 5 を 6 より後にしない。publish したあとに気付いても取り返せない。
-- 公開 URL が分からなければ `bash scripts/ch2-public-url.sh <app> <environment>`。
+- 公開 URL が分からなければ `bash scripts/ch2-public-url.sh <app> <environment>`
+  (Flex Gateway 経由の URL は 7 の 3)。
+- **`smoke-check.sh` はアプリの URL に当てる。** RAML の `baseUri` のパス (`/api`) を足すので、
+  ゲートウェイの URL に当てると `/api/api` になって全件 404 になる。
 - `authorizations.yaml` の `deploy.sandbox` が `allowed` でないと hook が止める。
   **止められたら理由を人に伝えて止まる。書き換えない。回避しない。**
 
@@ -187,10 +224,18 @@ bash scripts/smoke-check.sh <URL>             # 9) 実際に当てる
    **読まずに試すと、書いてあることを何度も踏み直す** (実例があります)。
 2. 効いたかどうかは表示ではなく実測で決める:
    ```bash
-   bash scripts/policy-check.sh <URL> client-id     # 認証なしで 401、ありで 2xx なら exit 0
+   bash scripts/policy-check.sh <URL> client-id /inventory   # 認証なしで 401、ありで 2xx なら exit 0
    ```
-3. Private Space の managed Flex Gateway は、**公開 URL が API から取れない** (未解決)。
-   その場合は人に Runtime Manager の画面で確かめてもらう。推測したホスト名で試さない。
+   3 つ目は **GET して 2xx が返るリソース**。省くと `/` を叩き、アプリによっては 404 になって落ちる。
+   認証ありでも 401 なら、その `CLIENT_ID` がインスタンスと契約していない (出力に確かめ方が出る)。
+3. **Flex Gateway に置いた API の URL は、API インスタンスには載っていない。ゲートウェイの側にある。**
+   次の 1 行で取る。人に画面を見てもらわない。推測したホスト名で試さない:
+   ```bash
+   bash scripts/gateway-public-url.sh <インスタンス ID か instanceLabel>   # → https://<ゲートウェイ>.<dnsTarget>/<パス>
+   ```
+   出た URL を 2 の `<URL>` と、policy ゴールの `done_when` に書く。
+   **標準エラーに「upstream に外から直接届く」と出たら、ゲートウェイを迂回できる = まだ守れていない。**
+   台帳の `evidence` と報告にそう書く (直し方は `knowledge/gotchas/api-manager.md` の最初の項目)。
 
 ---
 
@@ -229,6 +274,8 @@ bash scripts/smoke-check.sh <URL>             # 9) 実際に当てる
 | エラーを見て、すぐ Web 検索する | `bash scripts/gotcha-lookup.sh '<原文>'` を先に |
 | 隣のプロジェクトの pom / 設定を読む・写す | このリポジトリとプラグインだけを読む。値は人に聞く |
 | 分からない値を推測で埋めて試す | 5 の表で取る。無ければ止まって聞く |
+| 「API から取れない」と決めて、人に Anypoint の画面を見てもらう | `portal-search.sh '<項目名>'` → `anypoint-api.sh`。3 語引いて外れてから聞く (5 の「Anypoint にある値の取り方」) |
+| Connected App の Secret をコマンド行に書く (`export ANYPOINT_CLIENT_SECRET=<値> && curl ...`) | `anypoint-api.sh` を使う。環境変数から読むので会話の記録に残らない |
 | `samples/` やテストの期待値を実装に合わせて変える | 実装を直す。期待値が間違っていると確信したら**止まって報告** |
 | `mock-when` を省いて実 DB に繋ぐ | 全部 mock する (4 の 1) |
 | assert に `default` を付ける | 付けない (4 の 2) |
@@ -244,6 +291,8 @@ bash scripts/smoke-check.sh <URL>             # 9) 実際に当てる
 
 ```bash
 bash scripts/gotcha-lookup.sh '<エラーの原文の一部>'   # 既知か
+bash scripts/portal-search.sh '<項目名>'                 # Anypoint の値を、どの API が返すか
+bash scripts/anypoint-api.sh '<パス>' --find <項目名>    # 実際に GET して探す (読むだけ)
 bash scripts/preflight.sh                                # 土台は健全か (git、RAML、ビルド)
 mvn -q clean test -Dmunit.test=<file>-test.xml           # そのテストだけ
 bash scripts/coverage-check.sh                           # 全 flow が MUnit から呼ばれているか
