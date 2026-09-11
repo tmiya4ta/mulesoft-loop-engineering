@@ -19,6 +19,17 @@ input=$(cat)
 cmd=$(printf '%s' "$input" | python3 -c 'import json,sys; print((json.load(sys.stdin).get("tool_input") or {}).get("command",""))' 2>/dev/null) || exit 0
 printf '%s' "$cmd" | grep -q 'gh[[:space:]]\+pr[[:space:]]\+create' || exit 0
 
+# **どのリポジトリで PR を開くのかを、コマンドの `cd` 先から決める。**
+# `/mule-learn --share` は `gh repo clone ... /tmp/ml && cd /tmp/ml` してから PR を開く手順なので、
+# hook 自身の cwd (セッションの作業ディレクトリ = 利用者のプロジェクト) を見ると、
+# **検査スクリプトが無いので素通り**します。実測 (2026-09-11): checks-audit が落ちている
+# PR #8 がそのまま開けていた。コマンド中の絶対パスへの `cd` のうち最後のものを起点にし、
+# 無ければ hook 入力の cwd、それも無ければ自分の cwd を使う。
+repo=$(printf '%s' "$cmd" | grep -oE '(^|[;&|[:space:]])cd[[:space:]]+/[^[:space:];&|]+' | tail -1 | sed -E 's/.*cd[[:space:]]+//' | tr -d "\"'")
+[ -n "$repo" ] && [ -d "$repo" ] || repo=$(printf '%s' "$input" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("cwd",""))' 2>/dev/null)
+[ -n "$repo" ] && [ -d "$repo" ] || repo=$PWD
+cd "$repo" 2>/dev/null || exit 0
+
 # mule-loop 本体かどうかは「検査スクリプトが両方あるか」で決める (パスを推測しない)
 [ -f scripts/knowledge-index-check.sh ] && [ -f scripts/fixtures-check.sh ] || exit 0
 

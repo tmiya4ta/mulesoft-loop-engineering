@@ -52,6 +52,36 @@ dwl 側の `as String` は文字列に対する no-op として残してよい�
 
 ---
 
+## Oracle の接続文字列: SID と Service Name を取り違えやすく、PDB が違うと「接続できるのに表が無い」
+
+**Oracle 固有の事実です** (JDBC の URL の形と、PDB という Oracle の仕組みの話)。
+
+**形が 2 つある**:
+
+| 形 | URL | 取り違えると |
+|---|---|---|
+| SID | `jdbc:oracle:thin:@host:port:SID` (**コロン**) | `ORA-12505: SID '<x>' is not registered with the listener` |
+| Service Name | `jdbc:oracle:thin:@host:port/ServiceName` (**スラッシュ**) | — |
+
+XE / PDB 構成では通常 **Service Name (スラッシュ)** を使います。`ORA-12505` は listener 自体は
+応答していて、**パスワード検証にすら到達していない**サインです (資格情報を疑う前に URL の形を見る)。
+
+**PDB が違うと、接続は成功するのに `ORA-00942: table or view does not exist`**。
+1 つのインスタンスに複数の PDB (Pluggable Database) を持てるので、**同じホスト・ポート・ユーザー名でも
+Service Name (= PDB) が違えば別のスキーマ空間**です。`ORA-00942` は「表が本当に無い」と
+「**違う PDB に繋いでいる**」の両方で起き、後者は接続エラーにならないので気付きにくい。
+DDL の適用を疑う前に、JDBC 直結で `SELECT table_name FROM user_tables` を流して**実際に見えるもの**を
+確かめます。
+
+**接続先ごとの値 (どの Service Name にどの表があるか) は `context/environment/` に書きます。**
+ここに書くのは「Oracle ではこう取り違える」という形だけです (v0.6.23 の規則)。
+
+根拠: inventory2-api T-010 / T-011 で 2 回実測 (2026-09-09〜10)。1 回目は URL の形 (コロン → スラッシュ)
+で `ORA-12505` を解消、2 回目は Service Name の値の違いで `ORA-00942` を解消 (DDL は別の PDB に
+適用されていた)。PR #7 の後半を、分割後のこのファイルに移植した。
+
+---
+
 ## `affectedRows` の意味は DB 製品で違う (Derby は一致行数、MySQL は変更行数)
 Derby は WHERE に一致した行数を返す (値を変えない UPDATE でも 1)。MySQL の既定は値が変わった行数を返す (同じ値の UPDATE は 0)。
 `affectedRows == 0` を「対象が存在しない」と読むと、MySQL では同じ値の PUT が 404 になり冪等性が壊れる。

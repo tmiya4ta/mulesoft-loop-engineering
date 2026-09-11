@@ -131,9 +131,12 @@ gh repo clone tmiya4ta/mulesoft-loop-engineering /tmp/ml && cd /tmp/ml
 git switch -c learn/<category>-<短い名前>
 # knowledge/gotchas/<主題>.md に追記 (症状 / 原因 / 直し方 / 根拠の件数)
 # 索引 (knowledge/gotchas.md) の件数と症状の欄も直す
-bash scripts/knowledge-index-check.sh   # exit 0 になるまで PR を開かない
-bash scripts/checks-audit.sh            # 検査を増やしたら docs/methodology.md の表にも足す
-gh pr create --title "gotcha: <symptom>" --body "<根拠: どのリポジトリで何回>"
+# **検査と PR を同じコマンドの && で繋ぐ。** 1 つでも落ちたら PR は開かれない。
+# hook (promote-guard) にも同じ検査があるが、hook はセッション開始時の版で固定されるので
+# 載っていないことがある (knowledge/gotchas/build.md)。手順だけで止まる形にしておく。
+cd /tmp/ml && bash scripts/knowledge-index-check.sh && bash scripts/fixtures-check.sh \
+  && bash scripts/checks-audit.sh \
+  && gh pr create --title "gotcha: <symptom>" --body "<根拠: どのリポジトリで何回>"
 ```
 
 別のプロジェクトから同じ指紋の PR が来たら、それ自体が強い証拠になる。PR の本文に必ず件数とリポジトリ名を書く。
