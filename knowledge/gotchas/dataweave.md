@@ -20,6 +20,28 @@ grep の前に落とす。`scripts/quick-check.sh` は修正済み。
 2 つ目は変換を module に切り出した直後に。module 正常 / module 壊れ / payload 参照 /
 script 壊れ / 素の正常 / 素の壊れ / 実物 2 本の 8 通りで期待どおりを確認。
 
+## `Number as String` は小数点以下の `.0` を落とす
+
+**症状**: 期待値は `"引当可能数: 40.0"` なのに、実装は `"引当可能数: 40"` を返してテストが落ちる。
+
+**原因**: DataWeave の Number は演算結果を数学的な値として持ち、`as String` の既定変換は
+**整数と等しい値なら小数点以下を出さない**。`(45.0 - 5.0) as String` は `"40"` になる。
+```
+dw run "%dw 2.0
+output application/json
+var avail = 45.0 - 5.0
+---
+{ s: avail as String }"            # => { "s": "40" }
+```
+
+**直し方**: フォーマットを明示する。
+```
+avail as String {format: '#0.0'}   # => "40.0"
+```
+**期待値 (samples) の書式を実装に合わせて変えない。** 実装側で書式を指定する。
+
+根拠: inventory3-api T-004 で実測 (dw CLI、2026-09-11)。
+
 ## `dw validate` は `p()` を解決できない (フックの誤検知)
 `Unable to resolve reference of: \`p\`` が出るが、`p()` は実行時にランタイムが解決する。
 `.dwl` を検査するフックはこれを実エラーとして扱わないこと。

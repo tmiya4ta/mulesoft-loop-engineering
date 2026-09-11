@@ -73,6 +73,7 @@ NOT_A_CHECK = {
     "cost-report.sh",         # 実コストを出す
     "loop-reminder.sh",       # UserPromptSubmit hook。規律を注入する (合否を答えない)
     "setup-deps.sh",          # /mule-setup が外部スキルと MCP を入れる
+    "gotcha-lookup.sh",       # 既知の地雷を引く。exit 1 は「書いていない」で、合否ではない
 }
 for d in ("scripts", "template/scripts"):
     for p in sorted(pathlib.Path(d).glob("*.sh")):

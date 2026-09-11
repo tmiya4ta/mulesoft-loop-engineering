@@ -66,6 +66,30 @@ listener も同じで、MUnit の器と配備先で Mule の版が違うと応�
 **型に依存する変換を dwl から追い出す** — SQL 側で文字列にして渡す — か、
 `docs/methodology.md` の段 4 (配備先への契約検査) で捕まえます。
 
+## `munit:payload` に `output application/json` を付けると、後段で `Stream Compatible` で落ちる
+
+**症状 (原文)**:
+```
+'application/json' requires a Stream Compatible content but found '{affectedRows=1}' of type
+'class java.util.LinkedHashMap' evaluating expression: "payload.affectedRows >= 1"
+```
+`Error type: MULE:EXPRESSION`。
+
+**原因**: `<munit:payload value='#[output application/json --- {...}]'/>` で渡すと、メッセージが
+「application/json のストリーム」という扱いになり、あとで `mock-when` が素の Map を返して
+差し替えても、`output` を持たない DataWeave 式 (`payload.affectedRows >= 1` のような choice の条件) が
+その扱いを引きずって評価に失敗する。
+
+**直し方**: `output` を付けない。プレーンな DataWeave オブジェクトで渡す。
+```xml
+<munit:payload value='#[{ displayName: "山田次郎" }]'/>
+```
+samples から読むなら `readUrl("classpath://samples/...", "application/json").body` でよい (オブジェクトを返すので安全)。
+
+根拠: **2 回**。inventory3-api T-003 で踏んだ (2026-09-11)。原因は**このプラグインの写経元**
+(`template/reference/router-test.xml`) が `output application/json` 付きで書いていたこと (v0.6.39 で直した)。
+inventory2-api の update 振り分け flow で再現し、外すと通ることを確認 (2026-09-11)。
+
 ## MUnit は既定でメッセージソース (http:listener) を起動しない
 配線が正しくても、実 HTTP を叩くテストが毎回 `HTTP:CONNECTIVITY ... Connection refused` になる。
 `mvn -q clean package -DskipTests` は成功するので設定ミスに見えるが違う。

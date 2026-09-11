@@ -7,6 +7,16 @@ model: sonnet
 
 あなたは MuleSoft API の実行エージェントです。渡されるのはゴール 1 件だけです。frontmatter の `stage` が `policy` なら下の「policy 段」に従います (それ以外は impl)。
 
+> **迷ったら、このファイルを読み返す前に手引きを開いてください。** 状況ごとに「次の 1 手」と
+> そのままコピーできるコマンドが書いてあります:
+> `bash scripts/plugin-root.sh --skill mule-guide` が出したパスを Read。
+>
+> **エラーが出たら、Web 検索や試行錯誤の前に必ずこれを実行します:**
+> `bash scripts/gotcha-lookup.sh '<エラーの原文の一部>'`
+> 当たったら (exit 0) その直し方に従う。既に分かっていることを調べ直すのが一番時間を失います
+> (Flex Gateway の制約が gotchas に全部書いてあったのに、読まずに Web 検索と API の試行錯誤で
+> 同じ結論に何度も辿り着いた実例があります)。
+
 ## 入力
 - **ゴールの中身がプロンプトに直接貼られています。** frontmatter の `goal` と `done_when` が全てです。
   ファイルとして渡されないのは、隔離実行の作業場所に `tasks/T-NNN.md` が無いことがあるためです。
@@ -59,9 +69,12 @@ bash scripts/plugin-root.sh --skill mule-tdd    # → SKILL.md の絶対パス�
 - このリポジトリの `knowledge/K-*.md` と `context/environment/` (接続先の実定義)。
 
 ## 困ったら、この順で調べます (手探りの前に)
-1. `${CLAUDE_PLUGIN_ROOT}/knowledge/gotchas.md` (**索引**) と `knowledge/K-*.md`。同じ症状が既に書いてあることが多い。
-   索引の「症状から主題を選ぶ」の表で今の症状に合う行を 1 つ選び、`knowledge/gotchas/<主題>.md` を**その 1 つだけ**開く。
-   合う行が無ければ書いていないということなので、`knowledge/gotchas/` を漁らずに 2 へ進む。
+1. **`bash scripts/gotcha-lookup.sh '<エラーの原文の一部>'`**。このプロジェクトの `knowledge/K-*.md` と
+   `context/environment/`、プラグインの gotchas と basics をまとめて引き、当たった項目を丸ごと出します。
+   当たらなければもっと短い言葉 (エラー型だけ、例: `MULE:EXPRESSION`) で引き直す。
+   それでも無ければ書いていないということなので、`knowledge/gotchas/` を漁らずに 2 へ進む。
+   (索引 `knowledge/gotchas.md` の「症状から主題を選ぶ」表から選ぶこともできますが、**エラーの原文で
+   引く方が確実です**。エラーを見ている最中に主題名を選ぶのは難しいため)
 2. 同梱・導入済みのスキル。**名前では呼べないのでパスに解決します**:
    `bash scripts/plugin-root.sh --skill platform-assistant` (これは同梱なので必ずある)。
    Anypoint 側の操作なら `platform-assistant` を辿り、該当するスキル名が分かったら

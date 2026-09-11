@@ -3,6 +3,36 @@
 `/mule-learn` の追記先。**根拠のない項目を足さない。**各項目に「何回どこで起きたか」を書き、
 追記したら `../gotchas.md` の索引の件数も直す (`scripts/knowledge-index-check.sh` が検査)。
 
+## `apikit:config` を使うのに `mule-apikit-module` を pom に足し忘れる
+
+**症状 (原文)**:
+```
+Can't resolve http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd,
+A dependency or plugin might be missing
+```
+`process-classes` の段で落ちる。
+
+**原因**: DB コネクタなど**他の依存だけ**を pom に足して、`apikit:config` / `apikit:router` を使う
+ための `org.mule.modules:mule-apikit-module` (mule-plugin) を足していない。XML に書いた名前空間の
+XSD を解決できない。
+
+**直し方**: pom に足す。版は推測せず `reference/mule-schema/INDEX.md` か
+`anypoint-cli-v4 dx mule describe-connector` で確かめる。**他のプロジェクトの pom から写さない**
+(組織が違えば別物。`gotchas/build.md` の「group-id を他プロジェクトから写さない」)。
+```xml
+<dependency>
+  <groupId>org.mule.modules</groupId>
+  <artifactId>mule-apikit-module</artifactId>
+  <version><!-- INDEX.md で確かめた版 --></version>
+  <classifier>mule-plugin</classifier>
+</dependency>
+```
+**一般に**: XML に `xmlns:<接頭辞>` を書いたら、その接頭辞のコネクタ / モジュールが pom にあるか確かめる。
+
+根拠: inventory3-api T-001 で実測 (2026-09-11)。「db コネクタだけ足して apikit を足し忘れると必ずこれを踏む」。
+
+---
+
 ## 手書き pom はライブラリ取得に失敗する
 `mule-maven-plugin` の `<extensions>true</extensions>`、`mule-application` パッケージング、
 Exchange / MuleSoft のリポジトリ定義、`mule-artifact.json` のどれかが欠ける。

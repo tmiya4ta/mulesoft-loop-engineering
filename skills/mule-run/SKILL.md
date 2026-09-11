@@ -78,6 +78,9 @@ argument-hint: "[T-NNN だけ実行] [--parallel N (既定は予算が許す最�
        別プロジェクトの同名ファイルに解決されて無関係な場所を書き換える。実際に 1 度起きている
        (inventory2-api の T-001 が `inventory-xe-api/` を誤編集)。渡すのは
        「ゴールの中身」「プロジェクト直下の絶対パス」「CLAUDE.md と context/ を読んで規則に従うこと」の 3 つ。
+       **加えて 1 行必ず添える**: 「迷ったら `bash scripts/plugin-root.sh --skill mule-guide` を Read。
+       エラーが出たら Web 検索の前に `bash scripts/gotcha-lookup.sh '<原文>'`」。
+       長い規則はプロンプトの中で埋もれるので、入口を 1 行で渡す。
 
        **隔離してよいかの判定 (配る直前に 1 回):**
 

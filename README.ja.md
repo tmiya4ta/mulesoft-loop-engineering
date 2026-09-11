@@ -122,7 +122,8 @@ skills/
   mule-munit/     MUnit の罠を踏む順に並べたチェックリスト（台帳の最大クラスタ 17/62 件）
   mule-deploy/    デプロイのループ（Sandbox に置く → samples で疎通 → 失敗を学習へ）
   mule-learn/     学習ループ（失敗を数えて昇格・共有）
-  mule-status/    現在地と次の一手のナビゲーション
+  mule-status/    現在地と次の一手のナビゲーション (人に向けた報告)
+  mule-guide/     迷ったときの手引き。状況ごとに次の 1 手とコピーできるコマンド (エージェント向け)
   platform-assistant/  MuleSoft 公式メタスキルを同梱（Apache-2.0）
   mule-start/     意図 → 計画 → 実行 を通す入口
   mule-run/       計画・実行ループだけ（再開用）
@@ -156,7 +157,9 @@ template/         /mule-init が配るもの:
                   teeth-check.sh (テストに牙があるかを機械が測る),
                   spec-check.sh (RAML・サンプル・実装の機械で当てられるずれ),
                   jar-leak-check.sh (配る jar に git が無視しているファイルが入っていないか),
-                  goal-state.sh (エージェント側で進められるゴールがあるかを exit で返す)
+                  goal-state.sh (エージェント側で進められるゴールがあるかを exit で返す),
+                  gotcha-lookup.sh (エラーの原文から既知の地雷を引く),
+                  deploy-precheck.sh (デプロイ前に人に聞くことを 1 回にまとめる)
 .mcp.json         MuleSoft DX MCP Server（stdio）+ Platform MCP Server（http）
 docs/methodology.md  考え方、検証器 4 段、**検査の並び (走る順。20 件の通し番号)**
 docs/mulesoft-tools.md
@@ -194,6 +197,61 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.40</b> — Sonnet 向けの手引き (`mule-guide`) と、エラーの原文から既知の地雷を引く道具</summary>
+
+Sonnet で回すと「本当に何も分からない」感じになる、という話を受けて、inventory3-api
+(Sonnet で要件資料だけから素通し) の台帳 16 件を読みました。迷い方は 3 つでした。
+
+1. **知識はあるのに、必要な瞬間に見つけられない。** Flex Gateway の制約は `gotchas/api-manager.md` に
+   ほぼ全部書いてあったのに、読まずに Web 検索と API の試行錯誤で同じ結論に何度も辿り着いた (PR #9)。
+2. **禁止が長い文書に埋もれていると守れない。** `CLAUDE.md` に「リポジトリの外を読まない」と書いて
+   あったのに、隣のプロジェクトの `pom.xml` を読んで GAV を写した。
+3. **写経元を信じて写す。** 4 件はプラグインの写経元やスクリプトを忠実に使って踏んでいた
+   (v0.6.39 で直した)。**「何も分からない」の一部は、プラグインが間違ったことを教えていたから**です。
+
+**弱いモデルには、長い文書より検索道具が効きます。** 索引を読んで主題を選ぶ、はエラーを見ている
+最中にはできません。
+
+**`scripts/gotcha-lookup.sh '<エラーの原文の一部>'`** (新) — このプロジェクトの K ファイルと
+`context/environment/`、プラグインの gotchas と basics をまとめて引いて、**当たった項目を丸ごと**出します。
+当たらなければ次に何を調べるか (もっと短い言葉で / INDEX.md / platform-assistant / マニュアル) と、
+**やってはいけないこと** (隣のプロジェクトを読む、推測で書いて試す) を出します。
+Sonnet が inventory3 で実際に見たエラーの原文 10 個で引いて、9 個が当たりました。
+
+**そのうち 4 個は inventory3 自身の K ファイルにしか無い**汎用の事実でした。次のプロジェクトでは
+見えないので、プラグインの gotchas に昇格させました (空のディレクトリ = 次のプロジェクトの立場から
+4 個とも引けることを確認):
+
+| 事実 | 行き先 |
+|---|---|
+| `munit:payload` に `output application/json` を付けると後段で `Stream Compatible` | `gotchas/munit.md` (14 → 15) |
+| `apikit:config` を使うのに `mule-apikit-module` を足し忘れて XSD が解決できない | `gotchas/build.md` (14 → 15) |
+| 数値の項目 (`port`) に `SET_...` を置くと MUnit が `NumberFormatException` で起動しない | `gotchas/config.md` (3 → 4) |
+| `Number as String` が `.0` を落とす (`{format: '#0.0'}` で直す) | `gotchas/dataweave.md` (3 → 4) |
+
+**`skills/mule-guide/`** (新) — **「状況 → 次の 1 手」の表**です。上から全部読まず、今の状況の節を
+1 つ開いて番号どおりにやります。節は 8 つ: エラーが出た / 書き始める前 / pom に依存を足す /
+MUnit を書く / 分からない値がある / デプロイする / ポリシーを当てる / 止まる・人に聞く。
+それと「やってはいけないこと (と、代わりにやること)」の表。
+
+書き方で気を付けたこと:
+
+- **理由は 1 行まで。** 経緯を書くと、弱いモデルはどこが手順なのか見失います (他のスキルは
+  経緯と理由が多く、賢い読み手向けに書いてある)。
+- **コマンドはそのままコピーできる形。** プレースホルダは `<...>` だけ。
+- **実行エージェントは Skill ツールを持たず SKILL.md を生のファイルで読む**ので、
+  `${CLAUDE_PLUGIN_ROOT}` を使わず、すべてプロジェクト直下のコマンドで書いた。
+- **書いたコマンドとパスを全部当てた**: スクリプト 16 本、パス 11 件がすべて実在。
+  v0.6.34 から書いていた `anypoint-cli-v4 account business-group list` と、gotchas に書いた
+  `dx mule describe-connector` を**初めて実際に確かめた** (どちらも実在)。
+
+**入口を 1 行で渡します。** 長い規則はプロンプトの中で埋もれるので、`mule-executor` の冒頭、
+`template/CLAUDE.md`、`/mule-run` が配るときのプロンプトの 3 か所に「迷ったら `mule-guide`、
+エラーが出たら Web 検索の前に `gotcha-lookup.sh`」を 1 行で置きました。
+
+</details>
 
 <details>
 <summary><b>v0.6.33</b> — 除外リストの分類を 3 件間違えていた。判断の基準を書いて閉じる</summary>

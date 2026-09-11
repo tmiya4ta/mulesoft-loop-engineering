@@ -124,7 +124,8 @@ skills/
   mule-munit/     MUnit traps in the order you hit them (the ledger's biggest cluster, 17/62)
   mule-deploy/    Deploy loop — Sandbox, verify with samples, failures back to learning
   mule-learn/     Learning loop — count failures, promote, share
-  mule-status/    Navigation: where you are, what's next
+  mule-status/    Navigation: where you are, what's next (a report for people)
+  mule-guide/     The step-by-step guide: next action and copyable command per situation (for agents)
   platform-assistant/  MuleSoft's official meta-skill, vendored (Apache-2.0)
   mule-start/     Intent → plan → execute, end to end
   mule-run/       Plan and execute loops only (for resuming)
@@ -159,7 +160,9 @@ template/         What /mule-init distributes:
                   teeth-check.sh (a machine measures whether a test has teeth),
                   spec-check.sh (RAML/sample/implementation drift a machine can catch),
                   jar-leak-check.sh (does the jar being shipped contain git-ignored files?),
-                  goal-state.sh (exit code says whether any goal can still advance agent-side)
+                  goal-state.sh (exit code says whether any goal can still advance agent-side),
+                  gotcha-lookup.sh (look up known traps from an error's raw text),
+                  deploy-precheck.sh (gather everything to ask before a deploy into one round)
 .mcp.json         MuleSoft DX MCP Server (stdio) + Platform MCP Server (http)
 docs/methodology.md  The method, the 4 validator tiers, **the ordered check list (20, numbered)**
 docs/mulesoft-tools.md
@@ -199,6 +202,61 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.40</b> — A step-by-step guide for Sonnet (`mule-guide`), and a tool that looks up known traps from an error's raw text</summary>
+
+Prompted by "running on Sonnet feels like it knows nothing at all", the 16 ledger rows from inventory3-api
+(a Sonnet run from the requirements document alone) were read. It got lost in three ways.
+
+1. **The knowledge existed but was not found at the moment it was needed.** Flex Gateway's constraints were
+   nearly all in `gotchas/api-manager.md`, yet it web-searched and trial-and-errored its way to the same
+   conclusions repeatedly (PR #9).
+2. **Prohibitions buried in long documents are not followed.** `CLAUDE.md` said "do not read outside this
+   repository", and it read a neighbouring project's `pom.xml` to copy a GAV.
+3. **It copies the reference templates faithfully.** Four rows came from following the plugin's own
+   templates and scripts (fixed in v0.6.39). **Part of "knowing nothing" was the plugin teaching wrong things.**
+
+**For a weaker model, a lookup tool beats a long document.** Reading an index to pick a topic is not
+something you can do while staring at an error.
+
+**`scripts/gotcha-lookup.sh '<part of the raw error>'`** (new) searches this project's K files and
+`context/environment/` plus the plugin's gotchas and basics, and prints **whole matching items**. On a miss it
+says what to try next (shorter words / INDEX.md / platform-assistant / the manual) and **what not to do**
+(read neighbouring projects, guess and try). Of 10 raw error strings Sonnet actually saw in inventory3, 9 hit.
+
+**Four of those hits existed only in inventory3's own K files** — general facts the next project would never
+see. They were promoted into the plugin's gotchas (and confirmed findable from an empty directory, i.e. from
+the next project's point of view):
+
+| Fact | Now in |
+|---|---|
+| `output application/json` on `munit:payload` breaks later with `Stream Compatible` | `gotchas/munit.md` (14 → 15) |
+| using `apikit:config` without adding `mule-apikit-module`, so its XSD cannot resolve | `gotchas/build.md` (14 → 15) |
+| a `SET_...` placeholder in a numeric field (`port`) stops MUnit with `NumberFormatException` | `gotchas/config.md` (3 → 4) |
+| `Number as String` drops `.0` (fix with `{format: '#0.0'}`) | `gotchas/dataweave.md` (3 → 4) |
+
+**`skills/mule-guide/`** (new) is **a situation → next-action table**. You don't read it top to bottom; you open
+the section for your situation and follow its numbered steps. Eight sections: an error appeared / before
+writing / adding pom dependencies / writing MUnit / an unknown value / deploying / applying a policy /
+stopping or asking a human — plus a "don't do this (do this instead)" table.
+
+How it was written:
+
+- **At most one line of reasoning.** History makes a weaker model lose track of which part is the procedure
+  (the other skills carry a lot of history and rationale, written for a strong reader).
+- **Commands are copy-ready.** The only placeholders are `<...>`.
+- **Executors have no Skill tool and read SKILL.md as a raw file**, so it avoids `${CLAUDE_PLUGIN_ROOT}` and
+  uses only project-local commands.
+- **Every command and path was checked**: 16 scripts, 11 paths, all present. `anypoint-cli-v4 account
+  business-group list` (written since v0.6.34) and `dx mule describe-connector` (written into gotchas) were
+  **verified for the first time** — both exist.
+
+**The entry point is handed over in one line**, because long rules drown inside a prompt: the top of
+`mule-executor`, `template/CLAUDE.md`, and the prompt `/mule-run` dispatches all say "when lost, open
+`mule-guide`; on an error, run `gotcha-lookup.sh` before any web search".
+
+</details>
 
 <details>
 <summary><b>v0.6.33</b> — Three misclassifications in the exclusion list, and the criterion that closes it</summary>
