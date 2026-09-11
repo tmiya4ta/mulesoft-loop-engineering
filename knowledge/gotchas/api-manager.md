@@ -53,3 +53,41 @@ API を直接叩いて作る場合の必須の形。CLI では作れない組み
 | 利用者アプリの作成 | `POST /exchange/api/v2/organizations/{org}/applications?apiInstanceId=<id>` | `A target apiInstanceId or groupInstanceId is required` |
 
 根拠: 上記すべて実測 (2026-09-06)。
+
+## flexGateway インスタンスを作る前に、RAML を Exchange に置く (rest-api アセット)
+`spec.groupId/assetId/version` が指す先は Exchange 上の **RAML アセット** (`type: rest-api`)。
+Mule アプリを publish した Exchange アセット (`mule-application`) とは別物で、流用できない。
+
+公式ポータルの API Manager OAS は `createApiInstance` の multipart body のフィールドを
+明示しておらず (`file` としか書いていない)、RAML 単体を publish する形は別の経路で確認する必要がある。
+依存の無い単一 RAML なら、Exchange API v2 に直接 multipart で投げれば済む (Maven プロジェクトを
+作らなくてよい):
+
+```bash
+curl -H "Authorization: bearer $TOKEN" -H 'x-sync-publication: true' \
+  -F 'name=<表示名>' -F 'description=<説明>' \
+  -F 'properties.mainFile=<ファイル名>.raml' -F 'properties.apiVersion=v1' \
+  -F "files.raml.raml=@<ファイル名>.raml" \
+  "https://anypoint.mulesoft.com/exchange/api/v2/organizations/{org}/assets/{groupId}/{assetId}/{version}"
+```
+201 で `"type":"rest-api"` が返れば成功。依存 (RAML フラグメント) があるときは
+`files.raml.raml=@x.raml` の代わりに `exchange_modules/` を含めた zip を
+`files.raml.zip=@raml.zip` で送る (`properties.mainFile` はエントリの RAML ファイル名のまま)。
+根拠: `mulesoft-labs/exchange-documentation-samples` の `raml-fragment/README.md` と
+`raml-with-dependencies/README.md` に実例がある。inventory3-api T-007 で実測して通った (2026-09-11)。
+
+## 【未解決】Managed Flex Gateway (Private Space) の実際の公開URLがAPIから分からない
+target が `targetType: private-space` かつ `kind: managed` のとき (`getGatewayTargets` で
+`kind: "managed"` と出る)、API インスタンスを作成・配備 (`type: HY`、上の表の形) しても、
+**外部から実際に叩けるホスト名がどのAPIレスポンスにも出てこない。**
+
+試して失敗したもの (inventory3-api T-007, 2026-09-11):
+- Private Space の `network.dnsTarget` (`<Private Space の ID>.<リージョン>.cloudhub.io` の形) をそのまま使う → 404
+  (ワイルドカードは解決するが、この API 用のルートが無い)
+- `<targetName>.<dnsTarget>` / `<apiId>.<dnsTarget>` などの推測 → 同じく 404
+- Private Space の `network.inboundStaticIps` へ配備した port (8081/8082) で直接接続 → タイムアウト
+  (`managedFirewallRules` が 80/443/30500-32500 しか inbound を許可していない。個別 port は
+  ファイアウォールで塞がれている)
+
+**現時点の回避策:** Runtime Manager の UI (`https://anypoint.mulesoft.com/cloudhub/#/console/home/managed-gateways/<targetId>/dashboard`) を人に開いてもらい、実際の公開 URL を教えてもらう。
+API 経由で解決する方法が分かったら、この項目を書き換えて `【未解決】` を外すこと。
