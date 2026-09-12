@@ -174,7 +174,7 @@ template/         What /mule-init distributes:
                   env-probe.py (lists environments, deploy targets and Flex Gateways, and the sandbox.yaml block to fill),
                   app-status.py (is the deployed app RUNNING? the deploy goal's done_when when ingress: gateway),
                   policy.py (find / config / list / apply / remove policies; writes need the authorizations.yaml grant),
-                  contract.py (create the consuming app and its contract; measures 200/401 without ever printing a secret)
+                  contract.py (create the consuming app and its contract; measures 200/401 and the whole sample suite without ever printing a secret)
 .mcp.json         MuleSoft DX MCP Server (stdio) + Platform MCP Server (http)
 docs/methodology.md  The method, the 4 validator tiers, **the ordered check list (20, numbered)**
 docs/mulesoft-tools.md
@@ -228,6 +228,38 @@ names the missing prerequisite. If something does not work, PR it to the plugin 
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.50</b> — All of `samples/` can now be run through a gateway **with a contract** (`contract.py smoke`)</summary>
+
+v0.6.49 was used for real in the user's Sandbox and **`contract.py` worked on the first try** (consuming
+app → contract APPROVED → 401 without auth, 200 with). Nothing written from the spec needed changing.
+
+That exposed one remaining hole. **`smoke-check.py` could not send client-id-enforcement headers, so the
+full sample suite could not be run through the gateway at all** — which pushes the deploy goal's
+`done_when` down to `app-status.py` (RUNNING). **"Deployed" is not "working".**
+
+```bash
+python3 scripts/contract.py smoke <applicationId> <gateway URL> --no-basepath
+```
+
+`smoke-check.py` now adds `client_id` / `client_secret` headers when `CLIENT_ID` / `CLIENT_SECRET` are
+set (the same convention as `policy-check.sh`), and `contract.py smoke` supplies them **without ever
+printing them**.
+
+Measured against a stub server:
+
+| Checked | Result |
+|---|---|
+| No credentials | every case 401, exit 1 (so the missing contract is visible) |
+| With credentials | headers arrive at the server, 200, exit 0 |
+| Values leaking into `knowledge/deploy-log.jsonl` | none |
+| Values in `--dry-run` output | none |
+
+**Running `smoke-check.py` directly without a contract returns 401 for everything**, which cannot be told
+apart from a broken app. `/mule-deploy` now says so, and says not to weaken the `done_when`.
+
+</details>
 
 <details>
 <summary><b>v0.6.49</b> — Contracts are now a tool (`contract.py`), and the reason **request bodies could not be looked up** is fixed</summary>

@@ -171,7 +171,7 @@ template/         /mule-init が配るもの:
                   env-probe.py (環境・デプロイ先・Flex Gateway を読み出して、sandbox.yaml に書く形を出す),
                   app-status.py (置いたアプリが RUNNING か。ingress: gateway のときの deploy ゴールの done_when),
                   policy.py (ポリシーを find / config / list / apply / remove。書き込みは authorizations.yaml の許可が要る),
-                  contract.py (消費アプリと契約を作り、秘密の値を出さずに 200/401 を実測する)
+                  contract.py (消費アプリと契約を作り、秘密の値を出さずに 200/401 と samples 全件を実測する)
 .mcp.json         MuleSoft DX MCP Server（stdio）+ Platform MCP Server（http）
 docs/methodology.md  考え方、検証器 4 段、**検査の並び (走る順。20 件の通し番号)**
 docs/mulesoft-tools.md
@@ -223,6 +223,38 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.50</b> — ゲートウェイ + 契約でも **samples 全件を回せる** ようにした (`contract.py smoke`)</summary>
+
+v0.6.49 を利用者の Sandbox で実際に使い、**`contract.py` は一発で通りました** (消費アプリ → 契約
+APPROVED → 認証なし 401 / 契約あり 200)。仕様から起こした本文は実機でもそのままで通っています。
+
+そこで残った穴が 1 つ見つかりました。**`smoke-check.py` が client-id-enforcement のヘッダを
+付けられず、ゲートウェイ経由では samples 全件の疎通確認ができませんでした。** その結果、
+deploy ゴールの `done_when` が `app-status.py` (RUNNING) まで弱まります。**「置けている」は
+「動いている」ではありません。**
+
+```bash
+python3 scripts/contract.py smoke <applicationId> <ゲートウェイの URL> --no-basepath
+```
+
+`smoke-check.py` は `CLIENT_ID` / `CLIENT_SECRET` があれば `client_id` / `client_secret` ヘッダを
+付けます (`policy-check.sh` と同じ規約)。`contract.py smoke` がその値を**表示せずに**環境変数で渡します。
+
+スタブサーバーで実測しました:
+
+| 確かめたこと | 結果 |
+|---|---|
+| 資格情報なし | 全件 401 で exit 1 (契約が無いことが分かる) |
+| 資格情報あり | ヘッダがサーバーに到達し、200 で exit 0 |
+| `knowledge/deploy-log.jsonl` に値が残らないか | 残らない |
+| `--dry-run` の出力に値が出ないか | 出ない |
+
+**契約が無いまま `smoke-check.py` を直に回すと全件 401** になり、アプリが壊れているのか契約が
+無いだけなのか区別できません。`/mule-deploy` にその注意と、`done_when` を弱めないことを書きました。
+
+</details>
 
 <details>
 <summary><b>v0.6.49</b> — 契約を結ぶところまで道具にした (`contract.py`)。**POST の本文が引けなかった原因**も直した</summary>

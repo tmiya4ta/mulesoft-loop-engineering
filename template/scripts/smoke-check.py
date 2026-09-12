@@ -43,6 +43,15 @@ dry = False
 # (ゲートウェイの upstream (`endpoint.uri`) が既にアプリ側の /api を含むので、足すと /api/api になって全件 404)。
 no_basepath = "--no-basepath" in argv
 argv = [a for a in argv if a != "--no-basepath"]
+
+# **client-id-enforcement が付いた API には、契約を持つ資格情報が要る。** 無いと全件 401 になり、
+# 「アプリが壊れている」のか「契約が無いだけ」なのか区別できない (v0.6.49 まで、ゲートウェイ経由では
+# このスクリプトを使えませんでした)。policy-check.sh と同じ規約で **環境変数から**読む
+# (コマンド行にも ps にも残らない)。値は**決して出力しない** — 付けたかどうかだけ言う。
+# 秘密を自分で探しに行かないこと。`contract.py smoke` が内部で渡します。
+AUTH_HEADERS = {}
+if os.environ.get("CLIENT_ID") and os.environ.get("CLIENT_SECRET"):
+    AUTH_HEADERS = {"client_id": os.environ["CLIENT_ID"], "client_secret": os.environ["CLIENT_SECRET"]}
 if argv and argv[0] == "--dry-run":
     dry, argv = True, argv[1:]
 if not argv:
@@ -174,7 +183,7 @@ for inp in sorted(pathlib.Path("samples").glob("*/*.in.json")):
     if not isinstance(doc, dict):
         doc = {}
 
-    method, path, src, qdecl, headers = "POST", f"/{res}", "既定", [], {}
+    method, path, src, qdecl, headers = "POST", f"/{res}", "既定", [], dict(AUTH_HEADERS)
     hit = MAP.get(f"{res}/{case}")
     if hit:
         method, path, qdecl = hit[0], hit[1], hit[2]
@@ -187,7 +196,8 @@ for inp in sorted(pathlib.Path("samples").glob("*/*.in.json")):
             rq = {}
         method = rq.get("method") or "POST"
         path = rq.get("path") or f"/{res}"
-        headers = {str(k): str(v) for k, v in (rq.get("headers") or {}).items()}
+        headers = dict(AUTH_HEADERS)
+        headers.update({str(k): str(v) for k, v in (rq.get("headers") or {}).items()})
 
     # path の {キー} を in.json のトップレベルの値で置き換える (body は除く)
     for k, v in doc.items():

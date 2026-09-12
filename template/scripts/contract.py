@@ -12,6 +12,8 @@
 #   python3 scripts/contract.py create <applicationId> <インスタンス>      契約を結ぶ
 #   python3 scripts/contract.py list <applicationId>              そのアプリの契約
 #   python3 scripts/contract.py check <applicationId> <base-url> [<path>]  ヘッダ有無で 200/401 を実測
+#   python3 scripts/contract.py smoke <applicationId> <base-url> [--no-basepath]
+#                                                          samples/ 全件を契約つきで回す (smoke-check.py)
 # <インスタンス> は API インスタンス ID / instanceLabel / assetId (policy.py と同じ解決)。
 # どの verb にも `--dry-run` を付けられる。**送る本文を見せるだけで、何も作らない。**
 #
@@ -368,8 +370,33 @@ def cmd_check(argv, dry):
     sys.exit(r.returncode)
 
 
+def cmd_smoke(argv, dry):
+    """samples/ 全件を、契約を持つ資格情報で回す。**値は渡すだけで、表示しない。**"""
+    if len(argv) < 2:
+        err("使い方: contract.py smoke <applicationId> <base-url> [smoke-check.py の引数...]")
+        err("  例: contract.py smoke <id> https://ft1-xxxxxx.<dnsTarget>/inventory3-api --no-basepath")
+        sys.exit(2)
+    app_id, base = argv[0], argv[1]
+    rest = list(argv[2:])
+    if dry:
+        out("contract: --dry-run なので叩きません。実測するときは --dry-run を外してください。")
+        return
+    tok = token()
+    m = master_org(tok)
+    cid, sec = _credentials(tok, m, app_id)
+    smoke = os.path.join(HERE, "smoke-check.py")
+    if not os.path.isfile(smoke):
+        err("contract: %s がありません (プラグインの同期を確かめる)" % smoke)
+        sys.exit(2)
+    # **値は環境変数で渡す。** smoke-check.py は CLIENT_ID / CLIENT_SECRET があれば
+    # client_id / client_secret ヘッダを付ける (policy-check.sh と同じ規約)。
+    env = dict(os.environ, CLIENT_ID=cid, CLIENT_SECRET=sec)
+    r = subprocess.run([sys.executable, smoke, base] + rest, env=env)
+    sys.exit(r.returncode)
+
+
 VERBS = {"app-list": cmd_app_list, "app-create": cmd_app_create,
-         "create": cmd_create, "list": cmd_list, "check": cmd_check}
+         "create": cmd_create, "list": cmd_list, "check": cmd_check, "smoke": cmd_smoke}
 
 
 def main():
