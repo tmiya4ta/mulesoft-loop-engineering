@@ -25,6 +25,11 @@ description: 迷ったら最初に開く手引き。エラーが出た、次に�
    ただし **Anypoint にある値 (URL・ID・状態) は API で取れる。** 人に画面を見てもらう前に
    5 の「Anypoint にある値の取り方」をやる。
 
+> **ちょっと試したいだけのときは、この手順を全部やらなくてよい。**
+> `python3 scripts/casual.py on` でカジュアルモード (期限つき) にすると、台帳・TDD・締め方・層の検査の
+> 強制が外れ、**git が無視する場所になら秘密も書ける**。本番へのデプロイと publish 前の jar 検査は
+> 外れない。詳しくは `bash scripts/plugin-root.sh --skill mule-casual`。戻すのは `casual.py off`。
+
 ---
 
 ## 1. エラーが出た

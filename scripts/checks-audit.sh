@@ -80,6 +80,8 @@ NOT_A_CHECK = {
     "setup-deps.sh",          # /mule-setup が外部スキルと MCP を入れる
     "gotcha-lookup.sh",       # 既知の地雷を引く。exit 1 は「書いていない」で、合否ではない
     "run-hook.sh",            # hook を起動するだけの包み (python の名前を吸収する。判定はしない)
+    "casual_mode.py",         # カジュアルモードが効いているかを hook が読む共通の判定 (単体では何も判定しない)
+    "casual.py",              # カジュアルモードを入れる/切る/見る (合否を答えない)
 }
 for d in ("scripts", "template/scripts"):
     for p in sorted(list(pathlib.Path(d).glob("*.sh")) + list(pathlib.Path(d).glob("*.py"))):

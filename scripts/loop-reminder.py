@@ -1,7 +1,19 @@
 #!/usr/bin/env python3
 # UserPromptSubmit hook。mule-loop のリポジトリ (tasks/ がある) なら、毎ターン規律を短く注入する。
 # スキルの手順書は起動時に 1 回しか読まれず要約で薄れるので、消えない場所に置く。
-import pathlib, re, sys
+import os, pathlib, re, sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from casual_mode import casual          # noqa: E402
+
+mode = casual()
+if mode is not None:
+    print("[mule-loop] **カジュアルモード** (期限 " + mode.get("expires", "?") + ")。"
+          "台帳と TDD と締め方の強制は外れています。直接書いて構いません。"
+          "ただし **git が追跡するファイルに秘密の値は書けません** (git が無視する場所に書く)。"
+          "**本番へのデプロイと publish 前の jar 検査は緩みません。** "
+          "通常モードに戻すのは python3 scripts/casual.py off")
+    sys.exit(0)
 
 if not pathlib.Path("tasks").is_dir():
     sys.exit(0)

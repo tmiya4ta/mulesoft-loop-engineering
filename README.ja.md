@@ -124,6 +124,7 @@ skills/
   mule-learn/     学習ループ（失敗を数えて昇格・共有）
   mule-status/    現在地と次の一手のナビゲーション (人に向けた報告)
   mule-guide/     迷ったときの手引き。状況ごとに次の 1 手とコピーできるコマンド (エージェント向け)
+  mule-casual/    カジュアルモード。試すときだけ台帳・TDD・許可の強制を期限つきで外す
   mule-policy/    ポリシーを探す / 設定キーを見る / 付ける / 外す。典型的なポリシーの表つき
   platform-assistant/  MuleSoft 公式メタスキルを同梱（Apache-2.0）
   mule-start/     意図 → 計画 → 実行 を通す入口
@@ -166,6 +167,7 @@ template/         /mule-init が配るもの:
                   portal-search.py (Anypoint の値の項目名から、それを返す Platform API の操作を引く),
                   anypoint-api.py (Platform API を GET だけで叩く。{org} {env} を埋め、--find で応答から探す),
                   gateway-public-url.py (Flex Gateway に置いた API の外からの URL),
+                  casual.py (カジュアルモードを入れる/切る/見る。期限つき),
                   env-probe.py (環境・デプロイ先・Flex Gateway を読み出して、sandbox.yaml に書く形を出す),
                   app-status.py (置いたアプリが RUNNING か。ingress: gateway のときの deploy ゴールの done_when),
                   policy.py (ポリシーを find / config / list / apply / remove。書き込みは authorizations.yaml の許可が要る)
@@ -220,6 +222,43 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.47</b> — **カジュアルモード**。試すときだけ、期限つきで緩める (パスワードも渡せる)</summary>
+
+「ちょっと作りたいだけなのに面倒すぎる」という指摘から作りました。この方法論は**続けるため**の作りで、
+**試すため**の作りではありません。1 回かぎりの実験にまで台帳・TDD・許可ファイル・3 ブロックの締めを
+求めると、**作るより手続きの方が長くなり、人はループの外で手を動かし始めます。** それが一番危ない。
+
+```bash
+python3 scripts/casual.py on          # 既定 8 時間
+python3 scripts/casual.py on --hours 2 --deploy
+python3 scripts/casual.py status      # 効いているか / 期限切れか
+python3 scripts/casual.py off
+```
+
+| 緩むもの | 緩まないもの |
+|---|---|
+| 台帳と TDD の強制 (直接書いてよい) | **本番系の環境名へのデプロイ** (常に deny) |
+| 「現在地 / 次にすること / そのあと」の締めと差し戻し | **publish 前の jar の混入検査** (Exchange に上がったら取り返せない) |
+| 層の越境の差し戻し (一言だけ言って通す) | **git が追跡するファイルへの秘密の書き込み** (deny のまま) |
+| **git が無視するファイルへの秘密の書き込み** | hook の出力に秘密の値を出さないこと |
+| (`--deploy` のときだけ) Sandbox へのデプロイの許可ファイル要求 | 構文の検査 (XML / DataWeave / XSD で落ちる形) |
+
+**基準は「取り返しがつくか」。** git と Exchange と本番は取り返しがつかないので緩めません。
+手元のファイルは消せるので緩めます。だから**パスワードを渡せます** — ただし `.gitignore` で無視される
+場所にだけ。`secret-guard` は書き込み先が git に無視されるかを毎回 `git check-ignore` で確かめ、
+追跡されるファイルなら通常どおり deny します (秘密の値そのものは今までどおり出力しません)。
+
+**期限を必須にしました。** `expires` の無い `context/casual.yaml` は効きません。切り忘れた緩みは
+誰にも見えないからです (既定 8 時間で自動的に通常モードへ戻り、`status` が期限切れと言います)。
+`casual.py on` は `context/casual.yaml` を `.gitignore` に自動で足します (設定自体をコミットさせない)。
+
+`scripts/hooks-check.py` にカジュアルの 6 例を足しました (計 40 例)。追跡ファイルへの秘密は deny、
+無視されるファイルへは通す、締め方を強制しない、`--deploy` + Sandbox は allow、`--deploy` + 本番名は
+deny、期限切れは deny。**緩めた状態が意図どおりであることを、毎回機械が確かめます。**
+
+</details>
 
 <details>
 <summary><b>v0.6.46</b> — 実機で迂回路を塞いで分かった 2 件。**「401 が返る」は経路が正しい証拠にならない**</summary>

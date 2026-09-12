@@ -3,6 +3,9 @@
 # 失敗は stderr と exit 2 で Claude Code に返す (hook の規約)。
 import json, os, pathlib, re, subprocess, sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from casual_mode import casual          # noqa: E402
+
 try:
     data = json.load(sys.stdin)
 except Exception:
@@ -87,7 +90,14 @@ elif re.search(r"/src/main/mule/[^/]*\.xml$", str(path)):
     if kind == "api" and layer and layer != "system":
         body = pathlib.Path(file).read_text(errors="ignore")
         if re.search(r"<db:|<sap:|<salesforce:", body):
-            fail(f"{layer} 層から System コネクタを直接使っています。System API 経由にしてください。")
+            # カジュアルモードでは止めずに一言だけ (層の分けは設計の規約で、壊れているわけではない)。
+            # **構文の検査 (XML、dwl、XSD で落ちる形) はカジュアルでも止めます** — 壊れたまま進むと
+            # あとで原因を探す時間の方が長くなるため。
+            if casual() is not None:
+                print(f"quick-check: (カジュアル) {layer} 層から System コネクタを直接使っています。"
+                      "通常モードでは差し戻します。", file=sys.stderr)
+            else:
+                fail(f"{layer} 層から System コネクタを直接使っています。System API 経由にしてください。")
 
 elif re.search(r"/tasks/T-[^/]*\.md$", str(path)) or re.match(r"^tasks/T-.*\.md$", file):
     body = pathlib.Path(file).read_text(errors="ignore")

@@ -78,6 +78,9 @@ argument-hint: "[--kind api|batch|mcp|a2a] [--layer system|process|experience] [
    **ここで聞いておかないと、デプロイの直前に 5 往復する** (inventory3-api T-006 で実測)。
 6. `.mcp.json` はコピーしない (MCP はプラグイン側で有効になる)。聞かない。
 6b. **初期コミットを作る。** `git add -A && git commit -m "mule-loop: init"`。worktree 隔離はコミットが 1 つも無いと `Failed to resolve base branch "HEAD"` で起動しない (PR #4)。`.gitignore` に `target/` と `.claude/worktrees/` があることを先に確認する。
+6c. **「まずちょっと試したいだけ」なら、カジュアルモードを案内する。** `/mule-init` は続けるための
+   土台を作るが、試すだけなら台帳も TDD も要らない: `python3 scripts/casual.py on` (期限つき)。
+   本番へのデプロイと publish 前の jar 検査は外れないことも 1 行添える。
 7. 最後に「現在地 / 次にすること / そのあと」の 3 ブロックで締める。次にすることは
    「`context/requirements/` に資料を置く (パスを具体的に示す)」か、資料が無いなら
    「`/mule-start <作りたいこと>`」の 1 つだけにする。

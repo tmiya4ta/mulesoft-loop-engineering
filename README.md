@@ -126,6 +126,7 @@ skills/
   mule-learn/     Learning loop — count failures, promote, share
   mule-status/    Navigation: where you are, what's next (a report for people)
   mule-guide/     The step-by-step guide: next action and copyable command per situation (for agents)
+  mule-casual/    Casual mode: drop the ledger/TDD/permission ceremony for a bounded window
   mule-policy/    Find / inspect / apply / remove API Manager policies, with a table of the common ones
   platform-assistant/  MuleSoft's official meta-skill, vendored (Apache-2.0)
   mule-start/     Intent → plan → execute, end to end
@@ -169,6 +170,7 @@ template/         What /mule-init distributes:
                   portal-search.py (from a field name, find the Platform API operation that returns it),
                   anypoint-api.py (GET-only Platform API caller; fills {org} {env}, --find searches the response),
                   gateway-public-url.py (the outside URL of an API deployed to a Flex Gateway),
+                  casual.py (turn casual mode on/off/status; time-bounded),
                   env-probe.py (lists environments, deploy targets and Flex Gateways, and the sandbox.yaml block to fill),
                   app-status.py (is the deployed app RUNNING? the deploy goal's done_when when ingress: gateway),
                   policy.py (find / config / list / apply / remove policies; writes need the authorizations.yaml grant)
@@ -225,6 +227,44 @@ names the missing prerequisite. If something does not work, PR it to the plugin 
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.47</b> — **Casual mode**: relax the ceremony for a bounded window (you can hand over a password)</summary>
+
+Built after the complaint that "I just want to try something and this is far too much work". This methodology
+is built for **continuing**, not for **trying**. Demanding a ledger, TDD, a permission file and a three-block
+ending for a one-off experiment makes **the procedure longer than the work — and then people start working
+outside the loop entirely.** That is the dangerous outcome.
+
+```bash
+python3 scripts/casual.py on          # 8 hours by default
+python3 scripts/casual.py on --hours 2 --deploy
+python3 scripts/casual.py status      # active, or expired?
+python3 scripts/casual.py off
+```
+
+| What relaxes | What never relaxes |
+|---|---|
+| The ledger and TDD (write directly) | **Deploying to a production-looking environment** (always denied) |
+| The "where we are / next / after that" ending and its bounce-back | **The jar leak check before publish** (Exchange is unrecoverable) |
+| The layer-crossing bounce-back (one stderr note instead) | **Writing secrets into a git-tracked file** (still denied) |
+| **Writing secrets into a git-ignored file** | Never printing the secret value in hook output |
+| (only with `--deploy`) the permission file for Sandbox deploys | Syntax checks (XML / DataWeave / shapes that fail the XSD) |
+
+**The criterion is whether it can be taken back.** git, Exchange and production cannot, so they do not relax.
+A local file can be deleted, so it does. That is why **you can hand over a password** — but only into a path
+`.gitignore` covers. `secret-guard` runs `git check-ignore` on the target every time and denies a tracked file
+exactly as before (and, as always, never prints the secret value itself).
+
+**An expiry is mandatory.** A `context/casual.yaml` without `expires` is ignored, because a relaxation you
+forgot to turn off is invisible to everyone (8 hours by default, then `status` reports it as expired).
+`casual.py on` also appends `context/casual.yaml` to `.gitignore` so the setting itself is never committed.
+
+`scripts/hooks-check.py` gained six casual cases (40 total): secrets into a tracked file denied, into an
+ignored file allowed, no forced ending, `--deploy` + Sandbox allowed, `--deploy` + a production name denied,
+expired denied. **The relaxed state is verified by machine on every run.**
+
+</details>
 
 <details>
 <summary><b>v0.6.46</b> — Two findings from actually closing the bypass. **A 401 is not evidence that the route is right**</summary>

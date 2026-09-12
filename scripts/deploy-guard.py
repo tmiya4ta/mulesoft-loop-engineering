@@ -20,6 +20,9 @@
 #   遡っても見つからなければ mule-loop のリポジトリではないので、何も言わずに通常の許可判定へ返す。
 import json, os, re, subprocess, sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from casual_mode import casual          # noqa: E402
+
 try:
     data = json.load(sys.stdin)
 except Exception:
@@ -42,6 +45,7 @@ if m:
 if not start:
     start = os.getcwd()
 
+mode = casual(start)
 root, d = "", start
 while d:
     if os.path.isfile(os.path.join(d, "context/deployment/authorizations.yaml")):
@@ -54,7 +58,9 @@ while d:
         break
     d = parent
 if not root:
-    sys.exit(0)                                   # mule-loop のリポジトリでなければ何も言わない
+    if mode is None or mode.get("deploy") != "allowed":
+        sys.exit(0)                               # mule-loop のリポジトリでなければ何も言わない
+    root = os.path.dirname(os.path.dirname(mode["_path"]))   # <root>/context/casual.yaml → <root>
 auth = os.path.join(root, "context/deployment/authorizations.yaml")
 
 
@@ -89,6 +95,11 @@ for line in read(auth).splitlines():
             allowed = re.sub(r"[\s\"]", "", m.group(1).split("#", 1)[0])
             break
 
+# **カジュアルモードは許可ファイルの代わりになる** (`deploy: allowed` を書いたときだけ)。
+# 期限つきで、人が自分の手で入れたものなので「人が明示的に許可した」条件は満たしている。
+# **本番系の環境名は下でこの後も必ず見る。** そこはカジュアルでも緩めない。
+if allowed != "allowed" and mode is not None and mode.get("deploy") == "allowed":
+    allowed = "allowed"
 if allowed != "allowed":
     say("deny",
         f"{auth} の deploy.sandbox が「{allowed or '未設定'}」です。"

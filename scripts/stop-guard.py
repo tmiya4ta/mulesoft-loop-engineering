@@ -10,7 +10,13 @@
 # exit 2 (人の判断待ち) と exit 0 (完了) は通します — **待つのが正しい動作を邪魔しない**ため。
 import json, os, pathlib, subprocess, sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from casual_mode import casual          # noqa: E402
+
 if not pathlib.Path("tasks").is_dir():
+    sys.exit(0)
+# カジュアルモードでは締め方を強制しない。台帳を使っていないので「まだ進められる」も言わない。
+if casual() is not None:
     sys.exit(0)
 
 raw = sys.stdin.read()

@@ -24,6 +24,9 @@
 # (Bash の hook は deploy-guard が使っており、コマンド文字列からの判定は誤検知が多い)。
 import json, os, pathlib, re, sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from casual_mode import casual, git_ignored          # noqa: E402
+
 try:
     data = json.load(sys.stdin)
 except Exception:
@@ -68,6 +71,27 @@ try:
         rel = r
 except Exception:
     pass
+
+# **カジュアルモードでは、git が無視するファイルにだけ書かせる。**
+# 「パスワードを渡して設定に書いてもらう」はカジュアルの主目的なので通すが、**追跡ファイルは通さない** —
+# git に入った秘密は履歴から消せず、jar や Exchange に乗って組織の全員に届く。
+# (jar への混入は publish 前の jar-leak-check.sh が別に見る。そちらはカジュアルでも緩めない。)
+mode = casual()
+if mode is not None:
+    if git_ignored(target):
+        print(f"secret-guard: カジュアルモード — {rel} は git が無視するので通します "
+              f"(出所: {', '.join(hits)})。**git に入るファイルには書けません。**", file=sys.stderr)
+        sys.exit(0)
+    print(json.dumps({"hookSpecificOutput": {
+        "hookEventName": "PreToolUse",
+        "permissionDecision": "deny",
+        "permissionDecisionReason":
+            f"カジュアルモードでも、**git が追跡するファイル** ({rel}) に秘密の値は書けません "
+            f"(出所: {', '.join(hits)})。git に入った秘密は履歴から消せません。\n"
+            "書くなら git が無視する場所にしてください (例: `context/environment/local.yaml` を "
+            "`.gitignore` に足してから書く)。値は出力していません。"
+    }}, ensure_ascii=False))
+    sys.exit(0)
 
 print(json.dumps({"hookSpecificOutput": {
     "hookEventName": "PreToolUse",
