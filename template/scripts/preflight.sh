@@ -15,17 +15,18 @@ set -u
 [ -f pom.xml ] || { echo "preflight: pom.xml が無い (/mule-init が済んでいない)" >&2; exit 2; }
 
 # **このプラグインのスクリプトが前提にしているコマンド。** 無いと、スクリプトごとに違う場所で
-# 違う顔をして落ちます (jq が無いと空文字が流れて「見つからない」と嘘をつく形になる)。
-# ここで 1 回、名前を挙げて言います。**Windows は Git for Windows の bash が前提**で、
-# jq と python3 は別に入れる必要があります (Git Bash には入っていません)。
+# 違う顔をして落ちます。ここで 1 回、名前を挙げて言います。
+# **Windows は Git for Windows の bash が前提**で、python3 は別に入れる必要があります。
+# **jq はもう要りません** (v0.6.44 で全廃。ここの一覧にだけ残っていて、jq が無い環境では
+# 波が 1 件も配られませんでした — 実測で見つかるまで気付けなかった取りこぼし)。
 missing=""
-for c in python3 jq curl git; do command -v "$c" >/dev/null 2>&1 || missing="$missing $c"; done
+for c in python3 curl git; do command -v "$c" >/dev/null 2>&1 || missing="$missing $c"; done
 if [ -n "$missing" ]; then
   {
     echo "preflight: 前提のコマンドが無い:$missing"
-    echo "  入れ方 (例): macOS  brew install jq python3"
-    echo "               Windows  winget install jqlang.jq / Python.Python.3.12  (bash は Git for Windows)"
-    echo "               Linux    apt install jq python3 curl"
+    echo "  入れ方 (例): macOS  brew install python3"
+    echo "               Windows  winget install Python.Python.3.12  (bash は Git for Windows)"
+    echo "               Linux    apt install python3 curl"
   } >&2
   exit 2
 fi
@@ -127,6 +128,23 @@ if [ "$rc" -ne 0 ]; then
   exit 2
 fi
 echo "preflight: ok ($cmd)"
+
+# **Anypoint の資格情報。** v0.6.41 から「Anypoint にある値は API で取る」が全ゴールの前提に
+# なったのに、preflight は見ていませんでした。結果、`preflight: ok` と出たまま API の道具が
+# 全部 exit 2 で止まり、**どこで止まっているのかが人に伝わらない** (inventory3-api で実測)。
+# **波は止めません** — 実装だけのゴールには要らないので。止めずに、頼み方をここで出します。
+if [ -z "${ANYPOINT_CLIENT_ID:-}" ] || [ -z "${ANYPOINT_CLIENT_SECRET:-}" ]; then
+  {
+    echo "preflight: ANYPOINT_CLIENT_ID / ANYPOINT_CLIENT_SECRET がこのシェルにありません。"
+    echo "           実装だけなら要りませんが、**Anypoint の値を取る道具は全部 exit 2 で止まります**"
+    echo "           (env-probe.py / anypoint-api.py / gateway-public-url.py / app-status.py / policy.py)。"
+    echo "           人に頼むときの文面 (値は会話にもコマンド行にも出さない):"
+    echo "             1. Connected App (client_credentials) の id と secret を用意する"
+    echo "             2. 別の端末で export ANYPOINT_CLIENT_ID=... / export ANYPOINT_CLIENT_SECRET=..."
+    echo "             3. **その同じシェルから claude を起動し直す** (Bash ツールは毎回新しいシェルなので、"
+    echo "                会話の途中で export しても次のコマンドには残りません)"
+  } >&2
+fi
 
 # スキーマ索引を pom.xml より古ければ作り直す。~/.m2 は上の package で埋まっている。
 # **ここの失敗で波を止めない。** 土台の判定はあくまで上の package の結果で、

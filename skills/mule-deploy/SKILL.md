@@ -44,7 +44,7 @@ MCP の `deploy_mule_application` は使わない。経路は下の `mvn clean d
 アプリの URL を直接叩けてしまいます (inventory3-api で実測: `GET /inventory` が認証なしで 200)。
 **「ポリシーが付いている」という表示と実際の保護が食い違うのは、ポリシーが無いより危険です。**
 
-どちらにするかは**人が決めて `sandbox.yaml` に書きます**。この組織にそもそも Flex Gateway が
+どちらにするかは**人が決めます**。決まったら**エージェントが `sandbox.yaml` に書きます** (聞かずに埋めないのが線で、人にファイルを開かせるのが線ではない)。この組織にそもそも Flex Gateway が
 あるかどうかも含めて、候補は機械が出します:
 
 ```bash
@@ -79,7 +79,7 @@ python3 scripts/env-probe.py        # 環境 / デプロイ先 / Flex Gateway �
 
 ## 読むもの
 
-1. `context/deployment/sandbox.yaml` — kind (cloudhub2 / rtf)、environment、target、**ingress**、public_url。無ければ人に書いてもらう (テンプレートは `/mule-init` が置く)。
+1. `context/deployment/sandbox.yaml` — kind (cloudhub2 / rtf)、environment、target、**ingress**、public_url。**行そのものが無いこともある** (v0.6.45 より前に `/mule-init` したリポジトリ)。その場合は人に 1 回聞いて、答えをエージェントが足す。
    **`ingress` が `unknown` のままなら、そこで止まって人に聞く** (下の「公開エンドポイントを付けるか」)。
 2. `context/deployment/authorizations.yaml`
 3. `samples/` — 疎通確認の期待値。これを変えない。

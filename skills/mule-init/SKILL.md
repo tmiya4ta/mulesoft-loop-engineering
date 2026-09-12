@@ -71,8 +71,12 @@ argument-hint: "[--kind api|batch|mcp|a2a] [--layer system|process|experience] [
    あれば `python3 scripts/env-probe.py` を実行する。環境・デプロイ先 (共有スペース / Private Space / RTF)・
    **この組織に Flex Gateway があるか**が一覧で出て、`sandbox.yaml` に書く形と、人に聞くことがそのまま出る。
    出た内容をそのまま人に見せて、**1 回でまとめて**聞く: 環境 / デプロイ先 / **公開エンドポイントを付けるか
-   (`ingress: public` か `gateway`)**。答えを `context/deployment/sandbox.yaml` に**人が**書く
-   (エージェントは書かない。形は env-probe が出したものをそのまま渡す)。
+   (`ingress: public` か `gateway`)**。**聞いたあと、答えをエージェントが
+   `context/deployment/sandbox.yaml` に書く** (形は env-probe が出したものをそのまま使う)。
+   守る線は「**聞かずに埋めない**」ことで、「人にファイルを開かせる」ことではない。
+   人が 1 語答えたのにエージェントが書けないと、そこで止まったまま誰も進めない (実測: inventory3-api)。
+   **許可 (`authorizations.yaml`) だけは人が自分で書く** — あれは「やってよい」の記録なので、
+   聞いた側が代筆したら記録にならない。事実と選択 (`sandbox.yaml`) は聞いてから書いてよい。
    資格情報がまだ無ければここは飛ばし、「デプロイの前に `ANYPOINT_CLIENT_ID` / `ANYPOINT_CLIENT_SECRET` を
    export して claude を起動し直すと、環境の候補を機械が出せる」とだけ伝える。
    **ここで聞いておかないと、デプロイの直前に 5 往復する** (inventory3-api T-006 で実測)。

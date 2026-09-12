@@ -213,8 +213,8 @@ export ANYPOINT_REGION=PROD_JP
 | OS | 前提 |
 |---|---|
 | Linux | そのまま動く（開発とテストはここで行っています） |
-| macOS | bash 3.2 と BSD 版の sed が既定。**`sed -i` と GNU 拡張は使っていません**（v0.6.43 で 2 件直した）。`jq` は `brew install jq` |
-| Windows | **Git for Windows が必要**です。Claude Code は Git Bash があるときだけ Bash ツールを使い、無ければ PowerShell に落ちて `.sh` の hook が動きません（[setup](https://code.claude.com/docs/en/setup)）。`jq` と `python3` は Git Bash に入っていないので別に入れる（`winget install jqlang.jq` / Python）。`unzip` と `timeout` への依存は外しました（v0.6.43） |
+| macOS | bash 3.2 と BSD 版の sed が既定。**`sed -i` と GNU 拡張は使っていません**（v0.6.43 で 2 件直した）。追加で入れるものはありません |
+| Windows | **Git for Windows が必要**です。Claude Code は Git Bash があるときだけ Bash ツールを使い、無ければ PowerShell に落ちて `.sh` の hook が動きません（[setup](https://code.claude.com/docs/en/setup)）。`python3` は Git Bash に入っていないので別に入れる（`winget install Python.Python.3.12`）。**`jq` はもう要りません**（v0.6.44 で全廃、v0.6.48 で `preflight.sh` の必須一覧からも外した）。`unzip` と `timeout` への依存は外しました（v0.6.43） |
 
 **Windows と macOS では実機で動かしていません。**`preflight.sh` が前提を名指しするところまでが今の保証です。
 動かないものを見つけたら、`/mule-learn` でプラグインへ PR してください。
@@ -222,6 +222,32 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.48</b> — 隣のセッションが止まって分かった 3 件。**「人が書く」を広げすぎると誰も進めない**</summary>
+
+利用者のリポジトリで動いているセッションに v0.6.47 の積み残しを渡したら、**診断は全部正しいのに
+1 行も進みませんでした。** 止まった理由が 3 つとも**こちら側の作り**だったので直しました。
+
+| 症状 | 原因 | 直し方 |
+|---|---|---|
+| 人が答えを言ったのに `sandbox.yaml` の `ingress` を書けない | `mule-init` に「**エージェントは書かない**」と書いてあった | **聞いたら書いてよい。** 線は「聞かずに埋めない」ことで、人にファイルを開かせることではない |
+| `preflight: ok` なのに Anypoint の道具が全部 exit 2 | preflight が**資格情報を見ていなかった** | 無ければ頼み方を出す (**波は止めない**。実装だけのゴールには要らないので) |
+| `jq` が無い環境で波が 1 件も配られない | v0.6.44 で jq は全廃したのに、**preflight の必須一覧にだけ残っていた** | 一覧から外した (`python3 curl git` だけ) |
+
+**代筆してよいものと、そうでないものを分けました。**
+
+- `context/deployment/authorizations.yaml` (**許可**) … 人が自分で書く。「やってよい」の記録なので、
+  聞いた側が代筆したら記録になりません。
+- `context/deployment/sandbox.yaml` (**事実と選択**) … 人に聞いて、答えをエージェントが書きます。
+
+この区別が無かったので、「人が書く」が許可以外にも広がり、**人が 1 語答えても止まったまま**でした。
+`mule-guide` の「やりがちなこと」表にも 1 行足しました。
+
+v0.6.45 より前に `/mule-init` したリポジトリには `ingress` の行そのものがありません。`/mule-deploy` は
+その場合「人に 1 回聞いて、答えをエージェントが足す」と読むようにしました。
+
+</details>
 
 <details>
 <summary><b>v0.6.47</b> — **カジュアルモード**。試すときだけ、期限つきで緩める (パスワードも渡せる)</summary>

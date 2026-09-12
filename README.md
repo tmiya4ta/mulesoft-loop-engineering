@@ -218,8 +218,8 @@ four before a wave and stops, naming what is missing.
 | OS | Prerequisites |
 |---|---|
 | Linux | Works as is (development and testing happen here) |
-| macOS | bash 3.2 and BSD sed are the defaults. **`sed -i` and GNU-only extensions are not used** (two were fixed in v0.6.43). `jq` via `brew install jq` |
-| Windows | **Git for Windows is required.** Claude Code uses the Bash tool only when Git Bash is present; without it it falls back to PowerShell and `.sh` hooks do not run ([setup](https://code.claude.com/docs/en/setup)). `jq` and `python3` are not in Git Bash — install them separately (`winget install jqlang.jq` / Python). Dependencies on `unzip` and `timeout` were removed (v0.6.43) |
+| macOS | bash 3.2 and BSD sed are the defaults. **`sed -i` and GNU-only extensions are not used** (two were fixed in v0.6.43). Nothing extra to install |
+| Windows | **Git for Windows is required.** Claude Code uses the Bash tool only when Git Bash is present; without it it falls back to PowerShell and `.sh` hooks do not run ([setup](https://code.claude.com/docs/en/setup)). `python3` is not in Git Bash — install it separately (`winget install Python.Python.3.12`). **`jq` is no longer needed** (dropped in v0.6.44; removed from `preflight.sh`'s required list in v0.6.48). Dependencies on `unzip` and `timeout` were removed (v0.6.43) |
 
 **Windows and macOS have not been exercised on real machines.** What is guaranteed today is that `preflight.sh`
 names the missing prerequisite. If something does not work, PR it to the plugin via `/mule-learn`.
@@ -227,6 +227,32 @@ names the missing prerequisite. If something does not work, PR it to the plugin 
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.48</b> — Three findings from a peer session getting stuck. **"A human writes this" was applied too widely**</summary>
+
+A session working in the user's own repo was handed v0.6.47's leftovers. **Every diagnosis it made was
+correct, and it still moved zero lines.** All three reasons were defects on this side.
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| The human answered, but the agent could not write `ingress` into `sandbox.yaml` | `mule-init` said "**the agent does not write this**" | **Once asked, writing is fine.** The line is "never fill it in without asking", not "make the human open the file" |
+| `preflight: ok`, yet every Anypoint tool exits 2 | preflight never checked the credentials | Print how to ask for them (**without stopping the wave** — implementation-only goals do not need them) |
+| No goals dispatched at all where `jq` is absent | jq was dropped in v0.6.44 but **survived in preflight's required list** | Removed (`python3 curl git` only) |
+
+**What may be ghost-written is now separated from what may not.**
+
+- `context/deployment/authorizations.yaml` (**permission**) — the human writes it. It is a record of
+  "you may", and a record the asker wrote themselves is not a record.
+- `context/deployment/sandbox.yaml` (**facts and choices**) — ask the human, then the agent writes the answer.
+
+Without that distinction, "a human writes this" spread beyond permissions and **a one-word answer still
+left everything stuck**. A row was added to `mule-guide`'s "what agents do wrong" table too.
+
+Repos created before v0.6.45 have no `ingress` line at all; `/mule-deploy` now reads that as "ask once,
+then the agent adds it".
+
+</details>
 
 <details>
 <summary><b>v0.6.47</b> — **Casual mode**: relax the ceremony for a bounded window (you can hand over a password)</summary>
