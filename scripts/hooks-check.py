@@ -200,6 +200,29 @@ def cases_for(name, tmpdir):
                  "context/casual.yaml": "expires: 2020-01-01T00:00:00Z\ndeploy: allowed\n"}), {}),
         ]
 
+    if name == "outside-read-guard":
+        # **外の pom.xml を読むのを止める。** 中の pom.xml と、外でも対象外のファイルは通す。
+        # 隣のプロジェクトは tmpdir の中に作るが、**プロジェクトの git ルートの外**に置く。
+        # **プロジェクトは d/proj に作る。** d 自体をプロジェクトにすると隣が git ルートの中に
+        # 入ってしまい、「外」を試したことにならない (最初そう書いて素通りした)。
+        def outside(d, fname="pom.xml", body="<project><groupId>OTHER</groupId></project>"):
+            proj = mk_project(os.path.join(d, "proj"), tasks={"T-001.md": "---\nstatus: todo\n---\n"})
+            nb = os.path.join(d, "neighbor")
+            os.makedirs(nb, exist_ok=True)
+            with open(os.path.join(nb, fname), "w") as f:
+                f.write(body)
+            return proj
+
+        return [
+            ("外のプロジェクトの pom.xml", None, outside, {}, "../neighbor/pom.xml"),
+            ("外の無関係なファイル", None, lambda d: outside(d, "NOTES.md", "ただの文書"), {},
+             "../neighbor/NOTES.md"),
+            ("中のプロジェクトの pom.xml", None,
+             lambda d: mk_project(os.path.join(d, "proj"),
+                                  tasks={"T-001.md": "---\nstatus: todo\n---\n"},
+                                  files={"pom.xml": "<project/>"}), {}, "pom.xml"),
+        ]
+
     if name == "wave-guard":
         return [
             ("wave-owned 無し", json.dumps({"tool_input": {"file_path": "a.xml"}}), lambda d: mk_project(d), {}),
@@ -253,6 +276,9 @@ EXPECTED = {
     ("deploy-guard", "許可なし"): (0, "deny"),
     ("deploy-guard", "本番の環境名"): (0, "deny"),
     ("deploy-guard", "authorizations.yaml が無い"): (0, "無音"),
+    ("outside-read-guard", "外のプロジェクトの pom.xml"): (0, "deny"),
+    ("outside-read-guard", "外の無関係なファイル"): (0, "無音"),
+    ("outside-read-guard", "中のプロジェクトの pom.xml"): (0, "無音"),
     ("wave-guard", "wave-owned 無し"): (0, "無音"),
     ("wave-guard", "他ゴールが宣言したファイル"): (0, "deny"),
     ("wave-guard", "自分が宣言したファイル"): (0, "無音"),
@@ -324,7 +350,8 @@ def default_stdin(name, cwd):
 if __name__ == "__main__":
     names = sys.argv[1:]
     if not names or names == ["--all"]:
-        names = ["loop-reminder", "quick-check", "secret-guard", "stop-guard", "promote-guard", "deploy-guard", "wave-guard"]
+        names = ["loop-reminder", "quick-check", "secret-guard", "stop-guard", "promote-guard",
+             "deploy-guard", "wave-guard", "outside-read-guard"]
     root = tempfile.mkdtemp(prefix="hookcmp-")
     bad = []
     for n in names:

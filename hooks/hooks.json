@@ -26,6 +26,15 @@
             "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/run-hook.sh secret-guard.py"
           }
         ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/run-hook.sh outside-read-guard.py"
+          }
+        ]
       }
     ],
     "PostToolUse": [

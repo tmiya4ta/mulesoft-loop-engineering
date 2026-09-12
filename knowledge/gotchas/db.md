@@ -110,9 +110,15 @@ select の直後に件数を確認してエラーを上げる。**DataWeave 側�
 `ef,bf,bd` (= U+FFFD、置換文字) になっている — つまり **DB にもアプリにも非は無く、
 投入コマンドの側で既に壊れた値が格納されている**。
 
-**直し方**: `sqlplus` で UTF-8 のテキストを送る前に、DB の `NLS_CHARACTERSET` に合わせて
-`export NLS_LANG=AMERICAN_AMERICA.AL32UTF8` してから実行する (`AL32UTF8` が Oracle の
-UTF-8 文字集合名)。既に壊れた行は再 UPDATE で直す (再投入すれば直る。DDL からの作り直しは不要)。
+**直し方**: `sqlplus` に渡すテキストのエンコーディング (UTF-8 の端末やファイルなら UTF-8) を
+`NLS_LANG` に宣言してから実行する: `export NLS_LANG=AMERICAN_AMERICA.AL32UTF8`
+(`AL32UTF8` が Oracle の UTF-8 の名前)。既に壊れた行は再 UPDATE で直る
+(再投入すれば直る。DDL からの作り直しは不要)。
+
+**ここに書くのは「送る側の文字集合」で、DB の `NLS_CHARACTERSET` ではありません。**
+DB 側への変換は Oracle が行います。DB が別の文字集合 (例: `JA16SJIS`) でも、UTF-8 で送るなら
+宣言は `AL32UTF8` です。**DB の文字集合を書くと、UTF-8 を送っているのにそう宣言しないことになり、
+同じ壊れ方をします** — 端末も DB も UTF-8 の環境では両者が一致するので、区別がつきません。
 
 根拠: inventory3-api T-006 で実測 (Oracle、2026-09-11)。`DUMP()` で全バイト `ef,bf,bd` を確認、
 `NLS_LANG` 設定後の再 UPDATE で正しい日本語が格納されることを確認した。
