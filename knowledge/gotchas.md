@@ -27,7 +27,7 @@ mule-http-connector 1.10.0 / mule-maven-plugin 4.10.1 / Java 17 / CE。
 | MUnit | `gotchas/munit.md` | 15 | `mock-when` が効かない、カバレッジ、`target=`、`default` で牙が無い、**モックが型の不一致を隠す**、APIkit の振り分け flow 直叩き、**`munit:payload` に `output` を付けて `Stream Compatible`**、**main flow は flow-ref で振り分けられない** |
 | エラー処理 | `gotchas/error-handling.md` | 6 | `on-error-continue` の再開位置、`<try>` の中の `error-handler`、`raise-error` できない型、`ANY` の枝 |
 | APIkit と HTTP | `gotchas/apikit-http.md` | 3 | `requestPath` にベースパスが付く、`payload as String` で `Cannot coerce`、検証エラーの文面 |
-| DB コネクタ | `gotchas/db.md` | 8 | SQL が属性で動かない、`db:update` の適用範囲、戻り値の形、**TIMESTAMP の型が DB で違う**、**Oracle の `ORA-12505` / 接続できるのに `ORA-00942`**、`affectedRows`、`payload[0]`、デッドロック |
+| DB コネクタ | `gotchas/db.md` | 9 | SQL が属性で動かない、`db:update` の適用範囲、戻り値の形、**TIMESTAMP の型が DB で違う**、**Oracle の `ORA-12505` / 接続できるのに `ORA-00942`**、`affectedRows`、`payload[0]`、デッドロック、**sqlplus で UTF-8 が壊れる (NLS_LANG)** |
 | DataWeave | `gotchas/dataweave.md` | 4 | `dw validate -f`、`p()` の誤検知、予約語、**`as String` が `.0` を落とす** |
 | 配備 (CloudHub 2.0 / Runtime Fabric) | `gotchas/deploy.md` | 7 | Exchange 経由必須、**1 コマンドで打つと 404**、公開 URL が付かない、properties が消える、RTF のログ、Flex に curl が届かない |
 | API Manager とポリシー | `gotchas/api-manager.md` | 9 | ポリシー適用が効かない (**ゲートウェイで 401 でも upstream が公開なら素通し**)、**ポリシーの設定は検証されない (誤キーでも 201)**、**upstream は末尾スラッシュが要る**、**適用は数秒遅れて効く**、autodiscovery が EE 要求、インスタンスの形、flexGateway の制約、RAML の Exchange publish、**Managed Flex Gateway の公開 URL (インスタンスに無い、ゲートウェイの側にある)** |

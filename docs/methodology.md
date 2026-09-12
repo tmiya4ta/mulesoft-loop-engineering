@@ -91,7 +91,7 @@ deploy の done_when は `smoke-check.py`、policy の done_when は `policy-che
 | 1 | xmllint、`dw validate`、層の越境 grep、done_when 有無、XSD で落ちる形 (`mule-xml-shape.sh`) | 秒 | hook (`scripts/quick-check.py`) が自動 | 構文と規約 |
 | 2 | `mvn -q test -Dmunit.test=<対象ファイル>`、mulex | 十秒 | 実行エージェント | **モックを相手にした** 1 スイート |
 | 3 | `mvn -q test` 全体 | 分 | 進捗エージェント (`done_when`) と CI | **モックを相手にした** 全体 |
-| 4 | 配備先への契約検査 (`scripts/smoke-check.py`、client-id 系ポリシーがあるなら `contract.py smoke`) | 分 | ゲート 2 (PR マージ) の後、Sandbox で。`stage: deploy` のゴールの done_when | **実物** |
+| 4 | 配備先への契約検査 (`scripts/smoke-check.py`、client-id 系ポリシーがあるなら `contract.py smoke`) | 分 | ゲート 2 (PR マージ) の後、Sandbox で。`stage: deploy` のゴールの done_when。**共有の実 DB なら `--idempotent-only`** (非冪等な検査は exit code で判定できず、人が毎回差分を読む検査に戻る) | **実物** |
 
 ループ 1 周が 1 分を超えると人がループを待たずに手で直し始める。段 1 と 2 を速く保つことが採用率を決める。
 
@@ -108,6 +108,7 @@ deploy の done_when は `smoke-check.py`、policy の done_when は `policy-che
 | 3 | 波を配る前 | `preflight.sh` | **1 件も配らない** | 0 = 土台健全 / 2 = git でない、直下 `api/*.raml` がクラスパスに無い、`mvn package` が落ちる。**`scripts/` がプラグインより古いものは名指しで言う (止めない)** |
 | 4 | 書き込みの前 (hook) | `secret-guard.py` | その書き込みを **deny** | 秘密の**値そのもの**が入っていたら deny (値は出力しない) |
 | 5 | 書き込みの前 (hook) | `wave-guard.py` | その書き込みを **deny** | 波で他ゴールに宣言した追記型ファイルなら deny |
+| 5b | **Read の前 (hook)** | `outside-read-guard.py` | その読み取りを **deny** | リポジトリの外にある Mule の設定ファイル (`pom.xml` / `mule-artifact.json` / `settings.xml` / `.mule-deploy.properties`) なら deny。**隣のプロジェクトの組織 ID を写す事故が実際に起きた** (T-001) |
 | 6 | 書き込みのたび (hook) | `quick-check.py` → `mule-xml-shape.sh` | その場で差し戻す | 0 = ok / 2 = 構文、層の越境、`done_when` 欠け、XSD で落ちる形 |
 | 7 | Bash の前 (hook) | `deploy-guard.py` | そのコマンドを **deny** | `authorizations.yaml` と `sandbox.yaml` で allow/deny。本番名は常に deny。**許可があっても target/ の jar が漏れていれば deny** (16 の呼び忘れの保険) |
 | 7b | Bash の前 (hook、プラグイン本体のみ) | `promote-guard.py` | `gh pr create` を **deny** | 19 と 20 が通っていなければ PR を開かせない |
@@ -127,7 +128,7 @@ deploy の done_when は `smoke-check.py`、policy の done_when は `policy-che
 | 19 | 昇格の PR の前 (プラグイン側) | `knowledge-index-check.sh` | PR を開かない | 0 = 索引と実体が一致 (件数まで) |
 | 20 | 昇格の PR の前 (プラグイン側) | `fixtures-check.sh` | 昇格したと言わない | 0 = 弾くべきものを弾き、**正しい形を弾かない** |
 | 21 | 昇格の PR の前 (プラグイン側) | `checks-audit.sh` | PR を開かない | 0 = **この表自身**が実体と一致 (載っているものが実在して呼ばれ、実在する検査が漏れていない) |
-| 22 | 昇格の PR の前 (プラグイン側) | `hooks-check.py` | PR を開かない | 0 = hook 7 本が 34 ケースで決めた判定 (deny / allow / 差し戻し / 無音) を返す。**hook は効かなくなっても誰も気付かない**ので機械が持つ |
+| 22 | 昇格の PR の前 (プラグイン側) | `hooks-check.py` | PR を開かない | 0 = hook 8 本が 43 ケースで決めた判定 (deny / allow / 差し戻し / 無音) を返す。**hook は効かなくなっても誰も気付かない**ので機械が持つ |
 
 **4、5、7、7b、14 は hook で、エージェントが忘れても走ります。** それ以外は手順書が呼びます。
 ただし **hook はセッション開始時の cache から読まれるので、入れた hook はその日は効きません**

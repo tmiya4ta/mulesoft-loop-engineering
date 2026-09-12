@@ -44,6 +44,16 @@ dry = False
 no_basepath = "--no-basepath" in argv
 argv = [a for a in argv if a != "--no-basepath"]
 
+# `--idempotent-only`: **何度実行しても同じ結果になるケースだけ**を回す (GET / HEAD)。
+# 実データを書き換えるケース (PUT / POST / DELETE) は、配置先が**共有の実 DB** だと
+# 1 回目と 2 回目で結果が変わります。数量が実値化し、楽観ロックが 409 を返し、検索の件数が動く。
+# **そうなると done_when が exit code で判定できなくなり、人が毎回差分を読む検査に戻ります**
+# (実測: inventory3-api T-006。exit 1 のまま「前回と同じ分類だから passed」と人が判断していた)。
+# 書き込みの正しさは MUnit (mock なので決定的) が持ち、**配置先で確かめたいのは接続・経路・変換**
+# なので、GET だけでも目的は果たせます。`stage: deploy` の done_when にはこちらを使ってください。
+idempotent_only = "--idempotent-only" in argv
+argv = [a for a in argv if a != "--idempotent-only"]
+
 # **client-id-enforcement が付いた API には、契約を持つ資格情報が要る。** 無いと全件 401 になり、
 # 「アプリが壊れている」のか「契約が無いだけ」なのか区別できない (v0.6.49 まで、ゲートウェイ経由では
 # このスクリプトを使えませんでした)。policy-check.sh と同じ規約で **環境変数から**読む
@@ -169,6 +179,7 @@ def http(method, url, headers, body):
 
 
 n = 0
+skipped = 0
 fail = 0
 pathlib.Path("knowledge").mkdir(exist_ok=True)
 for inp in sorted(pathlib.Path("samples").glob("*/*.in.json")):
@@ -252,6 +263,11 @@ for inp in sorted(pathlib.Path("samples").glob("*/*.in.json")):
             print(f"  expected: {body_s}  (status を持たない古い形)")
         continue
 
+    if idempotent_only and method not in ("GET", "HEAD"):
+        skipped += 1
+        print(f"{'skip(非冪等)':<14} {res + '/' + case:<30} {method}")
+        continue
+
     code, body = http(method, base + path, headers, reqbody)
     try:
         got = json.loads(body)
@@ -284,4 +300,14 @@ for inp in sorted(pathlib.Path("samples").glob("*/*.in.json")):
 if n == 0:
     print("smoke-check: samples/ にケースがありません", file=sys.stderr)
     sys.exit(2)
+if idempotent_only:
+    ran = n - skipped
+    print(f"smoke-check: 冪等な {ran} 件を回しました (非冪等の {skipped} 件は飛ばした)")
+    if ran == 0:
+        # **全部飛ばして exit 0 を返さない。** 0 件の成功は成功ではありません。
+        print("smoke-check: 冪等なケースが 1 件もありません。--idempotent-only では検査になりません。",
+              file=sys.stderr)
+        print("  GET のサンプルを 1 件足すか、--idempotent-only を外して人が差分を読んでください。",
+              file=sys.stderr)
+        sys.exit(2)
 sys.exit(fail)
