@@ -137,12 +137,13 @@ hooks/hooks.json  起動は scripts/run-hook.sh（python3 / python / py -3 の�
                   書き込みの前: scripts/secret-guard.py（秘密の値そのものがファイルに入るのを弾く）
                   PR の前:     scripts/promote-guard.py（索引・fixtures・検査の表が通っていなければ gh pr create を弾く）
                   編集の前:   scripts/wave-guard.py（波で他ゴールに宣言したファイルを進捗エージェントに触らせない）
+                  Read の前:  scripts/outside-read-guard.py（リポジトリの外にある pom.xml / mule-artifact.json / settings.xml を読ませない。別の組織の値を写す事故が実際に起きた）
                   編集のたび: scripts/quick-check.py（数秒の検証）
                               └ scripts/mule-xml-shape.sh（XSD で落ちる形。台帳の指紋だけ）
                   毎ターン:   scripts/loop-reminder.py（規律の注入）
                   応答の最後: scripts/stop-guard.py（3 ブロックで締めていない、または
                               まだ進められるゴールがある(goal-state.sh)なら 1 回差し戻す）
-scripts/hooks-check.py  hook 7 本が決めた入力に決めた判定を返すかの自動テスト（34 ケース）
+scripts/hooks-check.py  hook 8 本が決めた入力に決めた判定を返すかの自動テスト（43 ケース）
 knowledge/fixtures/  hook が本当に弾くかを確かめる最小の入力（bash scripts/fixtures-check.sh）
 knowledge/mule-basics.md  索引。実行エージェントは索引を読み、これから触る主題だけを開く
 knowledge/basics/*.md  Mule の基礎知識（主題別 10 ファイル、1 項目 1 事実）
@@ -223,6 +224,46 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.51</b> — 隣のリポジトリの `pom.xml` を読むのを機械で止める。**非冪等な smoke は `done_when` にできない**</summary>
+
+利用者のリポジトリのセッションが、片付けの過程で 2 つ預けてくれました。どちらも実在する穴でした。
+
+### 1. リポジトリの外の設定ファイルを読むのを止める (`outside-read-guard.py`)
+
+CLAUDE.md には「このリポジトリの外の設定値を写さない」と理由つきで書いてあるのに、**実際に起きました**
+(T-001 で、コネクタの GAV を確かめるつもりで隣のプロジェクトの `pom.xml` を直接 Read)。今回はたまたま
+同じ組織だったので実害はありませんでしたが、隣の `pom.xml` には**別の組織の**組織 ID と接続先が
+書いてあり、「実例を確認する」つもりで写すと**別の組織に publish します**。
+
+報告してくれたセッションは「汎用の Read guard は正当な用途 (人が指示した資格情報ファイルなど) を
+誤って止める」と懸念して hook 化を保留していました。**その懸念はそのとおりなので、止めるものを
+名前で絞りました**: `pom.xml` / `mule-artifact.json` / `settings.xml` / `.mule-deploy.properties` だけ。
+文書もログも資格情報ファイルも通します。通す場所はリポジトリの中とプラグインの中の 2 つだけ。
+
+### 2. `smoke-check.py --idempotent-only`
+
+配置先が**共有の実 DB** だと、実データを書き換えるケース (PUT / POST / DELETE) は 1 回目と 2 回目で
+結果が変わります (数量の実値化、楽観ロックの 409、検索の件数)。**そうなると `done_when` が exit code
+で判定できなくなり、人が毎回差分を読む検査に戻ります** — 実測では、`exit 1` のまま「前回と同じ分類
+だから」で `passed` にしていました。**検査が牙を失っても、緑に見えます。**
+
+`--idempotent-only` は GET / HEAD だけを回します。書き込みの正しさは MUnit (mock なので決定的) が
+持ち、配置先で確かめたいのは接続・経路・変換なので、GET だけでも目的は果たせます。
+**冪等なケースが 1 件も無ければ `exit 2`** です — 0 件の成功は成功ではありません。
+
+### この版で踏んだ事故 (正直に記録)
+
+この 2 つを作っている最中に PR #10 (Oracle の `NLS_LANG`) が来たので、その PR ブランチで
+記述の誤りを 1 行直し、**`git add -A` して commit しました。その結果、作業中だった上の変更が
+まるごと PR に混入し、squash merge で main に入りました。** 中身はどれも意図したものなので実害は
+ありませんが、PR の履歴は「gotcha 1 件」ではなく 8 ファイルの変更になっています。
+
+**PR のブランチに切り替える前に、作業中の変更を commit か stash する。** `git add -A` は、
+いまいるブランチが何かを見ません。
+
+</details>
 
 <details>
 <summary><b>v0.6.50</b> — ゲートウェイ + 契約でも **samples 全件を回せる** ようにした (`contract.py smoke`)</summary>

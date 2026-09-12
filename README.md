@@ -139,12 +139,13 @@ hooks/hooks.json  Launched via scripts/run-hook.sh (finds python3 / python / py 
                   Before a write:  scripts/secret-guard.py (denies a secret's own value entering a file)
                   Before a PR:     scripts/promote-guard.py (denies gh pr create until the index, fixtures and check table pass)
                   Before an edit:  scripts/wave-guard.py (keeps the dispatcher off files it assigned to a goal)
+                  Before a Read:   scripts/outside-read-guard.py (blocks pom.xml / mule-artifact.json / settings.xml outside the repo — copying another org's values actually happened)
                   On every edit: scripts/quick-check.py (seconds-long validation)
                               └ scripts/mule-xml-shape.sh (shapes that fail XSD; ledger fingerprints only)
                   Every turn:    scripts/loop-reminder.py (re-inject the discipline)
                   End of reply:  scripts/stop-guard.py (bounce once if not closed in 3 blocks,
                                  or if a goal can still advance per goal-state.sh)
-scripts/hooks-check.py  Automated test: do the 7 hooks return the decided verdict for the decided input (34 cases)
+scripts/hooks-check.py  verifies all 8 hooks return the decided verdict for decided inputs (43 cases)
 knowledge/fixtures/  Minimal inputs proving each hook actually denies (bash scripts/fixtures-check.sh)
 knowledge/mule-basics.md  Index over basics/; executors read the index, then the one topic they touch
 knowledge/basics/*.md  Mule basics distilled from two loops and the user's skill, one file per topic (10)
@@ -228,6 +229,47 @@ names the missing prerequisite. If something does not work, PR it to the plugin 
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.51</b> — Reading a neighbouring repo's `pom.xml` is now blocked by machine. **A non-idempotent smoke cannot be a `done_when`**</summary>
+
+A session working in the user's own repo handed over two findings while wrapping up. Both were real.
+
+### 1. Block reads of config files outside the repo (`outside-read-guard.py`)
+
+CLAUDE.md says "never copy settings from outside this repo" and explains why — and it **happened anyway**
+(T-001: an executor read a sibling project's `pom.xml` to check a connector GAV). It was the same org this
+time, but a neighbouring `pom.xml` carries **another organization's** org id and endpoints, and copying it
+"just to see a real example" **publishes into that other organization**.
+
+The reporting session held off on a hook because "a general Read guard would wrongly block legitimate uses
+(a credentials file the human pointed at)". **That concern is right, so the guard is narrowed by name**:
+`pom.xml` / `mule-artifact.json` / `settings.xml` / `.mule-deploy.properties` only. Documents, logs and
+credential files all pass. Two locations are allowed: inside the repo, and inside the plugin.
+
+### 2. `smoke-check.py --idempotent-only`
+
+Against a **shared live database**, cases that write (PUT / POST / DELETE) give different results on the
+second run (quantities become real values, optimistic locking returns 409, search counts move). **The
+`done_when` then stops being decidable by exit code and becomes a human reading a diff every time** — as
+measured, it sat at `exit 1` and was marked `passed` because "the categories match last time".
+**A check can lose its teeth and still look green.**
+
+`--idempotent-only` runs GET / HEAD only. Writes are covered by MUnit (deterministic, mocked); what the
+deployment target adds is connectivity, routing and transformation, which GETs measure fine.
+**If no idempotent case exists, it exits 2** — zero successes is not success.
+
+### An accident in this release (recorded honestly)
+
+While building those two, PR #10 (Oracle `NLS_LANG`) arrived. Fixing one wrong line on that PR branch, I
+ran **`git add -A` and committed — which swept the in-progress work above into the PR, and squash-merged
+it into main.** Nothing landed that was not intended, but the PR's history now shows 8 changed files
+rather than a one-gotcha change.
+
+**Commit or stash in-progress work before switching to a PR branch.** `git add -A` does not check which
+branch you are on.
+
+</details>
 
 <details>
 <summary><b>v0.6.50</b> — All of `samples/` can now be run through a gateway **with a contract** (`contract.py smoke`)</summary>
