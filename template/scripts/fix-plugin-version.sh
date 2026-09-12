@@ -11,7 +11,10 @@ minor=$(printf '%s' "$rt" | cut -d. -f2)
 want=4.10.1                              # Studio 4.12 が使う版。4.12 系で動作確認済み
 [ "${minor:-0}" -lt 10 ] && want="$cur"  # 4.9 以下は CLI の既定のままでよい
 if [ -n "$cur" ] && [ "$cur" != "$want" ]; then
-  sed -i "s|<mule.maven.plugin.version>$cur<|<mule.maven.plugin.version>$want<|" "$pom"
+  # `sed -i` は macOS (BSD sed) では `-i ''` が要るので、一時ファイル経由にする (どの OS でも動く)
+  tmp=$(mktemp)
+  sed "s|<mule.maven.plugin.version>$cur<|<mule.maven.plugin.version>$want<|" "$pom" > "$tmp" && cat "$tmp" > "$pom"
+  rm -f "$tmp"
   echo "mule-maven-plugin: $cur → $want (Mule $rt に合わせて更新)"
 else
   echo "mule-maven-plugin: $cur のまま (Mule $rt)"

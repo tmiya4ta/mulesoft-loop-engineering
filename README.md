@@ -204,9 +204,52 @@ export ANYPOINT_REGION=PROD_JP
 | `gh` | PR creation becomes manual |
 | MuleSoft Enterprise Maven credentials | MUnit **coverage percentage** does not work (an EE-only feature). `scripts/coverage-check.sh` then guarantees only that every flow is reached — branches inside a flow stay invisible |
 
+### Per-OS prerequisites
+
+The scripts assume **bash + python3 + jq + curl + git** only (no Node). `bash scripts/preflight.sh` checks those
+four before a wave and stops, naming what is missing.
+
+| OS | Prerequisites |
+|---|---|
+| Linux | Works as is (development and testing happen here) |
+| macOS | bash 3.2 and BSD sed are the defaults. **`sed -i` and GNU-only extensions are not used** (two were fixed in v0.6.43). `jq` via `brew install jq` |
+| Windows | **Git for Windows is required.** Claude Code uses the Bash tool only when Git Bash is present; without it it falls back to PowerShell and `.sh` hooks do not run ([setup](https://code.claude.com/docs/en/setup)). `jq` and `python3` are not in Git Bash — install them separately (`winget install jqlang.jq` / Python). Dependencies on `unzip` and `timeout` were removed (v0.6.43) |
+
+**Windows and macOS have not been exercised on real machines.** What is guaranteed today is that `preflight.sh`
+names the missing prerequisite. If something does not work, PR it to the plugin via `/mule-learn`.
+
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.43</b> — Five constructs that break on Windows / macOS, fixed (only looked after being asked)</summary>
+
+Asked "does this actually work on Windows?", it turned out the README claimed "bash + python3 + jq" as the
+premise **without ever having run it there**. With no machine to test on, the next best thing was done instead:
+**a mechanical sweep of every external command the scripts call and every GNU-only construct.** Five were found.
+
+| Fixed | What was happening |
+|---|---|
+| `jar-leak-check.sh` used `unzip` and **exited 0 when it was missing** | Git for Windows does not ship `unzip`. **The last check before publish was silently passing** in some environments. A jar is a zip, so it now reads it with python3's `zipfile` (as `schema-index.sh` does) and exits 2 when it cannot check |
+| `bump-version.sh`'s `sed -i "0,/re/s//../"` | `-i` needs an argument on BSD sed (macOS) and the `0,/re/` address is GNU-only. **On macOS the version never bumped** — and Exchange refuses to overwrite the same version, so the deploy stalls there. Replaced with a python3 substitution |
+| `fix-plugin-version.sh`'s `sed -i` | Same. Now goes through a temp file |
+| `teeth-check.sh`'s `timeout 900 mvn ...` | On Windows the PATH picks up **a completely different `timeout.exe`** from System32 (which just waits N seconds). GNU `timeout` is now used only when present |
+| `hooks.json` commands were bare `.sh` paths | Changed to `bash ${CLAUDE_PLUGIN_ROOT}/scripts/*.sh`, matching the official docs' example (no dependence on the exec bit or shebang handling) |
+
+**`preflight.sh` now checks the prerequisites.** If `python3` / `jq` / `curl` / `git` is missing it names it, prints
+the per-OS install command and stops (measured with a PATH that had jq removed).
+
+Every fix was exercised for real: `bump-version.sh` went 1.0.4 → 1.0.5 → 1.0.6 touching only the right element
+(XML still valid), `fix-plugin-version.sh` rewrote 4.7.0 → 4.10.1, and `jar-leak-check.sh` produced **the same
+listing as the old `unzip` version** for a purpose-built zip containing `META-INF/mule-src/`, rejecting a
+git-ignored file with exit 2.
+
+The README gained a per-OS prerequisites table and now states plainly that **Windows and macOS have not been
+exercised on real machines** (Windows needs Git for Windows; without it Claude Code falls back to PowerShell and
+`.sh` hooks do not run).
+
+</details>
 
 <details>
 <summary><b>v0.6.42</b> — Finding, configuring, applying and removing policies is now a skill (`mule-policy`)</summary>

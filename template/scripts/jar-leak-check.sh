@@ -27,13 +27,29 @@ if [ "$#" -gt 0 ]; then jars=("$@")
 else for j in target/*.jar; do [ -f "$j" ] && jars+=("$j"); done; fi
 [ "${#jars[@]}" -gt 0 ] || { echo "jar-leak-check: jar がありません (mvn package の前?)" >&2; exit 0; }
 
-command -v unzip >/dev/null 2>&1 || { echo "jar-leak-check: unzip が無いので検査できません" >&2; exit 0; }
+# **jar の中身は python3 の zipfile で読みます** (jar は zip)。`unzip` は Git for Windows に
+# 入っていないことがあり、以前は「unzip が無いので検査できません」と言って **exit 0** していました。
+# publish 直前の最後の検査が、環境によって黙って素通りしていたということです。**検査できないなら
+# 通さない** (exit 2) に変えました。python3 はこのプラグインの前提です (schema-index.sh と同じ読み方)。
+command -v python3 >/dev/null 2>&1 || { echo "jar-leak-check: python3 が無いので検査できません (配る前に人が確かめてください)" >&2; exit 2; }
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "jar-leak-check: git の外なので判定できません" >&2; exit 0; }
 
 rc=0
 for j in "${jars[@]}"; do
   # mule-src の中身をリポジトリ相対パスに直す (META-INF/mule-src/<アプリ名>/<相対パス>)
-  paths=$(unzip -Z1 "$j" 2>/dev/null | sed -n 's|^META-INF/mule-src/[^/]*/||p' | grep -v '/$' || true)
+  paths=$(python3 - "$j" <<'PY' 2>/dev/null || true
+import sys, zipfile
+try:
+    with zipfile.ZipFile(sys.argv[1]) as z:
+        for n in z.namelist():
+            if n.startswith("META-INF/mule-src/") and not n.endswith("/"):
+                rest = n[len("META-INF/mule-src/"):].split("/", 1)
+                if len(rest) == 2 and rest[1]:
+                    print(rest[1])
+except Exception:
+    pass
+PY
+)
   if [ -z "$paths" ]; then
     echo "jar-leak-check: $(basename "$j") に META-INF/mule-src/ は無い (attachMuleSources 無し)"
     continue

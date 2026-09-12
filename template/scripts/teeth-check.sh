@@ -71,7 +71,10 @@ backup=$(mktemp); cp "$file" "$backup"
 restore() { cp "$backup" "$file"; rm -f "$backup"; }
 trap restore EXIT INT TERM
 
-run() { timeout 900 mvn -q clean test -Dmunit.test="$munit" 2>&1; }
+# `timeout` は Windows (Git Bash) では GNU のものが無く、PATH の System32 にある
+# **別物の timeout.exe** (指定秒だけ待つコマンド) が当たって壊れます。GNU のものがあるときだけ使う。
+if timeout --version >/dev/null 2>&1; then TIMEOUT="timeout 900"; else TIMEOUT=""; fi
+run() { $TIMEOUT mvn -q clean test -Dmunit.test="$munit" 2>&1; }
 
 # (2) 細工前は緑か。赤いまま細工しても、赤い理由が細工とは限らない。
 if [ "$skip_baseline" -eq 0 ]; then

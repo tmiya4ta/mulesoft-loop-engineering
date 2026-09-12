@@ -14,6 +14,22 @@ set -u
 
 [ -f pom.xml ] || { echo "preflight: pom.xml が無い (/mule-init が済んでいない)" >&2; exit 2; }
 
+# **このプラグインのスクリプトが前提にしているコマンド。** 無いと、スクリプトごとに違う場所で
+# 違う顔をして落ちます (jq が無いと空文字が流れて「見つからない」と嘘をつく形になる)。
+# ここで 1 回、名前を挙げて言います。**Windows は Git for Windows の bash が前提**で、
+# jq と python3 は別に入れる必要があります (Git Bash には入っていません)。
+missing=""
+for c in python3 jq curl git; do command -v "$c" >/dev/null 2>&1 || missing="$missing $c"; done
+if [ -n "$missing" ]; then
+  {
+    echo "preflight: 前提のコマンドが無い:$missing"
+    echo "  入れ方 (例): macOS  brew install jq python3"
+    echo "               Windows  winget install jqlang.jq / Python.Python.3.12  (bash は Git for Windows)"
+    echo "               Linux    apt install jq python3 curl"
+  } >&2
+  exit 2
+fi
+
 # **git であることを最初に確かめる。** このループの仕掛けの多くは git が無いと
 # エラーも警告も出さずに no-op になる。根拠はコードそのもの: wave-guard.sh は git の外では
 # 設計として exit 0 で素通りし (worktree を誤爆しないため)、worktree 隔離は作れず、

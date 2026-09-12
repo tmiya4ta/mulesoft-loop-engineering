@@ -199,9 +199,51 @@ export ANYPOINT_REGION=PROD_JP
 | `gh` | PR 作成が手動になる |
 | MuleSoft Enterprise の Maven 認証 | MUnit の**カバレッジ率**計測が動かない（EE 限定機能）。`scripts/coverage-check.sh` が全 flow の到達だけを保証する（flow 内の分岐は見えない） |
 
+### OS ごとの前提
+
+スクリプトは **bash + python3 + jq + curl + git** だけを前提にしています（Node は使いません）。
+`bash scripts/preflight.sh` が波の前にこの 4 つを確かめ、無ければ名前を挙げて止まります。
+
+| OS | 前提 |
+|---|---|
+| Linux | そのまま動く（開発とテストはここで行っています） |
+| macOS | bash 3.2 と BSD 版の sed が既定。**`sed -i` と GNU 拡張は使っていません**（v0.6.43 で 2 件直した）。`jq` は `brew install jq` |
+| Windows | **Git for Windows が必要**です。Claude Code は Git Bash があるときだけ Bash ツールを使い、無ければ PowerShell に落ちて `.sh` の hook が動きません（[setup](https://code.claude.com/docs/en/setup)）。`jq` と `python3` は Git Bash に入っていないので別に入れる（`winget install jqlang.jq` / Python）。`unzip` と `timeout` への依存は外しました（v0.6.43） |
+
+**Windows と macOS では実機で動かしていません。**`preflight.sh` が前提を名指しするところまでが今の保証です。
+動かないものを見つけたら、`/mule-learn` でプラグインへ PR してください。
+
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.43</b> — Windows / macOS で落ちる書き方を 5 件直した (聞かれて初めて調べた)</summary>
+
+「Windows で動くんだっけ？」と聞かれて、**動かしたことが無いのに「bash + python3 + jq が前提」と
+README に書いていた**ことに気付きました。実機は無いので、代わりに**スクリプトが呼ぶ外部コマンドと
+GNU 限定の書き方を機械で洗い出し**ました。5 件見つかりました。
+
+| 直したもの | 何が起きていたか |
+|---|---|
+| `jar-leak-check.sh` が `unzip` を使い、**無ければ exit 0** | Git for Windows に `unzip` は入っていません。**publish 直前の最後の検査が、環境によっては黙って素通り**していました。jar は zip なので python3 の `zipfile` で読むように変え (`schema-index.sh` と同じ)、読めないときは exit 2 (通さない) にしました |
+| `bump-version.sh` の `sed -i "0,/re/s//../"` | `-i` は BSD sed (macOS) では引数が要り、`0,/re/` のアドレスは GNU sed にしかありません。**macOS では版が上がりません** (Exchange は同一版を上書きできないので、そこで詰まる)。python3 での置換に変えました |
+| `fix-plugin-version.sh` の `sed -i` | 同上。一時ファイル経由に変えました |
+| `teeth-check.sh` の `timeout 900 mvn ...` | Windows では PATH の System32 にある**別物の `timeout.exe`** (指定秒待つコマンド) が当たります。GNU の `timeout` があるときだけ使うようにしました |
+| `hooks.json` の `command` が `.sh` のパスだけ | 公式ドキュメントの例に合わせて `bash ${CLAUDE_PLUGIN_ROOT}/scripts/*.sh` の形にしました (実行ビットとシェバングの扱いに依存しない) |
+
+**`preflight.sh` に前提コマンドの検査を足しました。** `python3` / `jq` / `curl` / `git` が無ければ、
+名前を挙げて OS ごとの入れ方を出して止まります (jq だけ消した PATH で実測)。
+
+直したものは実物で確かめました: `bump-version.sh` は 1.0.4 → 1.0.5 → 1.0.6 と正しい要素だけを上げ
+(XML も妥当)、`fix-plugin-version.sh` は 4.7.0 → 4.10.1 に書き換え、`jar-leak-check.sh` は
+`META-INF/mule-src/` を持つ zip を作って**旧 `unzip` 版と同じ一覧**を返し、`.gitignore` 済みの
+ファイルを exit 2 で弾きました。
+
+README に OS ごとの前提の表を足し、**Windows と macOS は実機で動かしていない**と明記しました
+(Windows は Git for Windows が必要。無いと Claude Code は PowerShell に落ち、`.sh` の hook は動きません)。
+
+</details>
 
 <details>
 <summary><b>v0.6.42</b> — ポリシーの探し方・設定キー・付け方・外し方をスキルにした (`mule-policy`)</summary>
