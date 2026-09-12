@@ -85,6 +85,11 @@ Skill ツールで `mattpocock-skills:grilling` と `mattpocock-skills:domain-mo
 
 - `api/<name>.raml` の差分 (新規なら全文)。
 - `samples/<resource>/<case>.in.json` と `.out.json` のペア。正常 1 件、失敗 1 件以上。
+  **入力は結果が 1 つに決まる形にする。** サンプルは MUnit (mock) だけでなく**配置先の実 DB にも
+  当てます** (`smoke-check.py`)。「条件に合う行を全部返す」形の入力は、**実データが増減するたびに
+  期待値とズレて落ちます** — しかも落ちた理由が退行なのかデータの変化なのか区別できません
+  (実測: 検索のサンプルが `totalCount 1 → 2` で落ち、原因を追うのに往復した)。
+  特定の ID やコードで 1 件に絞る、件数を期待値に入れない、そのケース専用の行を使う。
 - `src/test/munit/<resource>-test.xml`。`${CLAUDE_PLUGIN_ROOT}/template/reference/resource-test.xml` と同じ形で、samples を流して out と比較する **本物のテスト**。正常系・失敗系・境界の全ケースを書き、**そのゴールで作る flow が 1 つ残らず MUnit から flow-ref される** ようにする (`scripts/coverage-check.sh` が判定)。この時点で `mvn -q test -Dmunit.test=<resource>-test.xml` が **失敗する** ことを確認する (TDD の Red)。実装は実行ループが Green にする。
 - RAML の草稿には MCP `generate_api_spec` を使ってよい。`api-spec-validator` があれば通す。既存 API との重複は MCP `search_asset` か `platform-assistant` で自分で調べる。
 

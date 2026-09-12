@@ -231,6 +231,27 @@ names the missing prerequisite. If something does not work, PR it to the plugin 
 ## Release notes
 
 <details>
+<summary><b>v0.6.53</b> — Acceptance samples must not depend on live data; changing the **input** needs human approval</summary>
+
+Both categories from v0.6.52 were handled for real (`--idempotent-only` + `.smoke-skip` → `exit 0`).
+Along the way, something that **should have been prevented much earlier** became clear.
+
+**Samples are run against the live database too, not only against MUnit's mocks.** An input shaped as
+"return every row matching this" therefore **drifts from its expectation every time the data moves** — and
+a failure can no longer be told apart from a regression (measured: a search sample failed on
+`totalCount 1 → 2`, and tracing why took several round trips). `/mule-start`'s acceptance step now says
+to **shape inputs so the result is uniquely determined** (filter by a specific id or code, keep counts out
+of expectations, use a row owned by that case).
+
+Also: **changing `in.json` requires human approval.** "Never change the expectation" is about `out.json`,
+and an input is not that — but it *is* the acceptance criterion, so it is not an agent's call. The session
+working on the live repo decided that on its own and got approval before editing. **Its judgment was
+better than the written rule**, so the rule was brought in line (`docs/methodology.md` principle 2 and
+`template/CLAUDE.md`).
+
+</details>
+
+<details>
 <summary><b>v0.6.52</b> — **Idempotence is not decided by the method.** The two reasons a case fails need different treatment (`.smoke-skip`)</summary>
 
 v0.6.51's `--idempotent-only` was run for real, and **two cases still failed.** The report was precise

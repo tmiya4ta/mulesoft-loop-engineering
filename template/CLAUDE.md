@@ -9,7 +9,7 @@ name: __NAME__
 - 用語は `CONTEXT.md` の用語集に従う。無い語は勝手に作らず、そこに足す。
 - フローは `src/main/mule/` に 1 リソース 1 ファイル。共通のエラーハンドラは `global.xml`。
 - 変換は `src/main/resources/dwl/` に置き、必ず対の MUnit を `src/test/munit/` に書く。
-- `samples/<resource>/<case>.in.json` と `.out.json` が受け入れ条件。**期待値は変えない。**
+- `samples/<resource>/<case>.in.json` と `.out.json` が受け入れ条件。**期待値は変えない。**入力条件 (`in.json`) を変えるのは受け入れ条件の変更なので、**人の承認を得てから**行う。
 - 層の責務 (`kind: api` のときだけ。`batch` / `mcp` は層分けの対象外):
   - system: 外部システム 1 つを包む。ビジネスロジックを持たない。
   - process: system API だけを呼ぶ。DB / SAP / Salesforce コネクタを直接使わない。
