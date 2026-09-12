@@ -100,6 +100,7 @@ deploy の done_when は `smoke-check.py`、policy の done_when は `policy-che
 | 15 | 配る前 | `deploy-config.sh` → `bump-version.sh` | 置かない | pom に設定と `businessGroupId`、版を上げる |
 | 16 | **`mvn clean package` の後、`mvn deploy` の前** | `jar-leak-check.sh` | **publish しない** | 0 = ok / 2 = git が無視しているファイルが jar に入っている。**publish 後では取り返せない** |
 | 17 | 置いたあと (`/mule-deploy` の手順 5、**および `stage: deploy` ゴールの `done_when`**) | `smoke-check.py` (段 4) | 完了にしない | 0 = 全ケースで status と body が一致 |
+| 17b | 置いたあと (**`ingress: gateway` のとき の `stage: deploy` ゴールの `done_when`**) | `app-status.py` | 完了にしない | 0 = RUNNING / 1 = それ以外。公開 URL を付けない構成では外から疎通できないのが正しいので、ここは「動いているか」で判定する |
 | 18 | **`stage: policy` ゴールの `done_when`** (実行エージェントが回す。`/mule-deploy` の手順には無い) | `policy-check.sh` | ゴールを `passed` にしない | 認証なし 401 / あり 2xx |
 | 19 | 昇格の PR の前 (プラグイン側) | `knowledge-index-check.sh` | PR を開かない | 0 = 索引と実体が一致 (件数まで) |
 | 20 | 昇格の PR の前 (プラグイン側) | `fixtures-check.sh` | 昇格したと言わない | 0 = 弾くべきものを弾き、**正しい形を弾かない** |

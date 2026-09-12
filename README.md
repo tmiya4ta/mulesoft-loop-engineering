@@ -169,6 +169,8 @@ template/         What /mule-init distributes:
                   portal-search.py (from a field name, find the Platform API operation that returns it),
                   anypoint-api.py (GET-only Platform API caller; fills {org} {env}, --find searches the response),
                   gateway-public-url.py (the outside URL of an API deployed to a Flex Gateway),
+                  env-probe.py (lists environments, deploy targets and Flex Gateways, and the sandbox.yaml block to fill),
+                  app-status.py (is the deployed app RUNNING? the deploy goal's done_when when ingress: gateway),
                   policy.py (find / config / list / apply / remove policies; writes need the authorizations.yaml grant)
 .mcp.json         MuleSoft DX MCP Server (stdio) + Platform MCP Server (http)
 docs/methodology.md  The method, the 4 validator tiers, **the ordered check list (20, numbered)**
@@ -223,6 +225,44 @@ names the missing prerequisite. If something does not work, PR it to the plugin 
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.45</b> — **Always ask whether to attach a public endpoint** before deploying (`ingress`). The environment is read by machine, up front</summary>
+
+The "401 through the gateway, but 200 without auth on the app's own public URL" found in inventory3-api came
+from **the procedure attaching a public endpoint by default**. Putting a gateway in front afterwards does not
+help: the app URL stays alive, so the gateway can be bypassed. **The mistake was never offering the choice**,
+so now there is one.
+
+**`sandbox.yaml` gained `ingress`.** It defaults to `unknown`, and **deployment does not proceed while it is.**
+
+| `ingress` | What happens | When |
+|---|---|---|
+| `public` | The app gets a public URL you can call directly | Quick to run. Nothing to protect with policies |
+| `gateway` | The app gets **no** public URL; only through a Flex Gateway | Policies must bite. **Only this one has no bypass** |
+
+`deploy-precheck.sh` rejects the undecided state, and lists the gateway name as a question when
+`ingress: gateway` has an empty `gateway:`.
+
+**`scripts/env-probe.py` (new) — "do we even have a Flex Gateway?" is now read by machine.**
+Three GETs list the environments (including which is production), the deploy targets (shared space /
+private space / RTF, with the Mule versions each supports) and that environment's Flex Gateways
+(managed / self-managed, running or not), then print **the `sandbox.yaml` block to fill** and **the questions to
+ask in one round**. With no gateway it says "only `public` is available today". `/mule-init` step 5d runs it, so
+this is asked **at the start** instead of moments before a deploy (measured: not asking cost T-006 five rounds).
+
+**The `ingress: gateway` path is wired end to end.**
+
+| Added | Why |
+|---|---|
+| `ch2-public-url.py --remove` | Removes an existing public URL, re-reads to confirm it is gone, and says so when it is not |
+| `app-status.py` (new) | With no public URL, **being unreachable from outside is correct**, so the deploy goal's `done_when` asks "is it RUNNING" instead (check 17b). Works without `anypoint-cli` |
+| `smoke-check.py --no-basepath` | Do not append RAML's `/api` when hitting a gateway URL (the upstream already contains it, so appending gives `/api/api` and 404s everything) |
+
+`/mule-deploy` branches steps 3 and 5 on `ingress`. `/mule-run` picks the deploy goal's `done_when` from
+`ingress`, and refuses to dispatch while it is `unknown`.
+
+</details>
 
 <details>
 <summary><b>v0.6.44</b> — Hooks and the API tools are now Python (no more jq). **The hooks finally have automated tests**</summary>

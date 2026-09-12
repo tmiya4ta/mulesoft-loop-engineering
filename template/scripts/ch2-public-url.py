@@ -5,7 +5,13 @@
 Application Manager の API で deploymentSettings.generateDefaultPublicUrl を立てる。
 
 使い方: python3 scripts/ch2-public-url.py <app-name> <environment-name>
+        python3 scripts/ch2-public-url.py --remove <app-name> <environment-name>
         (環境変数 ANYPOINT_CLIENT_ID / ANYPOINT_CLIENT_SECRET)
+
+`--remove` は**アプリの公開 URL を外します** (`sandbox.yaml` の `ingress: gateway` のとき)。
+公開 URL が残ったままゲートウェイを前に置くと、**ゲートウェイを迂回してアプリを直接叩けます** —
+ポリシーは効いていないのと同じです (inventory3-api で実測: ゲートウェイ経由は 401、アプリの
+公開 URL は認証なしで 200)。外したあと実際に消えたかを読み直して確かめ、消えなければそう言います。
 
 v0.6.44 で bash + curl + jq から Python (標準ライブラリだけ) にした。挙動は同じ。
 """
@@ -39,9 +45,12 @@ def http(method, path, token=None, body=None):
         return {}
 
 
-if len(sys.argv) < 3:
-    die("使い方: ch2-public-url.py <app-name> <environment-name>")
-app, envname = sys.argv[1], sys.argv[2]
+args = sys.argv[1:]
+remove = "--remove" in args
+args = [a for a in args if a != "--remove"]
+if len(args) < 2:
+    die("使い方: ch2-public-url.py [--remove] <app-name> <environment-name>")
+app, envname = args[0], args[1]
 
 try:
     pom = open("pom.xml", encoding="utf-8", errors="ignore").read()
@@ -71,8 +80,36 @@ dep = next((i["id"] for i in items if i.get("name") == app), None)
 if not dep:
     die(f"デプロイ {app} が見つかりません")
 
+def public_url_of(dep_json):
+    ds = (dep_json.get("target") or {}).get("deploymentSettings") or {}
+    return ((ds.get("http") or {}).get("inbound") or {}).get("publicUrl") or ""
+
+
 cur = http("GET", f"{base}/{dep}", tok)
-url = (((cur.get("target") or {}).get("deploymentSettings") or {}).get("http") or {}).get("inbound", {}).get("publicUrl") or ""
+url = public_url_of(cur)
+
+if remove:
+    if not url:
+        print(f"ch2-public-url: {app} に公開 URL はありません (ゲートウェイ経由だけの状態)")
+        sys.exit(0)
+    t = cur.get("target") or {}
+    ds = dict(t.get("deploymentSettings") or {})
+    inbound = dict(((ds.get("http") or {}).get("inbound") or {}))
+    inbound["publicUrl"] = ""
+    ds["generateDefaultPublicUrl"] = False
+    ds["http"] = {"inbound": inbound}
+    http("PATCH", f"{base}/{dep}", tok, {"target": {
+        "targetId": t.get("targetId"), "provider": t.get("provider"),
+        "replicas": t.get("replicas"), "deploymentSettings": ds}})
+    for _ in range(20):
+        time.sleep(5)
+        if not public_url_of(http("GET", f"{base}/{dep}", tok)):
+            print(f"ch2-public-url: {app} の公開 URL ({url}) を外しました")
+            print("  ゲートウェイ経由の URL は python3 scripts/gateway-public-url.py <インスタンス> で取る")
+            sys.exit(0)
+    die(f"公開 URL ({url}) がまだ残っています。Runtime Manager で外してください "
+        "(残っているとゲートウェイを迂回できます)", 1)
+
 if not url:
     # 既存の target を保ったまま generateDefaultPublicUrl を足す (modify と違い properties は触らない)
     t = cur.get("target") or {}

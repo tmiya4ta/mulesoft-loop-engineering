@@ -23,6 +23,33 @@ if [ -f context/deployment/sandbox.yaml ]; then
   kind_line=$(grep -m1 '^kind:' context/deployment/sandbox.yaml || true)
   echo "- デプロイ先: ${kind_line:-kind 不明} / ${target_line:-target 不明}"
   echo "  (shared space でよいか、Private Space を使うかを含めて確認する。違えば sandbox.yaml を直してもらう)"
+
+  # **公開エンドポイントを付けるかは、必ず人に聞く。** 既定で付けると、あとからゲートウェイを
+  # 前に置いてもアプリの URL が生きたままになり、**ポリシーを迂回できる**状態になる
+  # (inventory3-api で実測: ゲートウェイ経由は 401 なのに、アプリの公開 URL は認証なしで 200)。
+  ingress=$(sed -n 's/^ingress:[[:space:]]*\([a-z]*\).*/\1/p' context/deployment/sandbox.yaml | head -1)
+  gw=$(sed -n 's/^gateway:[[:space:]]*\(.*\)/\1/p' context/deployment/sandbox.yaml | head -1 | tr -d ' "')
+  case "${ingress:-unknown}" in
+    public)
+      echo "- 公開エンドポイント: **付ける** (ingress: public)。アプリの URL を直接叩く形でよいか確認する"
+      ;;
+    gateway)
+      if [ -n "$gw" ]; then
+        echo "- 公開エンドポイント: **付けない** (ingress: gateway)。ゲートウェイ $gw 経由だけにする"
+      else
+        echo "- ingress: gateway なのに gateway: が空。どのゲートウェイに置くかを聞く"
+        echo "    候補: python3 scripts/env-probe.py で一覧が出る"
+        need_ask=1
+      fi
+      ;;
+    *)
+      echo "- **公開エンドポイントを付けるかが未決 (ingress: ${ingress:-未設定})。** これを先に聞く:"
+      echo "    付ける   (ingress: public)  … アプリの URL を直接叩く。手軽。ポリシーは迂回できる"
+      echo "    付けない (ingress: gateway) … Flex Gateway 経由だけにする。ポリシーを効かせるならこちら"
+      echo "    この組織に使えるゲートウェイがあるかを含め、候補は python3 scripts/env-probe.py が出す"
+      need_ask=1
+      ;;
+  esac
 fi
 
 placeholders=""

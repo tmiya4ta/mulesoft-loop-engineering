@@ -166,6 +166,8 @@ template/         /mule-init が配るもの:
                   portal-search.py (Anypoint の値の項目名から、それを返す Platform API の操作を引く),
                   anypoint-api.py (Platform API を GET だけで叩く。{org} {env} を埋め、--find で応答から探す),
                   gateway-public-url.py (Flex Gateway に置いた API の外からの URL),
+                  env-probe.py (環境・デプロイ先・Flex Gateway を読み出して、sandbox.yaml に書く形を出す),
+                  app-status.py (置いたアプリが RUNNING か。ingress: gateway のときの deploy ゴールの done_when),
                   policy.py (ポリシーを find / config / list / apply / remove。書き込みは authorizations.yaml の許可が要る)
 .mcp.json         MuleSoft DX MCP Server（stdio）+ Platform MCP Server（http）
 docs/methodology.md  考え方、検証器 4 段、**検査の並び (走る順。20 件の通し番号)**
@@ -218,6 +220,42 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.45</b> — 公開エンドポイントを付けるかを**デプロイ前に必ず聞く** (`ingress`)。開発環境は最初に機械が読む</summary>
+
+inventory3-api で見つかった「ゲートウェイ経由は 401 なのに、アプリの公開 URL は認証なしで 200」は、
+**手順が公開エンドポイントを既定で付けていた**ことが原因でした。あとからゲートウェイを前に置いても、
+アプリの URL が生きたままなので迂回できます。**選ばせていなかったのが誤り**なので、選ぶ場所を作りました。
+
+**`sandbox.yaml` に `ingress` を足しました。** 既定は `unknown` で、**`unknown` のままではデプロイしません**。
+
+| `ingress` | 何が起きるか | 使うとき |
+|---|---|---|
+| `public` | アプリに公開 URL を付ける。その URL を直接叩ける | 手早く動かしたい。ポリシーで守る必要がない |
+| `gateway` | アプリに公開 URL を**付けない**。Flex Gateway 経由だけ | ポリシーを効かせる。**迂回路が無いのはこちらだけ** |
+
+`deploy-precheck.sh` が未決を弾き、`ingress: gateway` なのに `gateway:` が空なら、それも聞くことに並べます。
+
+**`scripts/env-probe.py` (新) — 「そもそも Flex Gateway を持っているか」を機械が読みます。**
+環境 (本番かどうかも)、デプロイ先 (共有スペース / Private Space / RTF と対応する Mule 版)、
+その環境の Flex Gateway (managed / selfManaged と稼働状態) を 3 回の GET で出し、
+**`sandbox.yaml` に書く形**と**人に 1 回でまとめて聞くこと**まで出します。ゲートウェイが 1 つも無ければ
+「今は `public` しか選べません」と言います。`/mule-init` の手順 5d でこれを実行し、デプロイの直前ではなく
+**最初に**聞くようにしました (実測: 聞かなかったせいで T-006 は 5 往復した)。
+
+**`ingress: gateway` のときの流れも通しました。**
+
+| 足したもの | なぜ |
+|---|---|
+| `ch2-public-url.py --remove` | 既に付いている公開 URL を外す。外れたかを読み直して確かめ、残っていればそう言う |
+| `app-status.py` (新) | 公開 URL を付けない構成では**外から疎通できないのが正しい**ので、deploy ゴールの `done_when` は「RUNNING か」で判定する (検査の表 17b)。`anypoint-cli` が無くても動く |
+| `smoke-check.py --no-basepath` | ゲートウェイの URL に当てるとき RAML の `/api` を足さない (upstream が既に含むので、足すと `/api/api` で全件 404) |
+
+`/mule-deploy` は `ingress` で手順 3 と 5 が分岐します。`/mule-run` は deploy ゴールの `done_when` を
+`ingress` で選び、`unknown` なら配らずに人に聞きます。
+
+</details>
 
 <details>
 <summary><b>v0.6.44</b> — hook と API の道具を Python にした (jq 全廃)。**hook に自動テストが付いた**</summary>

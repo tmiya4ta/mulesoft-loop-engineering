@@ -33,13 +33,43 @@ deny のときコマンドは実行されず、理由が返る。**deny を回�
 sandbox.yaml だけでなく pom の `<environment>` も見る。
 MCP の `deploy_mule_application` は使わない。経路は下の `mvn clean deploy -DmuleDeploy` だけにして、pom に何が書かれたかを人が diff で追えるようにする。
 
+## 公開エンドポイントを付けるか (`ingress`) — **デプロイの前に必ず決める**
+
+| `ingress` | 何が起きるか | 使うとき |
+|---|---|---|
+| `public` | アプリに公開 URL を付ける (`ch2-public-url.py`)。その URL を直接叩ける | 手早く動かしたい。ポリシーで守る必要がない |
+| `gateway` | アプリに公開 URL を**付けない**。Flex Gateway 経由だけにする | ポリシー (認証・流量) を効かせる。**迂回路が無いのはこちらだけ** |
+
+**両方を有効にしない。** 公開 URL を付けたままゲートウェイを前に置くと、ゲートウェイ経由は 401 でも
+アプリの URL を直接叩けてしまいます (inventory3-api で実測: `GET /inventory` が認証なしで 200)。
+**「ポリシーが付いている」という表示と実際の保護が食い違うのは、ポリシーが無いより危険です。**
+
+どちらにするかは**人が決めて `sandbox.yaml` に書きます**。この組織にそもそも Flex Gateway が
+あるかどうかも含めて、候補は機械が出します:
+
+```bash
+python3 scripts/env-probe.py        # 環境 / デプロイ先 / Flex Gateway の一覧と、sandbox.yaml に書く形
+```
+
+`ingress: gateway` のときの流れ:
+
+1. アプリを置く (公開 URL は付けない)。既に付いているなら外す — `python3 scripts/ch2-public-url.py --remove <app> <env>`
+2. deploy ゴールの `done_when` は `python3 scripts/app-status.py <app>` (RUNNING なら 0)。
+   **外から疎通できないのが正しい状態**なので、ここで公開 URL に当てない。
+3. `stage: policy` のゴールでゲートウェイに API インスタンスを作り (upstream はアプリの**内部** URL)、
+   ポリシーを当てる → `python3 scripts/gateway-public-url.py <インスタンス>` が外からの URL を出す。
+4. 疎通は `python3 scripts/smoke-check.py --no-basepath <ゲートウェイの URL>`。
+   **`--no-basepath` を付ける** (ゲートウェイの upstream が既にアプリ側の `/api` を含むので、
+   足すと `/api/api` になって全件 404 になる)。
+
 ## 台帳との関係
 
 通常は `/mule-run` が `stage: deploy` のゴールを取り出したときに、進捗エージェントがこの手順を実行する。そのゴールの `done_when` (smoke-check) が判定者で、このスキル単体の「置けた」は成功ではない。人が直接 `/mule-deploy` と言ったときも、台帳に deploy ゴールが無ければ先に 1 件切ってから進む (台帳の外で作業しない)。
 
 ## 読むもの
 
-1. `context/deployment/sandbox.yaml` — kind (cloudhub2 / rtf)、environment、target、public_url。無ければ人に書いてもらう (テンプレートは `/mule-init` が置く)。
+1. `context/deployment/sandbox.yaml` — kind (cloudhub2 / rtf)、environment、target、**ingress**、public_url。無ければ人に書いてもらう (テンプレートは `/mule-init` が置く)。
+   **`ingress` が `unknown` のままなら、そこで止まって人に聞く** (下の「公開エンドポイントを付けるか」)。
 2. `context/deployment/authorizations.yaml`
 3. `samples/` — 疎通確認の期待値。これを変えない。
 4. 環境変数 `ANYPOINT_CLIENT_ID` / `ANYPOINT_CLIENT_SECRET` (Connected App、client_credentials)。無ければ人に export してもらう。値を会話や pom に書かない。
@@ -79,11 +109,16 @@ MCP の `deploy_mule_application` は使わない。経路は下の `mvn clean d
    同じ 404 は `<businessGroupId>` が無いときにも出ます (認証トークンの既定組織 = Root を見る)。
    `deploy-config.sh` が pom に入れるので、手で消さないこと。
    出力の末尾に配置先の URL か status が出る。RTF は Ingress の URL が sandbox.yaml の `public_url` になる。
-   CH2 で `public_url` が空なら `python3 scripts/ch2-public-url.py <app> <environment>` で既定の公開 URL を付けて取る。`runtime-mgr application modify --publicEndpoints` は成功を返すが効かず、`modify` は properties を消す (`knowledge/gotchas/deploy.md`)。取れた URL を sandbox.yaml の `public_url` と deploy ゴールの `done_when` に書く。
+   **`ingress` で分かれる:**
+   - `public` … CH2 で `public_url` が空なら `python3 scripts/ch2-public-url.py <app> <environment>` で既定の公開 URL を付けて取る。`runtime-mgr application modify --publicEndpoints` は成功を返すが効かず、`modify` は properties を消す (`knowledge/gotchas/deploy.md`)。取れた URL を sandbox.yaml の `public_url` と deploy ゴールの `done_when` に書く。
+   - `gateway` … **公開 URL を付けない。** 既に付いていたら `python3 scripts/ch2-public-url.py --remove <app> <environment>` で外す
+     (残っているとゲートウェイを迂回できる)。`python3 scripts/app-status.py <app>` が 0 になれば置けている。
    終わったら `bash scripts/run-log.sh deploy <kind> <environment> ok|failed <秒>` を記録する。
 
 4. **待つ。** `anypoint-cli-v4 runtime-mgr application describe <app> --environment <env> -o json` の `status` が `RUNNING`/`APPLIED` になるまで 30 秒間隔で最大 10 分。`FAILED` ならログを `runtime-mgr application logs` で取り、手順 6 へ。
-5. **疎通を確かめる。** `python3 scripts/smoke-check.py <base-url>`。samples の全ケースを配置先に投げて out.json と比較する。要求が `POST /<resource>` でないケースには `<case>.req.json` (method / path / headers) を隣に置く。samples の期待値は変えない。結果は `knowledge/deploy-log.jsonl` に 1 ケース 1 行。
+5. **疎通を確かめる。** `ingress: public` なら `python3 scripts/smoke-check.py <public_url>`、
+   `ingress: gateway` なら**ポリシー段でインスタンスを作ってから**
+   `python3 scripts/smoke-check.py --no-basepath <gateway-public-url.py が出した URL>`。samples の全ケースを配置先に投げて out.json と比較する。要求が `POST /<resource>` でないケースには `<case>.req.json` (method / path / headers) を隣に置く。samples の期待値は変えない。結果は `knowledge/deploy-log.jsonl` に 1 ケース 1 行。
    - ここで **MUnit は通るのに配置先では違う** ものが本命の収穫。mock で隠れていた接続先、properties の差、`api.autodiscovery`、TLS など。
 6. **失敗を学習ループに戻す。** 落ちた原因が分かった (直った) 瞬間に `knowledge/failures.jsonl` に 1 行。category は `/mule-learn` の固定語彙から `deploy-config` / `deploy-runtime` / `deploy-connectivity` を使う。この 3 つに当てはまらなければ語彙の他の値を見て、それでも無ければ `other`。**自分で言葉を作らない** (自作の値は数えられず昇格もされない)。`scope` はこのリポジトリの環境固有なら `repo`、CH2 / RTF なら誰でも踏むものなら `generic`。
 7. **締める。** 必ず「現在地 / 次にすること / そのあと」の 3 ブロック。次にすることは 1 つ。

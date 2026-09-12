@@ -205,8 +205,11 @@ python3 scripts/smoke-check.py <URL>             # 9) 実際に当てる
 
 - **`mvn clean deploy -DmuleDeploy` を 1 行で打たない。** Exchange の 404 で必ず落ちる。
 - 5 を 6 より後にしない。publish したあとに気付いても取り返せない。
-- 公開 URL が分からなければ `python3 scripts/ch2-public-url.py <app> <environment>`
-  (Flex Gateway 経由の URL は 7 の 3)。
+- **公開エンドポイントを付けるかは、1 で人に聞く** (`sandbox.yaml` の `ingress`)。
+  `public` なら `python3 scripts/ch2-public-url.py <app> <environment>` で公開 URL を取る。
+  `gateway` なら**付けない** (既に付いていたら `--remove` で外す)。置けたかは
+  `python3 scripts/app-status.py <app>` (RUNNING で exit 0)、外からの URL は 7 の 3 で取る。
+  この組織にゲートウェイがあるかを含め、候補は `python3 scripts/env-probe.py` が出す。
 - **`smoke-check.py` はアプリの URL に当てる。** RAML の `baseUri` のパス (`/api`) を足すので、
   ゲートウェイの URL に当てると `/api/api` になって全件 404 になる。
 - `authorizations.yaml` の `deploy.sandbox` が `allowed` でないと hook が止める。

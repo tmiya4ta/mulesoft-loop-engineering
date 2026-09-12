@@ -6,7 +6,14 @@ environment: Sandbox       # Anypoint の環境名
 target: Cloudhub-US-East-2 # CH2: 共有スペース名か Private Space 名 / RTF: fabric 名
 mule_version: 4.12.2
 application_name: ""       # 空なら pom の artifactId
-public_url: ""             # 空なら CH2 は <app>.<region>.cloudhub.io、RTF は fabric の Ingress から人が書く
+
+# **公開エンドポイントを付けるか。** デプロイの前に人に必ず聞く (deploy-precheck.sh が聞き漏らしを弾く)。
+#   public  … アプリに公開 URL を付ける。そのまま外から叩ける。手軽だがポリシーは迂回できる
+#   gateway … アプリに公開 URL を付けず、Flex Gateway 経由だけにする。ポリシーを効かせるならこちら
+# 候補 (この組織にゲートウェイがあるか) は `python3 scripts/env-probe.py` が出す。
+ingress: unknown           # public | gateway | unknown (unknown のままではデプロイしない)
+gateway: ""                # ingress: gateway のとき、置くゲートウェイの名前 (env-probe.py の一覧から)
+public_url: ""             # ingress: public のとき。空なら scripts/ch2-public-url.py が付けて取る
 replicas: 1
 vcores: "0.1"              # CH2 のみ
 cpu_reserved: 500m         # RTF のみ

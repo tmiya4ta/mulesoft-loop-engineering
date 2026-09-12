@@ -67,6 +67,15 @@ argument-hint: "[--kind api|batch|mcp|a2a] [--layer system|process|experience] [
    「未解決」の一覧が出るだけなので、5b を直してから再実行する。**生成物は 6b の初期コミットに含める**
    (worktree は origin/main から切られるため、コミットしないと実行エージェントに届かない)。
 
+5d. **開発環境を確かめて、デプロイ先を 1 回で聞く。** `ANYPOINT_CLIENT_ID` / `ANYPOINT_CLIENT_SECRET` が
+   あれば `python3 scripts/env-probe.py` を実行する。環境・デプロイ先 (共有スペース / Private Space / RTF)・
+   **この組織に Flex Gateway があるか**が一覧で出て、`sandbox.yaml` に書く形と、人に聞くことがそのまま出る。
+   出た内容をそのまま人に見せて、**1 回でまとめて**聞く: 環境 / デプロイ先 / **公開エンドポイントを付けるか
+   (`ingress: public` か `gateway`)**。答えを `context/deployment/sandbox.yaml` に**人が**書く
+   (エージェントは書かない。形は env-probe が出したものをそのまま渡す)。
+   資格情報がまだ無ければここは飛ばし、「デプロイの前に `ANYPOINT_CLIENT_ID` / `ANYPOINT_CLIENT_SECRET` を
+   export して claude を起動し直すと、環境の候補を機械が出せる」とだけ伝える。
+   **ここで聞いておかないと、デプロイの直前に 5 往復する** (inventory3-api T-006 で実測)。
 6. `.mcp.json` はコピーしない (MCP はプラグイン側で有効になる)。聞かない。
 6b. **初期コミットを作る。** `git add -A && git commit -m "mule-loop: init"`。worktree 隔離はコミットが 1 つも無いと `Failed to resolve base branch "HEAD"` で起動しない (PR #4)。`.gitignore` に `target/` と `.claude/worktrees/` があることを先に確認する。
 7. 最後に「現在地 / 次にすること / そのあと」の 3 ブロックで締める。次にすることは

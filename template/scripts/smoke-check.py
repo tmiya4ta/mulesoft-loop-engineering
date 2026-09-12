@@ -39,6 +39,10 @@ import json, os, pathlib, re, sys, time, urllib.error, urllib.request
 
 argv = sys.argv[1:]
 dry = False
+# `--no-basepath`: RAML の baseUri のパス (/api) を足さない。**ゲートウェイ経由の URL に当てるとき**に使う
+# (ゲートウェイの upstream (`endpoint.uri`) が既にアプリ側の /api を含むので、足すと /api/api になって全件 404)。
+no_basepath = "--no-basepath" in argv
+argv = [a for a in argv if a != "--no-basepath"]
 if argv and argv[0] == "--dry-run":
     dry, argv = True, argv[1:]
 if not argv:
@@ -60,7 +64,7 @@ def raml_files():
 # 「足さないと No listener for endpoint になる」と現地で直した版と、このスクリプトの説明が
 # 「/api まで付けて渡す」だったのが重なって二重になった。inventory3-api T-006、2026-09-11)。
 basepath = ""
-for r in raml_files():
+for r in (raml_files() if not no_basepath else []):
     m = re.search(r"^baseUri:\s*(\S+)", r.read_text(errors="ignore"), re.M)
     if m:
         basepath = re.sub(r"^[a-zA-Z]+://[^/]+", "", m.group(1).strip()).rstrip("/")

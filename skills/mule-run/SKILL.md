@@ -95,7 +95,12 @@ argument-hint: "[T-NNN だけ実行] [--parallel N (既定は予算が許す最�
        「たいてい並列、たまに直列」と読み替えないこと。`blocked_by` の有無では判定しない —
        独立なゴールでも pom.xml / global.xml / RAML は共有しており、前の波の成果が無ければ同じように壊れる。
        直列に落ちたら `max_parallel` どおりの速度は出ないので、予算の消費ペースが変わることを報告に書く。
-     - `deploy` → 実行エージェントには配れない (デプロイ禁止)。**進捗エージェント自身が `mule-deploy` スキルの手順 1〜5 を実行する。** 先に done_when を 1 回流して失敗を確認する (red)。配置先 URL が決まったら done_when の base-url を書き換えてよい (期待値ではなく所在なので)。
+     - `deploy` → 実行エージェントには配れない (デプロイ禁止)。**進捗エージェント自身が `mule-deploy` スキルの手順 1〜5 を実行する。**
+       **`sandbox.yaml` の `ingress` で done_when が変わる。** `public` なら `smoke-check.py <公開 URL>`、
+       `gateway` なら `app-status.py <app>` (公開 URL を付けないので外から疎通できないのが正しい。
+       疎通は policy 段で `smoke-check.py --no-basepath <ゲートウェイの URL>`)。`ingress` が `unknown` なら
+       配らずに人に聞く (`deploy-precheck.sh` が列挙する)。
+       先に done_when を 1 回流して失敗を確認する (red)。配置先 URL が決まったら done_when の base-url を書き換えてよい (期待値ではなく所在なので)。
      - `policy` → `authorizations.yaml` の `policy.sandbox` が allowed のときだけ `mule-executor` に配る (worktree 不要、`isolation` 無し)。denied なら blocked にして人に 1 行で伝える。
        配るプロンプトに `bash scripts/plugin-root.sh --skill mule-policy` を Read することを 1 行で入れる
        (ポリシーの探し方・設定キーの見方・付け方・外し方がそこに 1 本でまとまっている)。
