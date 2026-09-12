@@ -76,7 +76,14 @@ def sync():
                 p.parent.mkdir(parents=True, exist_ok=True)
                 p.write_text(t)
                 n += 1
-                for ref in set(re.findall(r"\$ref:\s*['\"]?(\.{1,2}/[^#'\"\s]+)", t)):
+                # **`./` を付けない参照も拾う。** 公式の api.yaml は `$ref: schemas/x.yaml#/Y` と
+                # 書く方が多く、`\.{1,2}/` を要求していた版では**別ファイルを 1 つも取れていなかった**。
+                # 症状: `#/components/...` (同一ファイル) だけが辿れ、**POST の本文の必須項目が
+                # 引けない** (exchange-experience の CreateContractV2 が schemas/ にある形)。
+                # 拾わないもの: `#` 始まり (同一ファイル内) と絶対 URL。
+                for ref in set(re.findall(r"\$ref:\s*['\"]?([^\s'\"#][^\s'\"#]*)", t)):
+                    if re.match(r"^[a-z][a-z0-9+.-]*://", ref):
+                        continue
                     todo.append(norm(str(pathlib.PurePosixPath(h).parent / ref)))
     if n:
         (cache / "registry.json").write_text(reg)
@@ -252,7 +259,18 @@ for e in apis:
     prefix = re.sub(r"^https?://[^/]+", "", server.strip("'\"")).rstrip("/")
     print(f"━━ {slug} — {e.get('name', '')}" + ("   (項目名には無く、説明文に出てくる)" if loose else ""))
     ys = [f for f in dict.fromkeys(fields) if not f.endswith("(例)") and "(例)  (" not in f]
-    for f in (ys or list(dict.fromkeys(fields)))[:6]:
+    # **api.yaml 以外のヒットも必ず見せる。** 6 件で切ると api.yaml の項目だけが並び、
+    # `schemas/` にある**要求の本文の必須項目が一度も出ない** (実測: exchange-experience の
+    # versionGroup。POST の本文が引けず、契約の作り方が分からないまま止まった)。
+    # api.yaml から 5 件、それ以外のファイルから 3 件までを別々に取る。
+    shown = ys or list(dict.fromkeys(fields))
+    main_rel = main.rel
+    from_main = [f for f in shown if f"({main_rel}:" in f]
+    others = [f for f in shown if f"({main_rel}:" not in f]
+    # **schemas/ を examples/ より先に出す。** 必須項目 (required) が書いてあるのは schemas の方で、
+    # examples はただの値の例。本文を書くために引いているので、先に見せるべきなのは schemas。
+    others.sort(key=lambda f: (0 if "/schemas/" in f else 1 if "/examples/" not in f else 2))
+    for f in from_main[:5] + others[:3]:
         print(f"   項目: {f}")
     rank = lambda w: 0 if "応答" in w else 1 if "パス" in w else 2
     resp = sorted(((m, p) for (m, p), v in ops.items() if v[2] & {"応答", "説明", "パス"}),

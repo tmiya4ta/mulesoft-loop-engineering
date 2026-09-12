@@ -170,7 +170,8 @@ template/         /mule-init が配るもの:
                   casual.py (カジュアルモードを入れる/切る/見る。期限つき),
                   env-probe.py (環境・デプロイ先・Flex Gateway を読み出して、sandbox.yaml に書く形を出す),
                   app-status.py (置いたアプリが RUNNING か。ingress: gateway のときの deploy ゴールの done_when),
-                  policy.py (ポリシーを find / config / list / apply / remove。書き込みは authorizations.yaml の許可が要る)
+                  policy.py (ポリシーを find / config / list / apply / remove。書き込みは authorizations.yaml の許可が要る),
+                  contract.py (消費アプリと契約を作り、秘密の値を出さずに 200/401 を実測する)
 .mcp.json         MuleSoft DX MCP Server（stdio）+ Platform MCP Server（http）
 docs/methodology.md  考え方、検証器 4 段、**検査の並び (走る順。20 件の通し番号)**
 docs/mulesoft-tools.md
@@ -222,6 +223,43 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.49</b> — 契約を結ぶところまで道具にした (`contract.py`)。**POST の本文が引けなかった原因**も直した</summary>
+
+`client-id-enforcement` は**契約が無いと必ず 401** を返します。付けただけでは「守れている」のか
+「経路が壊れている」のか区別できません (v0.6.46 でまさにそれを踏みました)。区別するには契約を持つ
+資格情報で 200 を見るしかないのに、**消費アプリと契約の作り方は道具になっていませんでした。**
+
+```bash
+python3 scripts/contract.py app-create <名前> --api <インスタンス> --dry-run   # 送る本文を先に見る
+python3 scripts/contract.py app-create <名前> --api <インスタンス>             # → applicationId
+python3 scripts/contract.py create <applicationId> <インスタンス>              # 契約を結ぶ
+python3 scripts/contract.py check <applicationId> <base-url> [<path>]          # 200/401 を実測
+```
+
+**`check` は秘密の値を一度も出しません。** clientId / clientSecret を内部で取り、**環境変数として**
+`policy-check.sh` に渡します (コマンド行にも `ps` にも出ない)。書き込みは `authorizations.yaml` の
+`contract.sandbox: allowed` が要ります (書いていなければ `policy.sandbox` を見るので、古い許可ファイルでも止まりません)。
+
+**本文の項目は推測していません。** 公式ポータルの OAS から取りました
+(`acceptedTerms` / `instanceType` / `apiId` / `organizationId` / `groupId` / `assetId` / `version` /
+`versionGroup`)。値はインスタンスの応答から埋め、**足りない項目があれば名前を挙げて止まります。**
+
+### なぜ引けなかったか (`portal-search.py` の穴)
+
+利用者のリポジトリのセッションが「契約のボディの項目が分からない」で止まりました。調べたら
+**道具の側が仕様を取れていませんでした。**
+
+| 見つかったもの | 中身 |
+|---|---|
+| **`./` の付かない `$ref` を 1 つも辿っていなかった** | 正規表現が `\.{1,2}/` を要求していた。公式は `$ref: schemas/x.yaml#/Y` と書く方が多く、**別ファイルを 1 件も写していなかった** (202 → 229 ファイル。容量は 11MB のまま、8 秒) |
+| **ヒットの表示が 6 件で切れていた** | `api.yaml` の項目だけが並び、**`schemas/` にある必須項目が一度も出ない**。`api.yaml` から 5 件 + 別ファイルから 3 件に分け、`schemas/` を `examples/` より先に出すようにした |
+
+どちらも「**要求の本文を書くために引く**」という使い方で初めて出る穴でした。応答の項目を引く分には
+`api.yaml` だけで足りていたので、今まで気付けていません。
+
+</details>
 
 <details>
 <summary><b>v0.6.48</b> — 隣のセッションが止まって分かった 3 件。**「人が書く」を広げすぎると誰も進めない**</summary>

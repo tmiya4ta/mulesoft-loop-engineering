@@ -138,8 +138,25 @@ python3 scripts/anypoint-api.py '/apimanager/api/v1/organizations/{org}/environm
 # {"total":0,"contracts":[]} なら契約が無い
 ```
 
-契約が無ければ利用者アプリを作って契約します。作り方は
-`bash scripts/plugin-root.sh knowledge/gotchas/api-manager.md` の「利用者アプリの作成」の行。
+契約が無ければ、消費アプリを作って契約を結びます。**`contract.py` が一通りやります。**
+
+```bash
+python3 scripts/contract.py app-create <名前> --api <インスタンス> --dry-run   # 送る本文を先に見る
+python3 scripts/contract.py app-create <名前> --api <インスタンス>             # → applicationId
+python3 scripts/contract.py create <applicationId> <インスタンス>              # 契約を結ぶ
+python3 scripts/contract.py check <applicationId> <base-url> [<path>]          # 200/401 を実測
+```
+
+**`check` は秘密の値を一度も出しません。** clientId / clientSecret を内部で取り、環境変数として
+`policy-check.sh` に渡します (コマンド行にも `ps` にも出ない)。**値を表示させないでください** —
+表示させた時点で会話の記録に残り、取り消せません。
+
+`app-create` と `create` は `authorizations.yaml` の `contract.sandbox: allowed` が要ります
+(書いていなければ `policy.sandbox` を見ます)。書くのは人です。
+
+契約の本文の必須項目は**インスタンスの応答から埋めます** (`organizationId` / `groupId` / `assetId` /
+`version` / `versionGroup` / `apiId`)。**足りない項目があれば名前を挙げて止まります。推測で足さないこと。**
+出所は公式ポータルの OAS (`exchange-experience` の `schemas/client-applications.yaml`)。
 
 ---
 

@@ -100,6 +100,30 @@ API を直接叩いて作る場合の必須の形。CLI では作れない組み
 
 根拠: 上記すべて実測 (2026-09-06)。
 
+### 契約の本文 (推測しない。仕様から取れる)
+
+`POST /exchange/api/v2/organizations/{masterOrg}/applications/{applicationId}/contracts` の必須項目:
+
+| 項目 | 何を入れるか |
+|---|---|
+| `acceptedTerms` | `true` |
+| `instanceType` | `"api"` (API Group なら `"api-group"`) |
+| `apiId` | API Manager のインスタンス ID |
+| `organizationId` / `groupId` / `assetId` / `version` / `versionGroup` | **インスタンスの応答から取る** (`assetVersion` → `version`、`productVersion` → `versionGroup`) |
+
+任意: `environmentId`、`requestedTierId` (SLA 層があるとき)。
+
+**`{masterOrg}` はルート組織 ID** で、インスタンスの `organizationId` とは違うことがある
+(business group を使っている場合)。`/accounts/api/me` の `user.organization.id`。
+
+出典は公式ポータルの OAS で、**`api.yaml` ではなく参照先のファイル**にあります:
+`dev-portal.mulesoft.com/apis/exchange-experience/schemas/client-applications.yaml` の
+`#/BaseCreateContractV2` と `#/CreateContractForAPIV2`。`portal-search.py` は v0.6.49 から
+この参照先も辿ります (それ以前は `api.yaml` の中しか見ておらず、**POST の本文が引けませんでした**)。
+
+**一連の作業は `python3 scripts/contract.py` が行います** (app-create → create → check)。
+`check` は clientId / clientSecret を**表示せず**に環境変数で `policy-check.sh` に渡します。
+
 ## flexGateway インスタンスを作る前に、RAML を Exchange に置く (rest-api アセット)
 `spec.groupId/assetId/version` が指す先は Exchange 上の **RAML アセット** (`type: rest-api`)。
 Mule アプリを publish した Exchange アセット (`mule-application`) とは別物で、流用できない。

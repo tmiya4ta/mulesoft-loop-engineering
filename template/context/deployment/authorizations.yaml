@@ -8,6 +8,10 @@ deploy:
 policy:
   sandbox: denied        # allowed にすると Sandbox の API インスタンスにポリシーを適用してよい (policy 段)
 
+contract:
+  sandbox: denied        # allowed にすると Sandbox で消費アプリと契約を作ってよい (contract.py)
+                         # 書かないと policy.sandbox を見る (契約はポリシーを効かせるための付帯作業)
+
 external_systems:        # 開発環境の実システムに触ってよいか
   # 例:
   # dev_db:    read-only     # denied | read-only | read-write

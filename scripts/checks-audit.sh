@@ -72,6 +72,7 @@ NOT_A_CHECK = {
     "anypoint-api.py",        # Platform API を GET して応答を出す (exit 1 は HTTP の失敗で、合否ではない)
     "portal-search.py",       # 項目名から、それを返す API の操作を引く (exit 1 は「仕様に無い」)
     "policy.py",              # ポリシーを探す/見る/付ける/外す (合否は policy-check.sh が答える)
+    "contract.py",            # 消費アプリと契約を作る (合否は policy-check.sh が答える)
     "env-probe.py",           # 環境・デプロイ先・ゲートウェイを読み出して出す (合否を答えない)
     "run-log.sh",             # 1 行記録する
     "metrics.sh",             # 4 指標を出す

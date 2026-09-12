@@ -173,7 +173,8 @@ template/         What /mule-init distributes:
                   casual.py (turn casual mode on/off/status; time-bounded),
                   env-probe.py (lists environments, deploy targets and Flex Gateways, and the sandbox.yaml block to fill),
                   app-status.py (is the deployed app RUNNING? the deploy goal's done_when when ingress: gateway),
-                  policy.py (find / config / list / apply / remove policies; writes need the authorizations.yaml grant)
+                  policy.py (find / config / list / apply / remove policies; writes need the authorizations.yaml grant),
+                  contract.py (create the consuming app and its contract; measures 200/401 without ever printing a secret)
 .mcp.json         MuleSoft DX MCP Server (stdio) + Platform MCP Server (http)
 docs/methodology.md  The method, the 4 validator tiers, **the ordered check list (20, numbered)**
 docs/mulesoft-tools.md
@@ -227,6 +228,45 @@ names the missing prerequisite. If something does not work, PR it to the plugin 
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.49</b> — Contracts are now a tool (`contract.py`), and the reason **request bodies could not be looked up** is fixed</summary>
+
+`client-id-enforcement` **always returns 401 without a contract**. Applying it tells you nothing about
+whether you are protected or merely broken (exactly what v0.6.46 walked into). The only way to tell them
+apart is a 200 from credentials that hold a contract — and **creating the consuming app and the contract
+was never a tool.**
+
+```bash
+python3 scripts/contract.py app-create <name> --api <instance> --dry-run   # see the body first
+python3 scripts/contract.py app-create <name> --api <instance>             # → applicationId
+python3 scripts/contract.py create <applicationId> <instance>              # make the contract
+python3 scripts/contract.py check <applicationId> <base-url> [<path>]      # measure 200 / 401
+```
+
+**`check` never prints a secret.** It fetches clientId / clientSecret internally and passes them to
+`policy-check.sh` **as environment variables** (never on a command line, never in `ps`). Writes need
+`contract.sandbox: allowed` in `authorizations.yaml` (falling back to `policy.sandbox`, so older
+permission files do not block).
+
+**No field was guessed.** They come from the official portal's OAS (`acceptedTerms`, `instanceType`,
+`apiId`, `organizationId`, `groupId`, `assetId`, `version`, `versionGroup`); values are filled from the
+instance, and **anything missing stops the run by name.**
+
+### Why it could not be looked up (the hole in `portal-search.py`)
+
+A session in the user's own repo stopped at "I don't know the contract body's fields". The tool itself
+could not reach the spec.
+
+| Finding | Detail |
+|---|---|
+| **Not a single `$ref` without `./` was followed** | The regex demanded `\.{1,2}/`. The official specs mostly write `$ref: schemas/x.yaml#/Y`, so **no referenced file was ever mirrored** (202 → 229 files; still 11MB, 8 seconds) |
+| **Hits were truncated at 6** | Only `api.yaml` entries fitted, so **required fields living in `schemas/` never appeared**. Now 5 from `api.yaml` plus 3 from other files, with `schemas/` ranked above `examples/` |
+
+Both holes only show up when the spec is consulted **to write a request body**. Looking up response
+fields worked fine from `api.yaml` alone, which is why neither surfaced until now.
+
+</details>
 
 <details>
 <summary><b>v0.6.48</b> — Three findings from a peer session getting stuck. **"A human writes this" was applied too widely**</summary>
