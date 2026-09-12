@@ -124,6 +124,7 @@ skills/
   mule-learn/     学習ループ（失敗を数えて昇格・共有）
   mule-status/    現在地と次の一手のナビゲーション (人に向けた報告)
   mule-guide/     迷ったときの手引き。状況ごとに次の 1 手とコピーできるコマンド (エージェント向け)
+  mule-policy/    ポリシーを探す / 設定キーを見る / 付ける / 外す。典型的なポリシーの表つき
   platform-assistant/  MuleSoft 公式メタスキルを同梱（Apache-2.0）
   mule-start/     意図 → 計画 → 実行 を通す入口
   mule-run/       計画・実行ループだけ（再開用）
@@ -162,7 +163,8 @@ template/         /mule-init が配るもの:
                   deploy-precheck.sh (デプロイ前に人に聞くことを 1 回にまとめる),
                   portal-search.sh (Anypoint の値の項目名から、それを返す Platform API の操作を引く),
                   anypoint-api.sh (Platform API を GET だけで叩く。{org} {env} を埋め、--find で応答から探す),
-                  gateway-public-url.sh (Flex Gateway に置いた API の外からの URL)
+                  gateway-public-url.sh (Flex Gateway に置いた API の外からの URL),
+                  policy.sh (ポリシーを find / config / list / apply / remove。書き込みは authorizations.yaml の許可が要る)
 .mcp.json         MuleSoft DX MCP Server（stdio）+ Platform MCP Server（http）
 docs/methodology.md  考え方、検証器 4 段、**検査の並び (走る順。20 件の通し番号)**
 docs/mulesoft-tools.md
@@ -200,6 +202,43 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.42</b> — ポリシーの探し方・設定キー・付け方・外し方をスキルにした (`mule-policy`)</summary>
+
+v0.6.41 でゲートウェイの URL は取れるようになりましたが、**ポリシーそのものは「どの資産を、どの設定で
+付けるか」が分からないと 1 行も書けません。** 資産の座標 (groupId / assetId / version) も設定キーも
+画面にしか無いと思われていたので、探し方ごと道具にしました。
+
+**`skills/mule-policy/`** (新) — 順番は 6 行だけです。典型的なポリシー 13 種の表 (何をしたいか →
+assetId → 主な設定キー → 注意) と、契約が要るもの、自動ポリシー、外し方を含みます。
+
+**`scripts/policy.sh`** (新) — 動詞で分かれています。
+
+| | すること |
+|---|---|
+| `find <語>` | Exchange から付けられるポリシーを探す (assetId と version)。この組織からは **131 件**見えます |
+| `config <assetId>` | そのポリシーの設定キー・必須・選べる値を、資産のスキーマ (`schema.json`) から出す |
+| `list <インスタンス>` | 今ついているもの (policyId / 版 / order / 設定) |
+| `apply <インスタンス> <assetId> [<版>] --config '<JSON>'` | 付ける。版を省くと最新。**`authorizations.yaml` の `policy.sandbox: allowed` が要る** |
+| `remove <インスタンス> <policyId>` | 外す |
+
+`apply` と `remove` は書き込みなので、`deploy-guard.sh` と同じ形で許可を読み、`denied` なら止まって
+理由を出します (**自分で書き換えない**)。環境名が Production 系なら許可があっても止まります。
+資格情報は `anypoint-api.sh` と同じく環境変数から読むので、Secret がコマンド行に残りません。
+
+**実測して分かった一番大事なこと: 設定キーを間違えても 201 が返ります。** `{"nosuchkey":1}` で
+適用でき、一覧にも「適用済み」として並びました。**201 は「守れた」の根拠になりません。**
+`gotchas/api-manager.md` に項目として足し (6 → 7 件)、スキルにも「`config` で見てから書く」
+「効いたかは `policy-check.sh` の exit 0 で決める」を入れました。
+
+実機 (flexGateway のインスタンス) で確かめたこと: `find` / `config` / `list`、
+`apply` → **201** (版の自動解決、実装資産の自動選択 — `client-id-enforcement` を付けると
+`client-id-enforcement-flex` が入る)、`remove` → **204** (一覧から消え、元の状態に戻る)、
+誤ったキーでも 201、`policy.sandbox: denied` と本番系の環境名で止まること。
+付けて外す往復は利用者の Sandbox で 1 回だけ行い、元の状態に戻しました。
+
+</details>
 
 <details>
 <summary><b>v0.6.41</b> — Anypoint にある値は API で取る。【未解決】だったゲートウェイの公開 URL を解き、引き方を道具にした</summary>

@@ -30,7 +30,7 @@ mule-http-connector 1.10.0 / mule-maven-plugin 4.10.1 / Java 17 / CE。
 | DB コネクタ | `gotchas/db.md` | 8 | SQL が属性で動かない、`db:update` の適用範囲、戻り値の形、**TIMESTAMP の型が DB で違う**、**Oracle の `ORA-12505` / 接続できるのに `ORA-00942`**、`affectedRows`、`payload[0]`、デッドロック |
 | DataWeave | `gotchas/dataweave.md` | 4 | `dw validate -f`、`p()` の誤検知、予約語、**`as String` が `.0` を落とす** |
 | 配備 (CloudHub 2.0 / Runtime Fabric) | `gotchas/deploy.md` | 7 | Exchange 経由必須、**1 コマンドで打つと 404**、公開 URL が付かない、properties が消える、RTF のログ、Flex に curl が届かない |
-| API Manager とポリシー | `gotchas/api-manager.md` | 6 | ポリシー適用が効かない (**ゲートウェイで 401 でも upstream が公開なら素通し**)、autodiscovery が EE 要求、インスタンスの形、flexGateway の制約、RAML の Exchange publish、**Managed Flex Gateway の公開 URL (インスタンスに無い、ゲートウェイの側にある)** |
+| API Manager とポリシー | `gotchas/api-manager.md` | 7 | ポリシー適用が効かない (**ゲートウェイで 401 でも upstream が公開なら素通し**)、**ポリシーの設定は検証されない (誤キーでも 201)**、autodiscovery が EE 要求、インスタンスの形、flexGateway の制約、RAML の Exchange publish、**Managed Flex Gateway の公開 URL (インスタンスに無い、ゲートウェイの側にある)** |
 
 要約側 (`knowledge/basics/`) との対応は 1 対 1 ではありません。`apikit-http` の要約は `basics/flow.md`、
 `api-manager` の要約は `basics/deploy.md` の中にあります。逆に `basics/flow.md` / `naming.md` / `kind.md` に

@@ -97,6 +97,8 @@ argument-hint: "[T-NNN だけ実行] [--parallel N (既定は予算が許す最�
        直列に落ちたら `max_parallel` どおりの速度は出ないので、予算の消費ペースが変わることを報告に書く。
      - `deploy` → 実行エージェントには配れない (デプロイ禁止)。**進捗エージェント自身が `mule-deploy` スキルの手順 1〜5 を実行する。** 先に done_when を 1 回流して失敗を確認する (red)。配置先 URL が決まったら done_when の base-url を書き換えてよい (期待値ではなく所在なので)。
      - `policy` → `authorizations.yaml` の `policy.sandbox` が allowed のときだけ `mule-executor` に配る (worktree 不要、`isolation` 無し)。denied なら blocked にして人に 1 行で伝える。
+       配るプロンプトに `bash scripts/plugin-root.sh --skill mule-policy` を Read することを 1 行で入れる
+       (ポリシーの探し方・設定キーの見方・付け方・外し方がそこに 1 本でまとまっている)。
        **進捗エージェント自身が API Manager / Flex Gateway を直接叩いて調べ始めない。** `knowledge/gotchas/api-manager.md` に
        ポリシー適用・flexGateway インスタンス作成・配備の既知の形が書いてある。読まずに再探索すると
        同じ壁を何度も踏む (inventory3-api T-007 で実測、2026-09-11)。

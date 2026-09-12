@@ -126,6 +126,7 @@ skills/
   mule-learn/     Learning loop — count failures, promote, share
   mule-status/    Navigation: where you are, what's next (a report for people)
   mule-guide/     The step-by-step guide: next action and copyable command per situation (for agents)
+  mule-policy/    Find / inspect / apply / remove API Manager policies, with a table of the common ones
   platform-assistant/  MuleSoft's official meta-skill, vendored (Apache-2.0)
   mule-start/     Intent → plan → execute, end to end
   mule-run/       Plan and execute loops only (for resuming)
@@ -165,7 +166,8 @@ template/         What /mule-init distributes:
                   deploy-precheck.sh (gather everything to ask before a deploy into one round),
                   portal-search.sh (from a field name, find the Platform API operation that returns it),
                   anypoint-api.sh (GET-only Platform API caller; fills {org} {env}, --find searches the response),
-                  gateway-public-url.sh (the outside URL of an API deployed to a Flex Gateway)
+                  gateway-public-url.sh (the outside URL of an API deployed to a Flex Gateway),
+                  policy.sh (find / config / list / apply / remove policies; writes need the authorizations.yaml grant)
 .mcp.json         MuleSoft DX MCP Server (stdio) + Platform MCP Server (http)
 docs/methodology.md  The method, the 4 validator tiers, **the ordered check list (20, numbered)**
 docs/mulesoft-tools.md
@@ -205,6 +207,44 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.42</b> — Finding, configuring, applying and removing policies is now a skill (`mule-policy`)</summary>
+
+v0.6.41 made the gateway URL obtainable, but **a policy still cannot be written at all without knowing which
+asset to apply and with what configuration.** The asset coordinates (groupId / assetId / version) and the
+configuration keys were assumed to exist only in the UI, so the lookup itself became a tool.
+
+**`skills/mule-policy/`** (new) — the order of operations is six lines. It carries a table of 13 common policies
+(what you want → assetId → main configuration keys → caveats), which ones need a contract, automated policies,
+and how to remove one.
+
+**`scripts/policy.sh`** (new) — split by verb.
+
+| | What it does |
+|---|---|
+| `find <word>` | Search Exchange for applicable policies (assetId + version). **131** are visible from this org |
+| `config <assetId>` | Print the configuration keys, required flags and allowed values from the asset's `schema.json` |
+| `list <instance>` | What is applied now (policyId / version / order / configuration) |
+| `apply <instance> <assetId> [<version>] --config '<JSON>'` | Apply. Version defaults to latest. **Needs `policy.sandbox: allowed` in `authorizations.yaml`** |
+| `remove <instance> <policyId>` | Unapply |
+
+`apply` and `remove` are writes, so they read the grant the same way `deploy-guard.sh` does and stop with the
+reason when it is `denied` (**never edit it yourself**). A Production-looking environment name stops them even
+with the grant. Credentials come from the environment, as with `anypoint-api.sh`, so no secret on the command line.
+
+**The most important measured finding: a wrong configuration key still returns 201.** `{"nosuchkey":1}` applied
+successfully and showed up in the list as applied. **201 is not evidence that anything is protected.** It is now an
+item in `gotchas/api-manager.md` (6 → 7), and the skill says to read `config` before writing and to decide
+effectiveness by `policy-check.sh` exiting 0.
+
+Verified live on a flexGateway instance: `find` / `config` / `list`, `apply` → **201** (version auto-resolved,
+implementation asset auto-selected — applying `client-id-enforcement` installs `client-id-enforcement-flex`),
+`remove` → **204** (gone from the list, original state restored), a wrong key returning 201, and both guards
+(`policy.sandbox: denied`, Production-looking environment) stopping the script. The apply/remove round trip was
+run once in the user's Sandbox and the original state was restored.
+
+</details>
 
 <details>
 <summary><b>v0.6.41</b> — Values that live in Anypoint are fetched from the API. The "unresolved" gateway public URL is solved, and the lookup is now a tool</summary>

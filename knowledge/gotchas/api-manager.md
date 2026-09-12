@@ -24,6 +24,24 @@
 出ても、迂回路が開いていれば守れていない。** `scripts/gateway-public-url.sh` は upstream に外から届くかを
 見て注意を出す。
 
+## ポリシーの設定 (configurationData) は適用時に検証されない。誤ったキーでも 201
+`POST .../apis/{id}/policies` は、**そのポリシーに存在しないキーを渡しても 201 を返す**
+(`{"nosuchkey":1}` で実測)。設定が効いていないポリシーが「適用済み」として一覧に並ぶ。
+
+だから **201 は「守れた」の根拠にならない**。設定キーは推測せず、ポリシー資産のスキーマから取る:
+
+```bash
+bash scripts/policy.sh config client-id-enforcement    # 設定キー / 必須 / 選べる値
+bash scripts/policy.sh apply <インスタンス> <assetId> --config '<JSON>'
+bash scripts/policy-check.sh <URL> client-id <path>    # ← 効いたかはこれで決める
+```
+
+版を省くと Exchange の最新が使われ、実装資産はゲートウェイに合わせて自動で選ばれる
+(`client-id-enforcement` 1.3.3 → `client-id-enforcement-flex` 1.2.0)。`-flex` を自分で指定しない。
+外すのは `policy.sh remove <インスタンス> <policyId>` (204。設定は消えるので外す前に `list` で控える)。
+根拠: flexGateway のインスタンスで apply 201 / remove 204 / 誤キー 201 を実測 (2026-09-12)。
+手順は `bash scripts/plugin-root.sh --skill mule-policy`。
+
 ## autodiscovery は EE の成果物が要る
 `com.mulesoft.mule.modules:mule-api-gateway-module` は EE 側にあり、
 Exchange の entitlement が無い環境では **Maven でも解決できない** (1.3.0 / 1.4.0 / 1.5.0 /

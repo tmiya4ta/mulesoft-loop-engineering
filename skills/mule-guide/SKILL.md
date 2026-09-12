@@ -216,6 +216,14 @@ bash scripts/smoke-check.sh <URL>             # 9) 実際に当てる
 
 ## 7. ポリシーを当てるとき (stage: policy)
 
+0. **ポリシーを探す・設定キーを見る・付ける・外すは、手順が 1 本にまとまっている**:
+   ```bash
+   bash scripts/plugin-root.sh --skill mule-policy    # を Read。典型的なポリシーの表と順番
+   bash scripts/policy.sh find <語>                   # 探す (assetId と version)
+   bash scripts/policy.sh config <assetId>            # 設定キー (**推測しない**。誤キーでも 201 が返る)
+   bash scripts/policy.sh apply <インスタンス> <assetId> --config '<JSON>'
+   bash scripts/policy.sh remove <インスタンス> <policyId>
+   ```
 1. **自分で API Manager を叩いて調べ始める前に**、既知のことを読む:
    ```bash
    bash scripts/plugin-root.sh knowledge/gotchas/api-manager.md

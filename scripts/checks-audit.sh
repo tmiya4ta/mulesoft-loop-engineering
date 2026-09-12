@@ -71,6 +71,7 @@ NOT_A_CHECK = {
     "gateway-public-url.sh",  # Flex Gateway に置いた API の公開 URL を出す (exit 1 は「外からの URL が無い」)
     "anypoint-api.sh",        # Platform API を GET して応答を出す (exit 1 は HTTP の失敗で、合否ではない)
     "portal-search.sh",       # 項目名から、それを返す API の操作を引く (exit 1 は「仕様に無い」)
+    "policy.sh",              # ポリシーを探す/見る/付ける/外す (合否は policy-check.sh が答える)
     "run-log.sh",             # 1 行記録する
     "metrics.sh",             # 4 指標を出す
     "cost-report.sh",         # 実コストを出す

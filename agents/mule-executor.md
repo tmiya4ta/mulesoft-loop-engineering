@@ -110,6 +110,7 @@ bash scripts/k-new.sh T-003      # → knowledge/K-T-003-1.md (既にあれば -
 ## policy 段 (stage: policy のときだけ)
 - **最初にスキルをパスに解決して読みます** (名前では呼べません):
   ```bash
+  bash scripts/plugin-root.sh --skill mule-policy              # 同梱。ポリシーの探し方・付け方・外し方はここ
   bash scripts/plugin-root.sh --skill platform-assistant       # 同梱。必ずある
   bash scripts/plugin-root.sh --skill secure-api               # 外部。無いこともある
   bash scripts/plugin-root.sh --skill apply-policy-to-api-instance
