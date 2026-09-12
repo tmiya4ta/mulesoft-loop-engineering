@@ -145,7 +145,7 @@ hooks/hooks.json  Launched via scripts/run-hook.sh (finds python3 / python / py 
                   Every turn:    scripts/loop-reminder.py (re-inject the discipline)
                   End of reply:  scripts/stop-guard.py (bounce once if not closed in 3 blocks,
                                  or if a goal can still advance per goal-state.sh)
-scripts/hooks-check.py  verifies all 8 hooks return the decided verdict for decided inputs (43 cases)
+scripts/hooks-check.py  verifies all 8 hooks return the decided verdict for decided inputs (44 cases)
 knowledge/fixtures/  Minimal inputs proving each hook actually denies (bash scripts/fixtures-check.sh)
 knowledge/mule-basics.md  Index over basics/; executors read the index, then the one topic they touch
 knowledge/basics/*.md  Mule basics distilled from two loops and the user's skill, one file per topic (10)
@@ -229,6 +229,28 @@ names the missing prerequisite. If something does not work, PR it to the plugin 
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.54</b> — Fixed **the same report appearing twice**: the closing check was policing markup</summary>
+
+Right after `/mule-init`, the same report was printed twice. The transcript shows **the hook was right to
+bounce it** — the first attempt used `**現在地**` (bold), the second `## 現在地`. `stop-guard.py` tested
+`"## 次にすること" not in last`, so **a correctly-closed response in bold was rejected.**
+
+To a reader, bold and a heading look the same, so **there is nothing worth bouncing.** What matters is
+whether the response closed in three blocks, not how it was marked up. Headings (`#`×1–6), `**` and `__`
+all pass now.
+
+Two more:
+
+- The bounce message now says **"if you already wrote three blocks, fix only the closing — do not rewrite
+  the whole response"**. Rewriting is what left two identical reports on screen.
+- **It no longer says "dispatch the next goal with /mule-run" when there are no goals at all** — exactly
+  the state right after `/mule-init`.
+
+`hooks-check.py` gained "closed in bold → silent", bringing it to 44 cases.
+
+</details>
 
 <details>
 <summary><b>v0.6.53</b> — Acceptance samples must not depend on live data; changing the **input** needs human approval</summary>

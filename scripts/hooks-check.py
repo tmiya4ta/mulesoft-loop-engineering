@@ -142,6 +142,10 @@ def cases_for(name, tmpdir):
             ("stop_hook_active true", json.dumps({"stop_hook_active": True, "transcript_path": "/nope"}),
              lambda d: mk(d, "## 次にすること"), {}),
             ("3 ブロックで締めている", None, lambda d: mk(d, "## 現在地\nx\n## 次にすること\ny\n## そのあと\nz"), {}),
+            # **太字で締めた応答を差し戻さない。** 記法を強制していた版は、正しく締めた応答を
+            # 差し戻して同じ報告を 2 回並べた (実測: /mule-init 直後)。
+            ("太字で締めている", None,
+             lambda d: mk(d, "**現在地**\nx\n\n**次にすること**\ny\n\n**そのあと**\nz"), {}),
             ("締めていない", None, lambda d: mk(d, "おわりました"), {}),
             ("進められるゴールがある", None, lambda d: mk(d, "## 次にすること", status="todo"), {}),
             ("カジュアル (締め方を強制しない)", None,
@@ -265,6 +269,7 @@ EXPECTED = {
     ("stop-guard", "tasks 無し"): (0, "無音"),
     ("stop-guard", "stop_hook_active true"): (0, "無音"),
     ("stop-guard", "3 ブロックで締めている"): (0, "無音"),
+    ("stop-guard", "太字で締めている"): (0, "無音"),
     ("stop-guard", "締めていない"): (2, "err"),
     ("stop-guard", "進められるゴールがある"): (2, "err"),
     ("promote-guard", "PR でないコマンド"): (0, "無音"),

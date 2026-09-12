@@ -143,7 +143,7 @@ hooks/hooks.json  起動は scripts/run-hook.sh（python3 / python / py -3 の�
                   毎ターン:   scripts/loop-reminder.py（規律の注入）
                   応答の最後: scripts/stop-guard.py（3 ブロックで締めていない、または
                               まだ進められるゴールがある(goal-state.sh)なら 1 回差し戻す）
-scripts/hooks-check.py  hook 8 本が決めた入力に決めた判定を返すかの自動テスト（43 ケース）
+scripts/hooks-check.py  hook 8 本が決めた入力に決めた判定を返すかの自動テスト（44 ケース）
 knowledge/fixtures/  hook が本当に弾くかを確かめる最小の入力（bash scripts/fixtures-check.sh）
 knowledge/mule-basics.md  索引。実行エージェントは索引を読み、これから触る主題だけを開く
 knowledge/basics/*.md  Mule の基礎知識（主題別 10 ファイル、1 項目 1 事実）
@@ -224,6 +224,29 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.54</b> — **同じ報告が 2 回並ぶ**のを直した。締め方の検査が記法まで見ていた</summary>
+
+`/mule-init` の直後に、同じ報告が 2 回出るという指摘がありました。transcript を見たところ
+**hook は正しく差し戻していました** — 1 回目は `**現在地**` (太字)、2 回目が `## 現在地` です。
+`stop-guard.py` が `"## 次にすること" not in last` で見ていたため、**太字で正しく締めた応答を
+差し戻していました。**
+
+人から見れば太字も見出しも同じ見た目なので、**差し戻す値打ちがありません。** 見たいのは
+「3 ブロックで締めたか」であって記法ではない。見出し (`#` 1〜6 個) でも太字 (`**` / `__`) でも
+通すようにしました。
+
+あわせて 2 つ:
+
+- 差し戻しに「**既に 3 ブロックで書いているつもりなら、全文を書き直さず締めの部分だけ直す**」を
+  足しました。全文を書き直すと、直ったあとも同じ報告が 2 つ並びます。
+- **ゴールが 1 件も無いときに「/mule-run で次のゴールを配ってください」と言わない**ようにしました。
+  `/mule-init` 直後がまさにその状態で、配れるゴールが無いのに配れと言っていました。
+
+`hooks-check.py` に「太字で締めている → 無音」を足して 44 ケースになりました。
+
+</details>
 
 <details>
 <summary><b>v0.6.53</b> — 受け入れ条件は**実データに依存しない形で作る**。入力条件を変えるのは人の承認が要る</summary>
