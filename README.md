@@ -231,6 +231,31 @@ names the missing prerequisite. If something does not work, PR it to the plugin 
 ## Release notes
 
 <details>
+<summary><b>v0.6.52</b> — **Idempotence is not decided by the method.** The two reasons a case fails need different treatment (`.smoke-skip`)</summary>
+
+v0.6.51's `--idempotent-only` was run for real, and **two cases still failed.** The report was precise
+enough to expose the design hole: **a GET still changes its answer once earlier writes have accumulated.**
+
+There are two reasons, and **they must not be treated the same**:
+
+| Why it fails | Treatment |
+|---|---|
+| **Cannot be reproduced against the target at all** (a fault-injection 502 cannot happen while the real upstream is healthy) | Write one line of reason into `<case>.smoke-skip`. **That branch belongs to MUnit's mocks**, not to a smoke test |
+| **The live data moved** (a search count drifted from the baseline) | **Do not skip it. Fix the sample.** The expectation depends on a baseline; make it independent of live data instead |
+
+Skipping the second kind to get green **also hides the real regression that would appear there.** So
+`.smoke-skip` has brakes:
+
+- **An empty reason does not skip anything** (you cannot drop in a file just to silence a case)
+- Every skipped case prints its name and reason, every run
+- **A warning fires when more than half the suite is skipped** (green with nothing inside is the worst case)
+
+Measured in four states: no declaration → fails / empty reason → still runs / reason given → skipped,
+exit 0 / over half skipped → warning.
+
+</details>
+
+<details>
 <summary><b>v0.6.51</b> — Reading a neighbouring repo's `pom.xml` is now blocked by machine. **A non-idempotent smoke cannot be a `done_when`**</summary>
 
 A session working in the user's own repo handed over two findings while wrapping up. Both were real.

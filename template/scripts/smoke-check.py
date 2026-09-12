@@ -28,6 +28,10 @@
             **`path` の `{...}` は in.json のトップレベルのキーで置き換わります** (`body` 以外)。
             これが無いと、パス変数のある API は `.req.json` を書いても実際の URL を組めません。
 
+`<case>.smoke-skip` (理由を 1 行) を隣に置くと、そのケースを外す。**配置先では原理的に測れない
+ものだけ** (fault-injection の 502 など。実データが動いて落ちるケースは samples を直す)。
+理由が空だと外れない。外した数が半分を超えたら警告する。
+
 結果は 1 ケース 1 行で knowledge/deploy-log.jsonl に残す。全部一致で exit 0、1 つでも違えば exit 1。
 `--dry-run <base>` で**何を送るつもりか**だけを出す (配備前に確かめられる)。
 
@@ -180,6 +184,7 @@ def http(method, url, headers, body):
 
 n = 0
 skipped = 0
+skipped_declared = []
 fail = 0
 pathlib.Path("knowledge").mkdir(exist_ok=True)
 for inp in sorted(pathlib.Path("samples").glob("*/*.in.json")):
@@ -187,6 +192,25 @@ for inp in sorted(pathlib.Path("samples").glob("*/*.in.json")):
     res, case = inp.parent.name, inp.name[:-len(".in.json")]
     out_f = inp.with_name(case + ".out.json")
     req_f = inp.with_name(case + ".req.json")
+
+    # `<case>.smoke-skip`: **配置先では原理的に測れないケース**を、理由つきで外す。
+    # 使ってよいのは「実物に当てても再現できないもの」だけ — 典型は fault-injection
+    # (upstream が 502 を返す枝は、実の upstream が健全な限り出せない。**それは MUnit が
+    # mock で持つもの**で、smoke の役目ではない)。
+    # **使ってはいけないのは「実データが動いたから落ちるケース」です。** それは samples の
+    # 設計の問題で、期待値が baseline に依存しています (検索の件数など)。外さずに、
+    # 実データの変化に影響されない形へ samples を直してください。**外して緑にすると、
+    # 同じ場所で起きる本物の退行も一緒に隠れます。**
+    # 理由が空のファイルは無効 (通常どおり実行する) — 「とりあえず置いて黙らせる」を防ぐため。
+    skip_f = inp.with_name(case + ".smoke-skip")
+    if skip_f.is_file():
+        why = " ".join(skip_f.read_text(errors="ignore").split())
+        if why:
+            skipped_declared.append((f"{res}/{case}", why))
+            print(f"{'skip(宣言)':<14} {res + '/' + case:<30} {why[:60]}")
+            continue
+        print(f"smoke-check: {skip_f} に理由が書かれていないので**外しません**。"
+              "外す理由 (なぜ配置先では測れないのか) を 1 行書いてください。", file=sys.stderr)
     try:
         doc = json.loads(inp.read_text(errors="ignore"))
     except Exception:
@@ -300,8 +324,19 @@ for inp in sorted(pathlib.Path("samples").glob("*/*.in.json")):
 if n == 0:
     print("smoke-check: samples/ にケースがありません", file=sys.stderr)
     sys.exit(2)
+if skipped_declared:
+    print(f"smoke-check: **{len(skipped_declared)} 件を宣言で外しました** (.smoke-skip):")
+    for name, why in skipped_declared:
+        print(f"  - {name}: {why[:100]}")
+    if len(skipped_declared) * 2 > n:
+        # **外した数が半分を超えたら言う。** 緑のまま中身が空になるのが一番危ない。
+        print(f"smoke-check: 全 {n} 件のうち {len(skipped_declared)} 件を外しています。"
+              "**検査が形骸化していないか確かめてください** (外してよいのは配置先では"
+              "原理的に測れないものだけ。実データの変化で落ちるなら samples を直す)。",
+              file=sys.stderr)
+
 if idempotent_only:
-    ran = n - skipped
+    ran = n - skipped - len(skipped_declared)
     print(f"smoke-check: 冪等な {ran} 件を回しました (非冪等の {skipped} 件は飛ばした)")
     if ran == 0:
         # **全部飛ばして exit 0 を返さない。** 0 件の成功は成功ではありません。
