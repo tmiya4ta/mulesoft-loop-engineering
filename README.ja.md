@@ -131,15 +131,17 @@ skills/
 agents/
   mule-executor.md  ゴール 1 件を done_when が通るまで回す（worktree 隔離）
   mule-reviewer.md  読み取り専用レビュー
-hooks/hooks.json  デプロイの前: scripts/deploy-guard.sh（authorizations.yaml を読んで allow/deny）
-                  書き込みの前: scripts/secret-guard.sh（秘密の値そのものがファイルに入るのを弾く）
-                  PR の前:     scripts/promote-guard.sh（索引・fixtures・検査の表が通っていなければ gh pr create を弾く）
-                  編集の前:   scripts/wave-guard.sh（波で他ゴールに宣言したファイルを進捗エージェントに触らせない）
-                  編集のたび: scripts/quick-check.sh（数秒の検証）
+hooks/hooks.json  起動は scripts/run-hook.sh（python3 / python / py -3 のどれかを見つけて渡す）
+                  デプロイの前: scripts/deploy-guard.py（authorizations.yaml を読んで allow/deny）
+                  書き込みの前: scripts/secret-guard.py（秘密の値そのものがファイルに入るのを弾く）
+                  PR の前:     scripts/promote-guard.py（索引・fixtures・検査の表が通っていなければ gh pr create を弾く）
+                  編集の前:   scripts/wave-guard.py（波で他ゴールに宣言したファイルを進捗エージェントに触らせない）
+                  編集のたび: scripts/quick-check.py（数秒の検証）
                               └ scripts/mule-xml-shape.sh（XSD で落ちる形。台帳の指紋だけ）
-                  毎ターン:   scripts/loop-reminder.sh（規律の注入）
-                  応答の最後: scripts/stop-guard.sh（3 ブロックで締めていない、または
+                  毎ターン:   scripts/loop-reminder.py（規律の注入）
+                  応答の最後: scripts/stop-guard.py（3 ブロックで締めていない、または
                               まだ進められるゴールがある(goal-state.sh)なら 1 回差し戻す）
+scripts/hooks-check.py  hook 7 本が決めた入力に決めた判定を返すかの自動テスト（34 ケース）
 knowledge/fixtures/  hook が本当に弾くかを確かめる最小の入力（bash scripts/fixtures-check.sh）
 knowledge/mule-basics.md  索引。実行エージェントは索引を読み、これから触る主題だけを開く
 knowledge/basics/*.md  Mule の基礎知識（主題別 10 ファイル、1 項目 1 事実）
@@ -161,10 +163,10 @@ template/         /mule-init が配るもの:
                   goal-state.sh (エージェント側で進められるゴールがあるかを exit で返す),
                   gotcha-lookup.sh (エラーの原文から既知の地雷を引く),
                   deploy-precheck.sh (デプロイ前に人に聞くことを 1 回にまとめる),
-                  portal-search.sh (Anypoint の値の項目名から、それを返す Platform API の操作を引く),
-                  anypoint-api.sh (Platform API を GET だけで叩く。{org} {env} を埋め、--find で応答から探す),
-                  gateway-public-url.sh (Flex Gateway に置いた API の外からの URL),
-                  policy.sh (ポリシーを find / config / list / apply / remove。書き込みは authorizations.yaml の許可が要る)
+                  portal-search.py (Anypoint の値の項目名から、それを返す Platform API の操作を引く),
+                  anypoint-api.py (Platform API を GET だけで叩く。{org} {env} を埋め、--find で応答から探す),
+                  gateway-public-url.py (Flex Gateway に置いた API の外からの URL),
+                  policy.py (ポリシーを find / config / list / apply / remove。書き込みは authorizations.yaml の許可が要る)
 .mcp.json         MuleSoft DX MCP Server（stdio）+ Platform MCP Server（http）
 docs/methodology.md  考え方、検証器 4 段、**検査の並び (走る順。20 件の通し番号)**
 docs/mulesoft-tools.md
@@ -216,6 +218,60 @@ export ANYPOINT_REGION=PROD_JP
 ---
 
 ## リリースノート
+
+<details>
+<summary><b>v0.6.44</b> — hook と API の道具を Python にした (jq 全廃)。**hook に自動テストが付いた**</summary>
+
+「そもそも python つかってるんだから全部 python でよくない？」という指摘から。数えたら
+**既に 41% が Python** (bash 1890 行 / 埋め込み Python 1323 行) で、`portal-search.sh` は 32 行の bash が
+271 行の Python を包んでいるだけでした。v0.6.43 で直した 5 件も**全部 bash と GNU ツール由来**です。
+
+範囲は相談して決めました: **hook 7 本と API の道具、そして `jq` の全廃**。`mvn` や `git` を呼ぶだけの
+スクリプト (preflight、done、teeth-check など) は bash のままです — Python にしても `subprocess` の
+定型文が増えるだけで、移植性の問題はそこには無いためです。
+
+**期待しない方がよい点を先に**: Python 化しても **Windows で Git Bash が不要にはなりません**。
+スキルに書いてある手順自体が `mvn ... | grep` や `&&` を使うシェルのコマンドだからです。
+得られるのは「jq への依存が消える」「bash と GNU ツール由来の壊れ方が消える」の 2 つです。
+
+| 変えたもの | 内容 |
+|---|---|
+| hook 7 本 | `deploy-guard` / `promote-guard` / `wave-guard` / `secret-guard` / `quick-check` / `loop-reminder` / `stop-guard` を `.py` に |
+| API の道具 6 本 | `anypoint-api` / `portal-search` / `gateway-public-url` / `policy` / `ch2-public-url` / `smoke-check` を `.py` に (jq と curl を落とし、`json` と `urllib` に) |
+| `policy-check.sh` | 残っていた jq 2 か所を Python に (スクリプト自体は bash のまま) |
+| `hooks.json` | `bash scripts/run-hook.sh <hook>.py` で起動 |
+
+**`scripts/run-hook.sh` (新)**: hook を起動するだけの 20 行。`python3` → `python` → `py -3` の順に探します。
+Windows で python.org 版を入れると `python3` が解決しないことがあり、そのとき
+**hook は「コマンドが無い」で終わって、deny する仕掛けが全部黙って消えます**。一番避けたい壊れ方なので、
+ここで吸収します。python がどれも無ければ、標準エラーに 1 行出して exit 0 (作業は止めない)。
+
+**`scripts/hooks-check.py` (新) — hook に初めて自動テストが付きました。**
+書き換えの前後で同じ判定になることを確かめるために 34 ケースを作り、**7 本すべてで
+(終了コード, 出力の種類) が一致**しました。その突き合わせを期待値としてリポジトリに残したので、
+以後は hook を直すとここが落ちます。`/mule-learn --share` の PR 前の連鎖と `promote-guard` の両方から
+走ります (表の 22 番)。`fixtures-check.sh` が見ていたのは XML の形だけで、**deny を返す hook 本体には
+テストがありませんでした**。
+
+**変換で見つかった、元の bash の穴** (どちらも Python 版では直っています):
+
+| 見つかったもの | 何が起きていたか |
+|---|---|
+| `quick-check.sh` は**相対パス**だと検査ごと素通り | `case */tasks/T-*.md` は先頭に `/` を要求するので、`tasks/T-001.md` のような相対パスでは done_when の検査も層の越境の検査も動きませんでした (実際の hook は絶対パスを渡すので表には出ていませんでした) |
+| `smoke-check.sh` の `grep -P` | GNU 限定。macOS の BSD grep には `-P` がありません |
+| `smoke-check.sh` の期待値の抜粋が日本語を壊す | `head -c 160` は**バイト**で切るので、`--dry-run` の出力で文字が割れていました (Python は文字数で切ります) |
+
+**同じ入力で同じ結果になることを、全部機械で確かめました。**
+hook は 34 ケース、`smoke-check` は `--dry-run` の 46 行が完全一致 (抜粋の切り方だけ改善) と、
+ローカルのスタブサーバーに当てた判定行・`deploy-log.jsonl`・終了コードが一致。
+`anypoint-api` / `gateway-public-url` / `portal-search` / `ch2-public-url` は**実機の Anypoint** に
+当てて、出力と終了コードが旧版と一致することを確認しました (`policy` は付ける/外すを含むので
+利用者の Sandbox で 1 往復)。
+
+`preflight.sh` は `.sh` だけでなく `.py` も照合します (拡張子が変わったのに気付けないと、
+新しい道具が配られていないことが見えないため)。`.gitignore` に `__pycache__/` を足しました。
+
+</details>
 
 <details>
 <summary><b>v0.6.43</b> — Windows / macOS で落ちる書き方を 5 件直した (聞かれて初めて調べた)</summary>

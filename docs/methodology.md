@@ -33,7 +33,7 @@
 
 ループが回るのは done_when があるところだけ。デプロイや API Manager のポリシーを台帳の外でやると、進捗エージェントは判定者を失い、
 マニュアルを読んで人に聞く通常のチャットに戻る。だからゴールに `stage: impl | deploy | policy` を持たせ、計画時に全段を切る。
-deploy の done_when は `smoke-check.sh`、policy の done_when は `policy-check.sh` (認証なしで 401、ありで 2xx)。
+deploy の done_when は `smoke-check.py`、policy の done_when は `policy-check.sh` (認証なしで 401、ありで 2xx)。
 段が違っても回し方は同じ (red = 着手前の done_when が失敗、green = 着手後に exit 0)。
 
 規律そのもの (台帳の外で作業しない、マニュアルを読まない、3 ブロックで締める) はスキルの手順書ではなく hook に置く。
@@ -66,10 +66,10 @@ deploy の done_when は `smoke-check.sh`、policy の done_when は `policy-che
 
 | 段 | 検証器 | 目安 | 担当 | 何に対して閉じるか |
 |---|---|---|---|---|
-| 1 | xmllint、`dw validate`、層の越境 grep、done_when 有無、XSD で落ちる形 (`mule-xml-shape.sh`) | 秒 | hook (`scripts/quick-check.sh`) が自動 | 構文と規約 |
+| 1 | xmllint、`dw validate`、層の越境 grep、done_when 有無、XSD で落ちる形 (`mule-xml-shape.sh`) | 秒 | hook (`scripts/quick-check.py`) が自動 | 構文と規約 |
 | 2 | `mvn -q test -Dmunit.test=<対象ファイル>`、mulex | 十秒 | 実行エージェント | **モックを相手にした** 1 スイート |
 | 3 | `mvn -q test` 全体 | 分 | 進捗エージェント (`done_when`) と CI | **モックを相手にした** 全体 |
-| 4 | 配備先への契約検査 (`scripts/smoke-check.sh`) | 分 | ゲート 2 (PR マージ) の後、Sandbox で。`stage: deploy` のゴールの done_when | **実物** |
+| 4 | 配備先への契約検査 (`scripts/smoke-check.py`) | 分 | ゲート 2 (PR マージ) の後、Sandbox で。`stage: deploy` のゴールの done_when | **実物** |
 
 ループ 1 周が 1 分を超えると人がループを待たずに手で直し始める。段 1 と 2 を速く保つことが採用率を決める。
 
@@ -84,26 +84,27 @@ deploy の done_when は `smoke-check.sh`、policy の done_when は `policy-che
 | 1 | 受け入れ条件を人に出す前 | `spec-check.sh` | 承認に出さない | 0 = ずれ無し / 2 = サンプルの `instance` が flow ごとに不揃い |
 | 2 | 波を配る前 | `budget-check.sh` | **1 件も配らない** | 0 = 予算内 / 1 = 超過 |
 | 3 | 波を配る前 | `preflight.sh` | **1 件も配らない** | 0 = 土台健全 / 2 = git でない、直下 `api/*.raml` がクラスパスに無い、`mvn package` が落ちる。**`scripts/` がプラグインより古いものは名指しで言う (止めない)** |
-| 4 | 書き込みの前 (hook) | `secret-guard.sh` | その書き込みを **deny** | 秘密の**値そのもの**が入っていたら deny (値は出力しない) |
-| 5 | 書き込みの前 (hook) | `wave-guard.sh` | その書き込みを **deny** | 波で他ゴールに宣言した追記型ファイルなら deny |
-| 6 | 書き込みのたび (hook) | `quick-check.sh` → `mule-xml-shape.sh` | その場で差し戻す | 0 = ok / 2 = 構文、層の越境、`done_when` 欠け、XSD で落ちる形 |
-| 7 | Bash の前 (hook) | `deploy-guard.sh` | そのコマンドを **deny** | `authorizations.yaml` と `sandbox.yaml` で allow/deny。本番名は常に deny。**許可があっても target/ の jar が漏れていれば deny** (16 の呼び忘れの保険) |
-| 7b | Bash の前 (hook、プラグイン本体のみ) | `promote-guard.sh` | `gh pr create` を **deny** | 19 と 20 が通っていなければ PR を開かせない |
+| 4 | 書き込みの前 (hook) | `secret-guard.py` | その書き込みを **deny** | 秘密の**値そのもの**が入っていたら deny (値は出力しない) |
+| 5 | 書き込みの前 (hook) | `wave-guard.py` | その書き込みを **deny** | 波で他ゴールに宣言した追記型ファイルなら deny |
+| 6 | 書き込みのたび (hook) | `quick-check.py` → `mule-xml-shape.sh` | その場で差し戻す | 0 = ok / 2 = 構文、層の越境、`done_when` 欠け、XSD で落ちる形 |
+| 7 | Bash の前 (hook) | `deploy-guard.py` | そのコマンドを **deny** | `authorizations.yaml` と `sandbox.yaml` で allow/deny。本番名は常に deny。**許可があっても target/ の jar が漏れていれば deny** (16 の呼び忘れの保険) |
+| 7b | Bash の前 (hook、プラグイン本体のみ) | `promote-guard.py` | `gh pr create` を **deny** | 19 と 20 が通っていなければ PR を開かせない |
 | 8 | ゴール 1 件の中 | `mvn test -Dmunit.test=<file>` (段 2) | Green にならない | red → green を同じコマンドで示す |
 | 9 | ゴール 1 件の中 | `coverage-check.sh` | 取り込まない | 0 = 追加した全 flow が MUnit から `flow-ref` されている |
 | 10 | ゴール 1 件の中 | `teeth-check.sh` | 牙が無いテストを残さない | 0 = 牙あり / 2 = 細工が当たらない、落ちない、別の case が落ちた |
 | 11 | ゴール 1 件の中 | `done_when` (`done.sh` が回して終了コードをそのまま返す) | `passed` にしない | 0 = 達成 |
 | 12 | 取り込み | `mvn -q clean test` 全体 (段 3) | 取り込まない | 全スイート緑 |
 | 13 | 取り込み | `mule-reviewer` → `spec-check.sh` | 指摘を台帳に戻す | 読み取りだけ。RAML の必須項目の未参照は**警告** (通過型では正常) |
-| 14 | 止まる前 (**hook**) | `stop-guard.sh` → `goal-state.sh` | **止まらせない** | 0 = 全て passed / 1 = **まだ進められる → 差し戻す** / 2 = 人の判断待ち → **通す (待つのを邪魔しない)** |
+| 14 | 止まる前 (**hook**) | `stop-guard.py` → `goal-state.sh` | **止まらせない** | 0 = 全て passed / 1 = **まだ進められる → 差し戻す** / 2 = 人の判断待ち → **通す (待つのを邪魔しない)** |
 | 14b | `/mule-deploy` の最初 | `deploy-precheck.sh` | **人に聞くことを 1 回にまとめる** | 0 = 聞くこと無し / 1 = 資格情報・デプロイ先・`SET_` プレースホルダを**まとめて**列挙 (1 件ずつ聞き直さない) |
 | 15 | 配る前 | `deploy-config.sh` → `bump-version.sh` | 置かない | pom に設定と `businessGroupId`、版を上げる |
 | 16 | **`mvn clean package` の後、`mvn deploy` の前** | `jar-leak-check.sh` | **publish しない** | 0 = ok / 2 = git が無視しているファイルが jar に入っている。**publish 後では取り返せない** |
-| 17 | 置いたあと (`/mule-deploy` の手順 5、**および `stage: deploy` ゴールの `done_when`**) | `smoke-check.sh` (段 4) | 完了にしない | 0 = 全ケースで status と body が一致 |
+| 17 | 置いたあと (`/mule-deploy` の手順 5、**および `stage: deploy` ゴールの `done_when`**) | `smoke-check.py` (段 4) | 完了にしない | 0 = 全ケースで status と body が一致 |
 | 18 | **`stage: policy` ゴールの `done_when`** (実行エージェントが回す。`/mule-deploy` の手順には無い) | `policy-check.sh` | ゴールを `passed` にしない | 認証なし 401 / あり 2xx |
 | 19 | 昇格の PR の前 (プラグイン側) | `knowledge-index-check.sh` | PR を開かない | 0 = 索引と実体が一致 (件数まで) |
 | 20 | 昇格の PR の前 (プラグイン側) | `fixtures-check.sh` | 昇格したと言わない | 0 = 弾くべきものを弾き、**正しい形を弾かない** |
 | 21 | 昇格の PR の前 (プラグイン側) | `checks-audit.sh` | PR を開かない | 0 = **この表自身**が実体と一致 (載っているものが実在して呼ばれ、実在する検査が漏れていない) |
+| 22 | 昇格の PR の前 (プラグイン側) | `hooks-check.py` | PR を開かない | 0 = hook 7 本が 34 ケースで決めた判定 (deny / allow / 差し戻し / 無音) を返す。**hook は効かなくなっても誰も気付かない**ので機械が持つ |
 
 **4、5、7、7b、14 は hook で、エージェントが忘れても走ります。** それ以外は手順書が呼びます。
 ただし **hook はセッション開始時の cache から読まれるので、入れた hook はその日は効きません**
@@ -174,7 +175,7 @@ PR を作って URL を貼るだけで終わるのは進捗管理の失敗 (`ski
 ## 4 つ目のループ: デプロイ
 
 PR のマージで実行ループは終わるが、**MUnit は mock の中で通っただけ**で、接続先や properties の差は配置先でしか分からない。
-そこで `/mule-deploy` が Sandbox (CloudHub 2.0 / Runtime Fabric) に置き、実行ループと同じ `samples/` の期待値を配置先に投げて比べる (`scripts/smoke-check.sh`)。
+そこで `/mule-deploy` が Sandbox (CloudHub 2.0 / Runtime Fabric) に置き、実行ループと同じ `samples/` の期待値を配置先に投げて比べる (`scripts/smoke-check.py`)。
 
 ```
 PR マージ ──→ authorizations.yaml が allowed + 人が明示 ──→ mvn clean deploy -DmuleDeploy

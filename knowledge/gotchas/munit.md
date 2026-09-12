@@ -129,7 +129,7 @@ Failed: 1 / exit 1 (牙も確認)。**弱いテストで代替する必要は無
 
 **だから受け口 flow の MUnit はカバレッジ専用で、牙を付けられません。** そう書いて据え置きます
 (次の人が「型付けすれば検証できる」と思って作り直すのを防ぐため)。RAML と `apikit:config` の
-対応そのものは、配備先への疎通確認 (`scripts/smoke-check.sh`、段 4) が受け持ちます。
+対応そのものは、配備先への疎通確認 (`scripts/smoke-check.py`、段 4) が受け持ちます。
 
 根拠: inventory2-api で 2 通り試して実測 (2026-09-10)。
 それまで `template/reference/router-test.xml` に「main flow を叩けば APIkit が判定する」と

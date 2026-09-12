@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env python3
 # Anypoint にある値の**項目名**から、それを応答で返す Platform API の操作を引く。
 # 公式ポータル (dev-portal.mulesoft.com) の全 API 仕様 (OpenAPI、36 本) を手元に写して探す。
 #
@@ -10,12 +10,12 @@
 # **探し方を知らないことを「取れない」と書かない。** 人に画面を見てもらうのは、これで外れてから。
 #
 # 使い方:
-#   bash scripts/portal-search.sh publicUrl       # 項目名。大文字小文字は区別しない。部分一致
-#   bash scripts/portal-search.sh dnsTarget
-#   bash scripts/portal-search.sh --refresh       # 写しを取り直す (既定では 7 日たつと取り直す)
+#   python3 scripts/portal-search.py publicUrl       # 項目名。大文字小文字は区別しない。部分一致
+#   python3 scripts/portal-search.py dnsTarget
+#   python3 scripts/portal-search.py --refresh       # 写しを取り直す (既定では 7 日たつと取り直す)
 # 出るもの (API ごと):
 #   - 当たった項目の場所 (スキーマ名.項目) と、**それを応答で返す操作**
-#   - GET の操作は、そのまま流せる `bash scripts/anypoint-api.sh '<パス>' --find <項目名>` の行
+#   - GET の操作は、そのまま流せる `python3 scripts/anypoint-api.py '<パス>' --find <項目名>` の行
 #   - パスに残る変数 ({gatewayId} など) の値をどの操作から取るか (仕様の x-origin)
 #
 # **仕様に載っていない項目もあります。** CloudHub 2.0 の Private Space の `dnsTarget` や
@@ -26,9 +26,10 @@
 # 依存は python3 の標準ライブラリだけ。YAML は字下げで読む (PyYAML は要らない)。
 #
 # exit 0 = 当たった / 1 = どこにも無い (次の手を出す) / 2 = ポータルに届かず写しも無い
-set -u
-
-python3 - "$@" <<'PY'
+#
+# --- bash 版 (portal-search.py) からの移植メモ -------------------------------------------
+# 中身は元から Python なので、bash の包み (set -u と python3 - "$@" <<'PY') を外しただけ。
+# 探索の本体・キャッシュの場所・7 日で取り直す条件・出力は 1 文字も変えていない。
 import concurrent.futures as cf, json, os, pathlib, re, sys, time, urllib.request
 
 BASE = "https://dev-portal.mulesoft.com"
@@ -38,7 +39,7 @@ refresh = "--refresh" in args
 args = [a for a in args if a != "--refresh"]
 q = (args[0] if args else "").strip()
 if not q and not refresh:
-    print("使い方: portal-search.sh '<項目名>'   例: publicUrl / dnsTarget / targetId", file=sys.stderr)
+    print("使い方: portal-search.py '<項目名>'   例: publicUrl / dnsTarget / targetId", file=sys.stderr)
     sys.exit(2)
 
 def get(url):
@@ -275,7 +276,7 @@ for e in apis:
         print(f"   {label}: {m} {p}   {opid}")
         if m == "GET":
             path = prefix + re.sub(r"\{(organizationId|orgId)\}", "{org}", re.sub(r"\{(environmentId|envId)\}", "{env}", p))
-            print(f"     bash scripts/anypoint-api.sh '{path}'" + (f" --find {q}" if where & {"応答", "推測"} else ""))
+            print(f"     python3 scripts/anypoint-api.py '{path}'" + (f" --find {q}" if where & {"応答", "推測"} else ""))
             for var in dict.fromkeys(re.findall(r"\{([^}]+)\}", path)):
                 if var in ("org", "env"):
                     continue
@@ -295,9 +296,8 @@ print(f"portal-search: '{q}' は公式の API 仕様 {len(apis)} 本のどの項
 print("**仕様に書かれていない項目もあります** (例: Private Space の dnsTarget は応答にあるが仕様に無い)。次にすること (この順で):")
 print("  1. 別の言い方で引き直す。項目名は camelCase の英語 (例: publicUrl → url / host / endpoint / domain)")
 print("  2. 関係しそうな API の一覧か詳細の GET を叩き、実際の応答から探す:")
-print(f"       bash scripts/anypoint-api.sh '<パス>' --find {q}")
+print(f"       python3 scripts/anypoint-api.py '<パス>' --find {q}")
 print("     パスは、その値を持っていそうなもの (ゲートウェイ、Private Space、アプリ) の名前で portal-search を引いて得る")
 print("  3. それでも無ければ、そこで初めて人に聞く。そのとき**引いた語と叩いたパスを全部**添える")
 print("  **やってはいけない**: 1 本か 2 本の API を見ただけで「API では取れない」と書く")
 sys.exit(1)
-PY

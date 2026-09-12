@@ -83,7 +83,7 @@ bash scripts/plugin-root.sh --skill mule-tdd    # → SKILL.md の絶対パス�
    **exit 1 なら入っていないので、そこで諦めて 3 へ進む。** これらは `/mule-setup` が入れる外部スキルで、
    未実行や導入失敗で無いことが普通にあります (探し回るのが一番時間を溶かす)。
    **Anypoint にある値 (URL、ID、状態) が要るときは、スキルより先に**
-   `bash scripts/portal-search.sh '<項目名>'` (どの API が返すか) → 出た `bash scripts/anypoint-api.sh ...` の行を流す。
+   `python3 scripts/portal-search.py '<項目名>'` (どの API が返すか) → 出た `python3 scripts/anypoint-api.py ...` の行を流す。
    「API から取れない」と書いて人に画面を見てもらう前に、3 語引く (`mule-guide` の 5)。
 3. 公式マニュアル。context7 (`query-docs`) か WebFetch で docs.mulesoft.com を読む。コネクタの GAV や XML の書式を推測で書かない。
 4. それでも分からなければ最小の実験をして原文のエラーを取る。
@@ -121,7 +121,7 @@ bash scripts/k-new.sh T-003      # → knowledge/K-T-003-1.md (既にあれば -
 - 対象は Sandbox の API インスタンスへのポリシー適用 (client-id-enforcement、jwt-validation、rate-limiting など)。MUnit は書きません。
 - **ポリシーは適用しただけでは効きません** (201 が返り一覧にも出るが、経路にゲートウェイがいない)。`decisions.yaml` の `api.gateway` で経路を決めます。
   - `proxy-flex`: 同じ組織で既に配備されている API インスタンスの `technology` / `apiGatewayVersion` / `deployment.type` / `targetName` を読み、同じ形でインスタンスを作る。target URL はアプリの内部エンドポイント。
-    配備したら **外からの URL は `bash scripts/gateway-public-url.sh <インスタンス>` で取る** (インスタンスには載っていない)。
+    配備したら **外からの URL は `python3 scripts/gateway-public-url.py <インスタンス>` で取る** (インスタンスには載っていない)。
     それを `policy-check.sh` の 1 つ目にして `done_when` に書く。
   - `basic-endpoint`: Mule アプリに `api-gateway:autodiscovery` を足す (EE の `mule-api-gateway-module` が要る。解決できなければ止まって `proxy-flex` を提案)。
   - どちらも done_when (`policy-check.sh`: 認証なし 401、あり 2xx) が判定者で、API Manager の表示は証拠にしません。

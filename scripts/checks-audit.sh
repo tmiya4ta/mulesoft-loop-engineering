@@ -8,14 +8,14 @@
 # 索引と同じで、**ずれた表は無い表より悪い** (書いてあるので確かめずに従う)。だから機械が持つ。
 #
 # 見るのは 3 つ:
-#   1. 表に出てくるスクリプトが実在するか (scripts/ か template/scripts/)
+#   1. 表に出てくるスクリプトが実在するか (scripts/ か template/scripts/。.sh でも .py でも)
 #   2. そのスクリプトが**どこかから呼ばれているか** (hooks/、skills/、agents/、scripts/ のいずれか)
 #      — 表に載っているのに誰も呼ばないものは、走らない検査です
 #   3. 実在する検査スクリプトが**表に載っているか** — 増やしたのに表に足し忘れると、
 #      「どれが自動でどれが手順書任せか」の一覧が嘘になります
 #
 # 使い方: bash scripts/checks-audit.sh   (exit 0 = 一致、exit 1 = ずれ)
-# `/mule-learn --share` は PR を開く前にこれを通す (promote-guard.sh が hook で確かめる)。
+# `/mule-learn --share` は PR を開く前にこれを通す (promote-guard.py が hook で確かめる)。
 set -u
 cd "$(dirname "$0")/.." || exit 1
 
@@ -29,7 +29,7 @@ text = doc.read_text()
 m = re.search(r'## 検査の並び \(走る順\).*?(?=\n## )', text, re.S)
 if not m:
     print("checks-audit: 「検査の並び (走る順)」の節が見つかりません", file=sys.stderr); sys.exit(1)
-listed = set(re.findall(r'`([a-z0-9-]+\.sh)`', m.group(0)))
+listed = set(re.findall(r'`([a-z0-9-]+\.(?:sh|py))`', m.group(0)))
 
 # 実体。段 2 / 3 の mvn は表に出るがスクリプトではないので対象外。
 def find(name):
@@ -67,20 +67,23 @@ NOT_A_CHECK = {
     "add-munit.sh",           # pom に MUnit を足す
     "munit-coverage-mode.sh", # pom にカバレッジゲートを入れるかを決める
     "fix-plugin-version.sh",  # pom の mule-maven-plugin の版を直す
-    "ch2-public-url.sh",      # CH2 の公開 URL を取って出す
-    "gateway-public-url.sh",  # Flex Gateway に置いた API の公開 URL を出す (exit 1 は「外からの URL が無い」)
-    "anypoint-api.sh",        # Platform API を GET して応答を出す (exit 1 は HTTP の失敗で、合否ではない)
-    "portal-search.sh",       # 項目名から、それを返す API の操作を引く (exit 1 は「仕様に無い」)
-    "policy.sh",              # ポリシーを探す/見る/付ける/外す (合否は policy-check.sh が答える)
+    "ch2-public-url.py",      # CH2 の公開 URL を取って出す
+    "gateway-public-url.py",  # Flex Gateway に置いた API の公開 URL を出す (exit 1 は「外からの URL が無い」)
+    "anypoint-api.py",        # Platform API を GET して応答を出す (exit 1 は HTTP の失敗で、合否ではない)
+    "portal-search.py",       # 項目名から、それを返す API の操作を引く (exit 1 は「仕様に無い」)
+    "policy.py",              # ポリシーを探す/見る/付ける/外す (合否は policy-check.sh が答える)
+    # v0.6.44 で bash から Python にした同じ道具 (中身は同じ。合否を答えない)
+    "gateway-public-url.py", "anypoint-api.py", "portal-search.py", "policy.py",
     "run-log.sh",             # 1 行記録する
     "metrics.sh",             # 4 指標を出す
     "cost-report.sh",         # 実コストを出す
-    "loop-reminder.sh",       # UserPromptSubmit hook。規律を注入する (合否を答えない)
+    "loop-reminder.py",       # UserPromptSubmit hook。規律を注入する (合否を答えない)
     "setup-deps.sh",          # /mule-setup が外部スキルと MCP を入れる
     "gotcha-lookup.sh",       # 既知の地雷を引く。exit 1 は「書いていない」で、合否ではない
+    "run-hook.sh",            # hook を起動するだけの包み (python の名前を吸収する。判定はしない)
 }
 for d in ("scripts", "template/scripts"):
-    for p in sorted(pathlib.Path(d).glob("*.sh")):
+    for p in sorted(list(pathlib.Path(d).glob("*.sh")) + list(pathlib.Path(d).glob("*.py"))):
         if p.name in NOT_A_CHECK or p.name in listed:
             continue
         bad.append(f"`{p}` が表に載っていない (検査なら 1 行足す。検査でなければ checks-audit.sh の NOT_A_CHECK に足す)")

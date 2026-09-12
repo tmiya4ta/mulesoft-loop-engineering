@@ -6,11 +6,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/deploy-guard.sh"
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/run-hook.sh deploy-guard.py"
           },
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/promote-guard.sh"
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/run-hook.sh promote-guard.py"
           }
         ]
       },
@@ -19,11 +19,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/wave-guard.sh"
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/run-hook.sh wave-guard.py"
           },
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/secret-guard.sh"
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/run-hook.sh secret-guard.py"
           }
         ]
       }
@@ -34,7 +34,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/quick-check.sh"
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/run-hook.sh quick-check.py"
           }
         ]
       }
@@ -44,7 +44,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/loop-reminder.sh"
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/run-hook.sh loop-reminder.py"
           }
         ]
       }
@@ -54,7 +54,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/stop-guard.sh"
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/run-hook.sh stop-guard.py"
           }
         ]
       }

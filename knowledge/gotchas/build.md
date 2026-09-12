@@ -152,8 +152,8 @@ secret-guard / deploy-guard に頼るので、`preflight.sh` が版のずれを�
 その hook に頼るならセッションを開き直します。
 
 **発火しないことを 2 通りで観測しました** (2026-09-10)。cache に置かれ `hooks.json` に登録済みの
-`promote-guard.sh` は、索引をわざと壊して `echo gh pr create` (照合に当たるが副作用が無い) を
-流しても deny を返しませんでした。v0.6.8 から存在する `deploy-guard.sh` も、
+`promote-guard.py` は、索引をわざと壊して `echo gh pr create` (照合に当たるが副作用が無い) を
+流しても deny を返しませんでした。v0.6.8 から存在する `deploy-guard.py` も、
 `deploy.sandbox: denied` のプロジェクトを指して流しても deny を返しませんでした。
 **hook を「発火させて」確かめる手は無い**ということです。
 

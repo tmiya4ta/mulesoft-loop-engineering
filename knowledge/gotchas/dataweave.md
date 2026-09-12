@@ -15,7 +15,7 @@ dw CLI (Command Line V1.0.34) に単体の `-f` は無く、**正しい .dwl で
 
 **module の本物の構文エラーは正しく捕まる** (`fun f(x) = x +` → `Missing addition expression`) ので、
 この 2 つを除いた残りの `[ERROR]` だけを見れば検証器として使える。ANSI の色コードが混じるので
-grep の前に落とす。`scripts/quick-check.sh` は修正済み。
+grep の前に落とす。`scripts/quick-check.py` は修正済み。
 根拠: System API 1 本の実装中に 2 段階で露見 (2026-09-06)。1 つ目は最初の .dwl 編集で即座に、
 2 つ目は変換を module に切り出した直後に。module 正常 / module 壊れ / payload 参照 /
 script 壊れ / 素の正常 / 素の壊れ / 実物 2 本の 8 通りで期待どおりを確認。
@@ -45,7 +45,7 @@ avail as String {format: '#0.0'}   # => "40.0"
 ## `dw validate` は `p()` を解決できない (フックの誤検知)
 `Unable to resolve reference of: \`p\`` が出るが、`p()` は実行時にランタイムが解決する。
 `.dwl` を検査するフックはこれを実エラーとして扱わないこと。
-根拠: finance-api で `quick-check.sh` が編集をブロックした (2026-09-06)。
+根拠: finance-api で `quick-check.py` が編集をブロックした (2026-09-06)。
 
 ## DataWeave の予約語をキー名やセレクタに使わない
 `type` `input` `default` `if` `as` `is` `do` `for` `var` `fun` `using` `yield` `and` `or` `not` `case` `else` `enum` `import` `ns` `null` `output` `private` `throw` `unless` `async` などをキー名やセレクタに使うと

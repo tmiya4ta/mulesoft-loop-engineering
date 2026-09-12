@@ -133,15 +133,17 @@ skills/
 agents/
   mule-executor.md  Drives one goal until done_when passes (worktree-isolated)
   mule-reviewer.md  Read-only review
-hooks/hooks.json  Before a deploy: scripts/deploy-guard.sh (reads authorizations.yaml, answers allow/deny)
-                  Before a write:  scripts/secret-guard.sh (denies a secret's own value entering a file)
-                  Before a PR:     scripts/promote-guard.sh (denies gh pr create until the index, fixtures and check table pass)
-                  Before an edit:  scripts/wave-guard.sh (keeps the dispatcher off files it assigned to a goal)
-                  On every edit: scripts/quick-check.sh (seconds-long validation)
+hooks/hooks.json  Launched via scripts/run-hook.sh (finds python3 / python / py -3 and hands over)
+                  Before a deploy: scripts/deploy-guard.py (reads authorizations.yaml, answers allow/deny)
+                  Before a write:  scripts/secret-guard.py (denies a secret's own value entering a file)
+                  Before a PR:     scripts/promote-guard.py (denies gh pr create until the index, fixtures and check table pass)
+                  Before an edit:  scripts/wave-guard.py (keeps the dispatcher off files it assigned to a goal)
+                  On every edit: scripts/quick-check.py (seconds-long validation)
                               └ scripts/mule-xml-shape.sh (shapes that fail XSD; ledger fingerprints only)
-                  Every turn:    scripts/loop-reminder.sh (re-inject the discipline)
-                  End of reply:  scripts/stop-guard.sh (bounce once if not closed in 3 blocks,
+                  Every turn:    scripts/loop-reminder.py (re-inject the discipline)
+                  End of reply:  scripts/stop-guard.py (bounce once if not closed in 3 blocks,
                                  or if a goal can still advance per goal-state.sh)
+scripts/hooks-check.py  Automated test: do the 7 hooks return the decided verdict for the decided input (34 cases)
 knowledge/fixtures/  Minimal inputs proving each hook actually denies (bash scripts/fixtures-check.sh)
 knowledge/mule-basics.md  Index over basics/; executors read the index, then the one topic they touch
 knowledge/basics/*.md  Mule basics distilled from two loops and the user's skill, one file per topic (10)
@@ -164,10 +166,10 @@ template/         What /mule-init distributes:
                   goal-state.sh (exit code says whether any goal can still advance agent-side),
                   gotcha-lookup.sh (look up known traps from an error's raw text),
                   deploy-precheck.sh (gather everything to ask before a deploy into one round),
-                  portal-search.sh (from a field name, find the Platform API operation that returns it),
-                  anypoint-api.sh (GET-only Platform API caller; fills {org} {env}, --find searches the response),
-                  gateway-public-url.sh (the outside URL of an API deployed to a Flex Gateway),
-                  policy.sh (find / config / list / apply / remove policies; writes need the authorizations.yaml grant)
+                  portal-search.py (from a field name, find the Platform API operation that returns it),
+                  anypoint-api.py (GET-only Platform API caller; fills {org} {env}, --find searches the response),
+                  gateway-public-url.py (the outside URL of an API deployed to a Flex Gateway),
+                  policy.py (find / config / list / apply / remove policies; writes need the authorizations.yaml grant)
 .mcp.json         MuleSoft DX MCP Server (stdio) + Platform MCP Server (http)
 docs/methodology.md  The method, the 4 validator tiers, **the ordered check list (20, numbered)**
 docs/mulesoft-tools.md
@@ -221,6 +223,58 @@ names the missing prerequisite. If something does not work, PR it to the plugin 
 ---
 
 ## Release notes
+
+<details>
+<summary><b>v0.6.44</b> — Hooks and the API tools are now Python (no more jq). **The hooks finally have automated tests**</summary>
+
+Prompted by "you're already using Python — why not do everything in Python?". Counting first: **41% was
+already Python** (1890 lines of bash, 1323 lines of embedded Python), and `portal-search.sh` was 32 lines of
+bash wrapping 271 lines of Python. All five bugs fixed in v0.6.43 came from **bash and GNU tools**.
+
+The scope was agreed first: **the 7 hooks, the API tools, and getting rid of `jq`**. Scripts that only call
+`mvn` or `git` (preflight, done, teeth-check…) stay in bash — rewriting them would only add `subprocess`
+boilerplate, and the portability problems are not there.
+
+**What this does not buy**: Python does **not** remove the need for Git Bash on Windows. The documented
+procedures themselves are shell (`mvn ... | grep`, `&&`). What it buys is dropping the `jq` dependency and
+the whole class of bash/GNU-tool breakage.
+
+| Changed | What |
+|---|---|
+| 7 hooks | `deploy-guard` / `promote-guard` / `wave-guard` / `secret-guard` / `quick-check` / `loop-reminder` / `stop-guard` → `.py` |
+| 6 API tools | `anypoint-api` / `portal-search` / `gateway-public-url` / `policy` / `ch2-public-url` / `smoke-check` → `.py` (jq and curl replaced by `json` and `urllib`) |
+| `policy-check.sh` | Its last two jq calls became Python (the script itself stays bash) |
+| `hooks.json` | Launches via `bash scripts/run-hook.sh <hook>.py` |
+
+**`scripts/run-hook.sh` (new)**: 20 lines that only launch a hook, trying `python3` → `python` → `py -3`.
+On Windows a python.org install often leaves `python3` unresolvable, and then **the hook dies with
+"command not found" and every deny silently disappears** — the exact failure mode this repo exists to
+prevent. If no python is found it prints one line to stderr and exits 0 (never blocks the work).
+
+**`scripts/hooks-check.py` (new) — the hooks have automated tests for the first time.**
+34 cases were built to prove the rewrite behaved identically, and **all 7 matched on (exit code, kind of
+output)**. That comparison is now kept as the expectation, so editing a hook fails here. It runs from the
+`/mule-learn --share` pre-PR chain and from `promote-guard` (row 22 of the table). `fixtures-check.sh` only
+covered XML shapes — **the deny logic itself had no test**.
+
+**Holes in the original bash, found by converting** (both fixed in the Python versions):
+
+| Found | What was happening |
+|---|---|
+| `quick-check.sh` skipped everything for a **relative path** | `case */tasks/T-*.md` requires a leading `/`, so `tasks/T-001.md` bypassed both the done_when check and the layer-violation check (real hooks pass absolute paths, which is why it never showed) |
+| `grep -P` in `smoke-check.sh` | GNU-only; macOS BSD grep has no `-P` |
+| `smoke-check.sh` cut Japanese mid-character | `head -c 160` counts **bytes**, so `--dry-run` previews were mangled (Python counts characters) |
+
+**Every equivalence was checked by machine.** 34 hook cases; `smoke-check`'s 46 `--dry-run` lines identical
+(only the preview truncation improved) plus identical verdict lines, `deploy-log.jsonl` and exit code against
+a local stub server; `anypoint-api` / `gateway-public-url` / `portal-search` / `ch2-public-url` matched the old
+versions **against live Anypoint**, and `policy` was exercised with one apply/remove round trip in the user's
+Sandbox (201 / 204, original state restored).
+
+`preflight.sh` now compares `.py` as well as `.sh` (otherwise a renamed tool silently never reaches a
+project). `__pycache__/` was added to `.gitignore`.
+
+</details>
 
 <details>
 <summary><b>v0.6.43</b> — Five constructs that break on Windows / macOS, fixed (only looked after being asked)</summary>

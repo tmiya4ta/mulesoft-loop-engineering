@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env python3
 # PreToolUse(Edit|Write) hook。**秘密の値そのものがリポジトリのファイルに書かれるのを弾く。**
 #
 # なぜ必要か。デモ用の資格情報を、進捗確認のコメントとして**追跡されている 3 ファイルに書き込みかけた**
@@ -22,15 +22,10 @@
 #
 # 限界: 見るのは Edit / Write の書き込み内容だけです。`echo >> file` のようなシェル経由は弾けません
 # (Bash の hook は deploy-guard が使っており、コマンド文字列からの判定は誤検知が多い)。
-set -u
-inp=$(mktemp); trap 'rm -f "$inp"' EXIT
-cat > "$inp"
-
-python3 - "$inp" <<'PY'
 import json, os, pathlib, re, sys
 
 try:
-    data = json.load(open(sys.argv[1], encoding="utf-8", errors="ignore"))
+    data = json.load(sys.stdin)
 except Exception:
     sys.exit(0)
 
@@ -87,4 +82,3 @@ print(json.dumps({"hookSpecificOutput": {
         "進捗のメモに値を貼る必要はありません。「どこから読むか」を書いてください。"
 }}, ensure_ascii=False))
 sys.exit(0)
-PY

@@ -17,7 +17,7 @@ done
 # secret-guard は入力が hook の JSON + 環境変数なので、入力をここに埋め込んで試す。
 # **値そのものが deny の理由に出ないこと**も確かめる (出たら弾く意味が無い)。
 SEC='TESTSECRET-abcdef123456'
-sg() { printf '%s' "$1" | env ANYPOINT_CLIENT_SECRET="$SEC" bash scripts/secret-guard.sh 2>/dev/null; }
+sg() { printf '%s' "$1" | env ANYPOINT_CLIENT_SECRET="$SEC" python3 scripts/secret-guard.py 2>/dev/null; }
 
 out=$(sg "{\"tool_input\":{\"file_path\":\"/tmp/x.md\",\"content\":\"memo secret=$SEC\"}}")
 if printf '%s' "$out" | grep -q '"permissionDecision": *"deny"'; then echo "  ok   弾いた   secret-guard: 値をそのまま書く"

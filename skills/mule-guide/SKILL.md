@@ -147,8 +147,8 @@ exit 0 なら牙あり。exit 2 なら出てきた理由をそのまま読む。
 | DB のパスワード、Client Secret | **人に聞く。ファイルに書かない** | 環境変数 / Runtime Manager の secure property |
 | コネクタの版 | `reference/mule-schema/INDEX.md` | pom |
 | Mule ランタイムの版 | `context/sources.yaml` の `mule_version` | pom の `app.runtime` |
-| CloudHub 2.0 に置いたアプリの公開 URL | `bash scripts/ch2-public-url.sh <app> <environment>` | sandbox.yaml の `public_url`、deploy ゴールの `done_when` |
-| Flex Gateway に置いた API の公開 URL | `bash scripts/gateway-public-url.sh <インスタンス ID か instanceLabel>` | policy ゴールの `done_when` |
+| CloudHub 2.0 に置いたアプリの公開 URL | `python3 scripts/ch2-public-url.py <app> <environment>` | sandbox.yaml の `public_url`、deploy ゴールの `done_when` |
+| Flex Gateway に置いた API の公開 URL | `python3 scripts/gateway-public-url.py <インスタンス ID か instanceLabel>` | policy ゴールの `done_when` |
 | そのほか Anypoint にある値 (ID、状態、設定) | 下の「Anypoint にある値の取り方」 | 使う場所 |
 
 - **聞くときは、分からないものを全部まとめて 1 回で聞く。** 1 つずつ聞き直さない
@@ -164,14 +164,14 @@ exit 0 なら牙あり。exit 2 なら出てきた理由をそのまま読む。
 
 1. 値の**項目名**で、公式の API 仕様 (36 本) を引く。項目名は英語の camelCase。画面の表示名から推測してよい:
    ```bash
-   bash scripts/portal-search.sh publicUrl
+   python3 scripts/portal-search.py publicUrl
    ```
-   どの API のどの操作がその項目を返すかと、そのまま流せる `anypoint-api.sh` の行が出る。
+   どの API のどの操作がその項目を返すかと、そのまま流せる `anypoint-api.py` の行が出る。
 2. 出た行をそのまま流す。パスに `{gatewayId}` のような変数が残っていたら、「の値」の行に書いてある
    一覧の操作で先に ID を取る:
    ```bash
-   bash scripts/anypoint-api.sh '/gatewaymanager/api/v1/organizations/{org}/environments/{env}/gateways'
-   bash scripts/anypoint-api.sh '/gatewaymanager/api/v1/organizations/{org}/environments/{env}/gateways/<id>' --find publicUrl
+   python3 scripts/anypoint-api.py '/gatewaymanager/api/v1/organizations/{org}/environments/{env}/gateways'
+   python3 scripts/anypoint-api.py '/gatewaymanager/api/v1/organizations/{org}/environments/{env}/gateways/<id>' --find publicUrl
    ```
    `{org}` と `{env}` は自動で埋まる (pom の groupId と sandbox.yaml の environment)。資格情報は環境変数
    `ANYPOINT_CLIENT_ID` / `ANYPOINT_CLIENT_SECRET` から読む。**Secret をコマンド行に書かない。**
@@ -183,7 +183,7 @@ exit 0 なら牙あり。exit 2 なら出てきた理由をそのまま読む。
 4. 3 語引いて、GET の応答にも無ければ、そこで初めて人に聞く。**引いた語と叩いたパスを全部**添える。
 5. 取れたら `bash scripts/k-new.sh <ゴール id>` が出したパスに「どの API のどの項目か」を書く。
 
-`anypoint-api.sh` は **読むだけ** (GET)。作る・変える操作はゴールの手順と `authorizations.yaml` の許可に従う。
+`anypoint-api.py` は **読むだけ** (GET)。作る・変える操作はゴールの手順と `authorizations.yaml` の許可に従う。
 
 ---
 
@@ -199,15 +199,15 @@ mvn clean package                    # 4) 作る
 bash scripts/jar-leak-check.sh       # 5) jar に秘密が入っていないか。exit 0 でなければ次に進まない
 mvn deploy                           # 6) Exchange に publish
 mvn deploy -DmuleDeploy              # 7) 配置 (clean を付けない)
-bash scripts/smoke-check.sh --dry-run <URL>   # 8) 何を送るか先に見る
-bash scripts/smoke-check.sh <URL>             # 9) 実際に当てる
+python3 scripts/smoke-check.py --dry-run <URL>   # 8) 何を送るか先に見る
+python3 scripts/smoke-check.py <URL>             # 9) 実際に当てる
 ```
 
 - **`mvn clean deploy -DmuleDeploy` を 1 行で打たない。** Exchange の 404 で必ず落ちる。
 - 5 を 6 より後にしない。publish したあとに気付いても取り返せない。
-- 公開 URL が分からなければ `bash scripts/ch2-public-url.sh <app> <environment>`
+- 公開 URL が分からなければ `python3 scripts/ch2-public-url.py <app> <environment>`
   (Flex Gateway 経由の URL は 7 の 3)。
-- **`smoke-check.sh` はアプリの URL に当てる。** RAML の `baseUri` のパス (`/api`) を足すので、
+- **`smoke-check.py` はアプリの URL に当てる。** RAML の `baseUri` のパス (`/api`) を足すので、
   ゲートウェイの URL に当てると `/api/api` になって全件 404 になる。
 - `authorizations.yaml` の `deploy.sandbox` が `allowed` でないと hook が止める。
   **止められたら理由を人に伝えて止まる。書き換えない。回避しない。**
@@ -219,10 +219,10 @@ bash scripts/smoke-check.sh <URL>             # 9) 実際に当てる
 0. **ポリシーを探す・設定キーを見る・付ける・外すは、手順が 1 本にまとまっている**:
    ```bash
    bash scripts/plugin-root.sh --skill mule-policy    # を Read。典型的なポリシーの表と順番
-   bash scripts/policy.sh find <語>                   # 探す (assetId と version)
-   bash scripts/policy.sh config <assetId>            # 設定キー (**推測しない**。誤キーでも 201 が返る)
-   bash scripts/policy.sh apply <インスタンス> <assetId> --config '<JSON>'
-   bash scripts/policy.sh remove <インスタンス> <policyId>
+   python3 scripts/policy.py find <語>                   # 探す (assetId と version)
+   python3 scripts/policy.py config <assetId>            # 設定キー (**推測しない**。誤キーでも 201 が返る)
+   python3 scripts/policy.py apply <インスタンス> <assetId> --config '<JSON>'
+   python3 scripts/policy.py remove <インスタンス> <policyId>
    ```
 1. **自分で API Manager を叩いて調べ始める前に**、既知のことを読む:
    ```bash
@@ -239,7 +239,7 @@ bash scripts/smoke-check.sh <URL>             # 9) 実際に当てる
 3. **Flex Gateway に置いた API の URL は、API インスタンスには載っていない。ゲートウェイの側にある。**
    次の 1 行で取る。人に画面を見てもらわない。推測したホスト名で試さない:
    ```bash
-   bash scripts/gateway-public-url.sh <インスタンス ID か instanceLabel>   # → https://<ゲートウェイ>.<dnsTarget>/<パス>
+   python3 scripts/gateway-public-url.py <インスタンス ID か instanceLabel>   # → https://<ゲートウェイ>.<dnsTarget>/<パス>
    ```
    出た URL を 2 の `<URL>` と、policy ゴールの `done_when` に書く。
    **標準エラーに「upstream に外から直接届く」と出たら、ゲートウェイを迂回できる = まだ守れていない。**
@@ -282,8 +282,8 @@ bash scripts/smoke-check.sh <URL>             # 9) 実際に当てる
 | エラーを見て、すぐ Web 検索する | `bash scripts/gotcha-lookup.sh '<原文>'` を先に |
 | 隣のプロジェクトの pom / 設定を読む・写す | このリポジトリとプラグインだけを読む。値は人に聞く |
 | 分からない値を推測で埋めて試す | 5 の表で取る。無ければ止まって聞く |
-| 「API から取れない」と決めて、人に Anypoint の画面を見てもらう | `portal-search.sh '<項目名>'` → `anypoint-api.sh`。3 語引いて外れてから聞く (5 の「Anypoint にある値の取り方」) |
-| Connected App の Secret をコマンド行に書く (`export ANYPOINT_CLIENT_SECRET=<値> && curl ...`) | `anypoint-api.sh` を使う。環境変数から読むので会話の記録に残らない |
+| 「API から取れない」と決めて、人に Anypoint の画面を見てもらう | `portal-search.py '<項目名>'` → `anypoint-api.py`。3 語引いて外れてから聞く (5 の「Anypoint にある値の取り方」) |
+| Connected App の Secret をコマンド行に書く (`export ANYPOINT_CLIENT_SECRET=<値> && curl ...`) | `anypoint-api.py` を使う。環境変数から読むので会話の記録に残らない |
 | `samples/` やテストの期待値を実装に合わせて変える | 実装を直す。期待値が間違っていると確信したら**止まって報告** |
 | `mock-when` を省いて実 DB に繋ぐ | 全部 mock する (4 の 1) |
 | assert に `default` を付ける | 付けない (4 の 2) |
@@ -299,8 +299,8 @@ bash scripts/smoke-check.sh <URL>             # 9) 実際に当てる
 
 ```bash
 bash scripts/gotcha-lookup.sh '<エラーの原文の一部>'   # 既知か
-bash scripts/portal-search.sh '<項目名>'                 # Anypoint の値を、どの API が返すか
-bash scripts/anypoint-api.sh '<パス>' --find <項目名>    # 実際に GET して探す (読むだけ)
+python3 scripts/portal-search.py '<項目名>'                 # Anypoint の値を、どの API が返すか
+python3 scripts/anypoint-api.py '<パス>' --find <項目名>    # 実際に GET して探す (読むだけ)
 bash scripts/preflight.sh                                # 土台は健全か (git、RAML、ビルド)
 mvn -q clean test -Dmunit.test=<file>-test.xml           # そのテストだけ
 bash scripts/coverage-check.sh                           # 全 flow が MUnit から呼ばれているか

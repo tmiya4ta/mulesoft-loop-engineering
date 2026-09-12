@@ -18,16 +18,16 @@ description: API Manager のポリシーを、探す / 設定キーを見る / �
 ## 0. 順番 (これだけ守る)
 
 ```bash
-bash scripts/policy.sh find rate                  # 1) 探す           → assetId と version
-bash scripts/policy.sh config rate-limiting       # 2) 設定キーを見る  → 推測しない
-bash scripts/policy.sh list <インスタンス>         # 3) 今ついているもの → policyId と order
-bash scripts/policy.sh apply <インスタンス> rate-limiting --config '<JSON>'   # 4) 付ける
+python3 scripts/policy.py find rate                  # 1) 探す           → assetId と version
+python3 scripts/policy.py config rate-limiting       # 2) 設定キーを見る  → 推測しない
+python3 scripts/policy.py list <インスタンス>         # 3) 今ついているもの → policyId と order
+python3 scripts/policy.py apply <インスタンス> rate-limiting --config '<JSON>'   # 4) 付ける
 bash scripts/policy-check.sh <URL> client-id /inventory                      # 5) 効いたか実測 ★
-bash scripts/policy.sh remove <インスタンス> <policyId>                       # 外す
+python3 scripts/policy.py remove <インスタンス> <policyId>                       # 外す
 ```
 
 `<インスタンス>` は API インスタンス ID / `instanceLabel` / `assetId` のどれでもよい。
-`<URL>` は Flex Gateway なら `bash scripts/gateway-public-url.sh <インスタンス>` が出したもの。
+`<URL>` は Flex Gateway なら `python3 scripts/gateway-public-url.py <インスタンス>` が出したもの。
 
 **5 を飛ばさない。** 適用は 201 が返るだけで、**守れているかは何も言っていません**
 (設定キーを間違えていても 201 が返ります。2026-09-12 実測)。
@@ -55,8 +55,8 @@ bash scripts/policy.sh remove <インスタンス> <policyId>                   
 この組織から見えるポリシー資産は **131 件** (2026-09-12 実測)。表に無いものは `find` で探す:
 
 ```bash
-bash scripts/policy.sh find jwt        # 語は短く、英語で
-bash scripts/policy.sh find mcp
+python3 scripts/policy.py find jwt        # 語は短く、英語で
+python3 scripts/policy.py find mcp
 ```
 
 ---
@@ -64,7 +64,7 @@ bash scripts/policy.sh find mcp
 ## 2. 設定キーは必ず `config` で見る
 
 ```bash
-bash scripts/policy.sh config client-id-enforcement
+python3 scripts/policy.py config client-id-enforcement
 #   credentialsOriginHasHttpBasicAuthenticationHeader  string  必須 ...
 #   (条件つき) clientIdExpression                      string  任意 ...
 #   選べる値: customExpression / httpBasicAuthenticationHeader
@@ -73,12 +73,12 @@ bash scripts/policy.sh config client-id-enforcement
 - `(条件つき)` は「別のキーがある値のときだけ意味を持つ」もの (スキーマの `if/then`)。
 - **間違ったキーを渡しても 201 が返ります。** 効くかどうかは 5 の実測でしか分かりません。
 - 版を省くと Exchange の最新が使われます。**同じ組織の他のインスタンスと版を揃えたい**ときは
-  `bash scripts/policy.sh list <他のインスタンス>` で使っている版を見て、明示的に渡す。
+  `python3 scripts/policy.py list <他のインスタンス>` で使っている版を見て、明示的に渡す。
 
 実例 (この形で 201 になった。2026-09-12 実測):
 
 ```bash
-bash scripts/policy.sh apply inventory3-api client-id-enforcement 1.3.3 --config '{
+python3 scripts/policy.py apply inventory3-api client-id-enforcement 1.3.3 --config '{
   "credentialsOriginHasHttpBasicAuthenticationHeader": "customExpression",
   "clientIdExpression": "#[attributes.headers['client_id']]",
   "clientSecretExpression": "#[attributes.headers['client_secret']]"
@@ -96,11 +96,11 @@ bash scripts/policy.sh apply inventory3-api client-id-enforcement 1.3.3 --config
 2. **実装資産は自動で選ばれます。** `client-id-enforcement` を付けると、Flex Gateway のインスタンスには
    `client-id-enforcement-flex` が入ります。`-flex` の方を自分で指定しない。
 3. **そのゲートウェイが対応していないポリシーは付きません。** 失敗したらエラー本文を読む。
-   同じ組織で動いている形に合わせるのが速い (`policy.sh list <他のインスタンス>`)。
+   同じ組織で動いている形に合わせるのが速い (`policy.py list <他のインスタンス>`)。
 4. **組織全体に自動で付くポリシー (automated policies) があります。** 自分が付けていないのに効いている、
    逆に外したのに効いている、のときはここを見る:
    ```bash
-   bash scripts/anypoint-api.sh '/apimanager/api/v1/organizations/{org}/automated-policies'
+   python3 scripts/anypoint-api.py '/apimanager/api/v1/organizations/{org}/automated-policies'
    ```
 
 ---
@@ -108,8 +108,8 @@ bash scripts/policy.sh apply inventory3-api client-id-enforcement 1.3.3 --config
 ## 4. 外し方
 
 ```bash
-bash scripts/policy.sh list <インスタンス>              # policyId と、今の設定を控える
-bash scripts/policy.sh remove <インスタンス> <policyId>  # 204 で外れる (2026-09-12 実測)
+python3 scripts/policy.py list <インスタンス>              # policyId と、今の設定を控える
+python3 scripts/policy.py remove <インスタンス> <policyId>  # 204 で外れる (2026-09-12 実測)
 bash scripts/policy-check.sh <URL> ...                  # 守りが変わったので回し直す
 ```
 
@@ -127,7 +127,7 @@ bash scripts/policy-check.sh <URL> ...                  # 守りが変わった�
 ポリシーが効いていても、**その `CLIENT_ID` がその API インスタンスと契約していなければ 401** です。
 
 ```bash
-bash scripts/anypoint-api.sh '/apimanager/api/v1/organizations/{org}/environments/{env}/apis/<インスタンス ID>/contracts'
+python3 scripts/anypoint-api.py '/apimanager/api/v1/organizations/{org}/environments/{env}/apis/<インスタンス ID>/contracts'
 # {"total":0,"contracts":[]} なら契約が無い
 ```
 
@@ -140,7 +140,7 @@ bash scripts/anypoint-api.sh '/apimanager/api/v1/organizations/{org}/environment
 
 | やってはいけない | 代わりに |
 |---|---|
-| 設定キーを推測して `apply` する | `policy.sh config <assetId>` で見る (間違えても 201 が返るので気付けない) |
+| 設定キーを推測して `apply` する | `policy.py config <assetId>` で見る (間違えても 201 が返るので気付けない) |
 | `apply` が 201 だったことをもって「守れた」と報告する | `policy-check.sh` の exit 0 を根拠にする |
 | `authorizations.yaml` を書き換えて許可を作る | 書くのは人。止まって理由を伝える |
 | 画面 (API Manager の UI) を人に見てもらう | ここのコマンドで取れる。取れないときだけ `mule-guide` の 5 の手順で探す |

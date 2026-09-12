@@ -57,7 +57,7 @@ argument-hint: "[T-NNN だけ実行] [--parallel N (既定は予算が許す最�
    printf 'src/main/resources/config/sql.yaml\tT-004\n' >> .claude/wave-owned
    ```
 
-   これは頼み事ではなく**自分を縛る鍵**です。`wave-guard.sh` (hook) がこのファイルを読み、
+   これは頼み事ではなく**自分を縛る鍵**です。`wave-guard.py` (hook) がこのファイルを読み、
    **進捗エージェントの Edit / Write を deny します**。実行エージェントは worktree で動き、
    このファイルはコミットしないので worktree には無く、担当ゴールは普通に書けます。
    **取り込みが全部終わったら消す** (`rm -f .claude/wave-owned`)。消し忘れても 12 時間で無効になります。
@@ -102,7 +102,7 @@ argument-hint: "[T-NNN だけ実行] [--parallel N (既定は予算が許す最�
        **進捗エージェント自身が API Manager / Flex Gateway を直接叩いて調べ始めない。** `knowledge/gotchas/api-manager.md` に
        ポリシー適用・flexGateway インスタンス作成・配備の既知の形が書いてある。読まずに再探索すると
        同じ壁を何度も踏む (inventory3-api T-007 で実測、2026-09-11)。
-   - **マニュアルは読まない。** 段を進めるのに足りない事実 (CLI の書式、ポリシー名、API インスタンスの id) は、進捗エージェントが docs を fetch して探すのではなく、実行エージェントに「gotchas → (Anypoint にある値なら `portal-search.sh` → `anypoint-api.sh`) → スキル (platform-assistant) → マニュアルの順で調べて、`bash scripts/k-new.sh <ゴール id>` が出したパスに書いてから使う」よう配る。
+   - **マニュアルは読まない。** 段を進めるのに足りない事実 (CLI の書式、ポリシー名、API インスタンスの id) は、進捗エージェントが docs を fetch して探すのではなく、実行エージェントに「gotchas → (Anypoint にある値なら `portal-search.py` → `anypoint-api.py`) → スキル (platform-assistant) → マニュアルの順で調べて、`bash scripts/k-new.sh <ゴール id>` が出したパスに書いてから使う」よう配る。
    - **「API から取れない」を blocked の理由にしない。** 人に Anypoint の画面を見てもらう前に、`mule-guide` の 5 「Anypoint にある値の取り方」をやったか (引いた語と叩いたパス) を確かめる。やっていなければ blocked にせず、それを実行エージェントに配り直す (inventory3-api T-007 は、ゲートウェイの公開 URL を API で取れるのに 1 日 blocked だった)。進捗エージェントが読むのは台帳、context/、knowledge/ だけ。
    - **1 波を配り終えたら budget-check を再実行する** (並列でも 1 件ずつ数える)。`remaining_runs` を超える分は次の波に回す。
 3. 戻ってきたら diff を取り込み、**`done_when` を自分で実行する**。実行エージェントの自己申告は信じない。
@@ -149,7 +149,7 @@ argument-hint: "[T-NNN だけ実行] [--parallel N (既定は予算が許す最�
 5. `approve` ならコミットし、`gh pr create` で PR を作る。**マージは人 (ゲート 2)。**
 
 ## デプロイ
-このループではデプロイしない。マージ後に `/mule-deploy` が担う (ゲートは `context/deployment/authorizations.yaml` の `deploy.sandbox: allowed` と、台帳に `stage: deploy` のゴールがあること。会話での言い直しは要らず、実際の可否は `deploy-guard.sh` が hook で判定する。`production` は常に人が手で行う)。
+このループではデプロイしない。マージ後に `/mule-deploy` が担う (ゲートは `context/deployment/authorizations.yaml` の `deploy.sandbox: allowed` と、台帳に `stage: deploy` のゴールがあること。会話での言い直しは要らず、実際の可否は `deploy-guard.py` が hook で判定する。`production` は常に人が手で行う)。
 
 ## 禁止
 - テストや samples の期待値を変えて通すこと。
@@ -159,7 +159,7 @@ argument-hint: "[T-NNN だけ実行] [--parallel N (既定は予算が許す最�
 - 予算超過後に配ること。
 - **ゴールが 1 件 passed になるたびに人に確認を取ること。** 台帳に書けば伝わっている。
 - **波の中で「このゴールが触る」と宣言した追記型ファイルを、進捗エージェント自身が触ること。**
-  `.claude/wave-owned` に書いたものは `wave-guard.sh` (hook) が deny します。完了処理の追記は
+  `.claude/wave-owned` に書いたものは `wave-guard.py` (hook) が deny します。完了処理の追記は
   **全ゴールを取り込み終えて `.claude/wave-owned` を消してから、まとめて**行う。
   **deny を回避するために宣言を消さない** (消すのは取り込みが終わったときだけ)。
   hook が見るのは Edit / Write だけなので、`echo >> file` のようなシェル経由の追記も同じ規律で扱う。
@@ -179,7 +179,7 @@ argument-hint: "[T-NNN だけ実行] [--parallel N (既定は予算が許す最�
 | blocked | `attempts` が 3 に達した (試行ログ全体を添えて報告) |
 | 予算超過 | `budget-check.sh` が exit 1 |
 | 土台の破損 | `preflight.sh` が exit 0 でない (配る前の共通検査。出力の原文を添えて報告) |
-| 段の許可 | `deploy` / `policy` 段で `authorizations.yaml` が denied (deploy 段はこの判定を `deploy-guard.sh` が hook で行う。deny の理由をそのまま人に伝えて止まる) |
+| 段の許可 | `deploy` / `policy` 段で `authorizations.yaml` が denied (deploy 段はこの判定を `deploy-guard.py` が hook で行う。deny の理由をそのまま人に伝えて止まる) |
 
 **受け入れ条件を人に出す前に `bash scripts/spec-check.sh` を通す (exit 0 が条件)。**
 承認後に食い違いを見つけても、サンプルは「期待値は変えない」の対象になるので直せるのは実装側だけです

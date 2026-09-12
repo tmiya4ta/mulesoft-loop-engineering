@@ -77,7 +77,7 @@ argument-hint: "[--share 汎用ナレッジをプラグインに PR する]"
 
    | 順 | 昇格先 | 条件 |
    |---|---|---|
-   | 1 | `scripts/quick-check.sh` の検査 | grep や XML 解析で機械的に判定できる |
+   | 1 | `scripts/quick-check.py` の検査 | grep や XML 解析で機械的に判定できる |
    | 2 | **主題別スキル** (`skills/mule-munit/` など) と、必要なら `template/reference/` の写経元 | 判定はできないが、書き方を示せば守れる |
    | 3 | `CLAUDE.md` か `mule-tdd` の規則 | どの主題にも属さない横断的な規律 |
    | 4 | `mule-reviewer` の観点 | 文脈依存で、人の目に近い判断が要る |
@@ -113,8 +113,10 @@ argument-hint: "[--share 汎用ナレッジをプラグインに PR する]"
 4. **hook に昇格したものはテストを付ける。** **その hook は今のセッションでは効きません** —
    `hooks.json` はセッション開始時の cache から読まれるので、実際に発火させて確かめることはできません
    (`knowledge/gotchas/build.md`)。**hook の JSON をスクリプトに直接流して**確かめます:
-   `printf '{"tool_input":{...}}' | bash scripts/<hook>.sh`。
-   それを踏む最小の入力を `knowledge/fixtures/` に置き、
+   `printf '{"tool_input":{...}}' | python3 scripts/<hook>.py`。
+   **そのケースを `scripts/hooks-check.py` の `EXPECTED` に 1 行足してください** (入力の作り方は
+   `cases_for()` に書く)。`python3 scripts/hooks-check.py` が exit 0 になるのが条件で、以後
+   hook を直したときにここが落ちます。XML の形の指紋なら、踏む最小の入力を `knowledge/fixtures/` に置き、
    `knowledge/fixtures/README.md` の表に 1 行足して `bash scripts/fixtures-check.sh` を通す (exit 0 が条件)。
    **正しい形が誤検知されないことも同時に確かめます** — `ok-*.xml` を 1 つ足す。deny する hook の誤検知は
    編集を止めるので、弾く側だけ試すのでは足りません (台帳に `dw-validate-false-positive-p` の実例があります)。
@@ -131,14 +133,14 @@ gh repo clone tmiya4ta/mulesoft-loop-engineering /tmp/ml && cd /tmp/ml
 git switch -c learn/<category>-<短い名前>
 # knowledge/gotchas/<主題>.md に追記 (症状 / 原因 / 直し方 / 根拠の件数)
 # 索引 (knowledge/gotchas.md) の件数と症状の欄も直す
-# 「API から取れない」を【未解決】で書くなら、その前に template/scripts/portal-search.sh で項目名を
+# 「API から取れない」を【未解決】で書くなら、その前に template/scripts/portal-search.py で項目名を
 # 3 語引き、引いた語と結果を本文に書く (無ければ knowledge-index-check が弾く)。v0.6.37 の【未解決】は
 # 36 本中 2 本の API しか見ておらず、実際は Gateway Manager API の応答に載っていた
 # **検査と PR を同じコマンドの && で繋ぐ。** 1 つでも落ちたら PR は開かれない。
 # hook (promote-guard) にも同じ検査があるが、hook はセッション開始時の版で固定されるので
 # 載っていないことがある (knowledge/gotchas/build.md)。手順だけで止まる形にしておく。
 cd /tmp/ml && bash scripts/knowledge-index-check.sh && bash scripts/fixtures-check.sh \
-  && bash scripts/checks-audit.sh \
+  && bash scripts/checks-audit.sh && python3 scripts/hooks-check.py \
   && gh pr create --title "gotcha: <symptom>" --body "<根拠: どのリポジトリで何回>"
 ```
 

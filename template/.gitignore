@@ -11,6 +11,10 @@ target/
 # (scripts/wave-guard.sh)。コミットすると実行エージェントも自分の担当ファイルを書けなくなる。
 .claude/wave-owned
 
+# Python が勝手に作る中間物 (scripts の一部が Python なので、import したときに出る)
+__pycache__/
+*.pyc
+
 # 個人の設定 (「今後聞かない」で許可したコマンド、env)。**コミットしない。** 上の !.claude/ で追跡対象に
 # 戻っているので、ここで外さないと /mule-run の git add -A で入る。許可したコマンドに秘密が入っていれば一緒に載る。
 .claude/settings.local.json

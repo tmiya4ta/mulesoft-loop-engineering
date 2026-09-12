@@ -21,7 +21,7 @@
 適用は 201、認証なしのリクエストは 200 のまま通った。
 2 回目 (inventory3-api T-007、2026-09-12): Proxy 型で**ゲートウェイ経由は 401 になった**が、upstream が
 アプリの**公開** URL のままで、そちらを認証なしで叩くと `GET /inventory` が 200。**ゲートウェイで 401 が
-出ても、迂回路が開いていれば守れていない。** `scripts/gateway-public-url.sh` は upstream に外から届くかを
+出ても、迂回路が開いていれば守れていない。** `scripts/gateway-public-url.py` は upstream に外から届くかを
 見て注意を出す。
 
 ## ポリシーの設定 (configurationData) は適用時に検証されない。誤ったキーでも 201
@@ -31,14 +31,14 @@
 だから **201 は「守れた」の根拠にならない**。設定キーは推測せず、ポリシー資産のスキーマから取る:
 
 ```bash
-bash scripts/policy.sh config client-id-enforcement    # 設定キー / 必須 / 選べる値
-bash scripts/policy.sh apply <インスタンス> <assetId> --config '<JSON>'
+python3 scripts/policy.py config client-id-enforcement    # 設定キー / 必須 / 選べる値
+python3 scripts/policy.py apply <インスタンス> <assetId> --config '<JSON>'
 bash scripts/policy-check.sh <URL> client-id <path>    # ← 効いたかはこれで決める
 ```
 
 版を省くと Exchange の最新が使われ、実装資産はゲートウェイに合わせて自動で選ばれる
 (`client-id-enforcement` 1.3.3 → `client-id-enforcement-flex` 1.2.0)。`-flex` を自分で指定しない。
-外すのは `policy.sh remove <インスタンス> <policyId>` (204。設定は消えるので外す前に `list` で控える)。
+外すのは `policy.py remove <インスタンス> <policyId>` (204。設定は消えるので外す前に `list` で控える)。
 根拠: flexGateway のインスタンスで apply 201 / remove 204 / 誤キー 201 を実測 (2026-09-12)。
 手順は `bash scripts/plugin-root.sh --skill mule-policy`。
 
@@ -112,10 +112,10 @@ API Manager のインスタンスには upstream (`endpoint.uri`) とゲート�
 | `portConfiguration.egress.port` | `8082` | 内側 (`clusterUrl`、例 `http://ft1:8082/`) からだけ届く港。Agent Network の接続が使う |
 
 **API の URL = 公開 URL + proxyUri のパス** (末尾の `/` を外し、後ろにリソースを付けて叩く)。
-proxyUri の港が ingress の港のときだけ外から届く。まとめて出すのが `scripts/gateway-public-url.sh`:
+proxyUri の港が ingress の港のときだけ外から届く。まとめて出すのが `scripts/gateway-public-url.py`:
 
 ```bash
-bash scripts/gateway-public-url.sh inventory3-api      # instanceLabel / assetId / インスタンス ID のどれでも
+python3 scripts/gateway-public-url.py inventory3-api      # instanceLabel / assetId / インスタンス ID のどれでも
 # → https://ft1-xxxxxx.<dnsTarget>/inventory3-api     (これを policy-check.sh の 1 つ目に渡す)
 ```
 
@@ -129,8 +129,8 @@ bash scripts/gateway-public-url.sh inventory3-api      # instanceLabel / assetId
 **以前はここを【未解決】として、人に Runtime Manager の画面を見てもらっていた。** 試したのは
 Private Space の `network.dnsTarget` / `inboundStaticIps` (ゲートウェイではなく土台の方) とホスト名の
 推測だけで、36 本ある公式 API のうち Gateway Manager を見ていなかった。
-`bash scripts/portal-search.sh publicUrl` なら 1 手で 2 本に絞れ、`getGatewayById` と叩く行まで出る。
-**「API から取れない」と書く前に `portal-search.sh` で項目名を引くこと。** 根拠に `portal-search.sh` の
+`python3 scripts/portal-search.py publicUrl` なら 1 手で 2 本に絞れ、`getGatewayById` と叩く行まで出る。
+**「API から取れない」と書く前に `portal-search.py` で項目名を引くこと。** 根拠に `portal-search.py` の
 無い【未解決】は `scripts/knowledge-index-check.sh` が弾く。
 根拠: managed のゲートウェイ (Private Space、1.13.4) で上の表をすべて実測 (2026-09-12)。
 inventory3-api T-007 で 2026-09-11 に【未解決】と記録されたもの (PR #9) を、同じ環境で解いた。

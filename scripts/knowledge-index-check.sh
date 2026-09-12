@@ -15,7 +15,7 @@
 #   1. 実体にあるファイルが索引に載っているか
 #   2. 索引の行に対応する実体があるか
 #   3. gotchas 索引の「件」が `## ` 見出しの数と一致しているか
-#   4. 【未解決】の項目に、`portal-search.sh` で公式 API の仕様を引いた記録があるか
+#   4. 【未解決】の項目に、`portal-search.py` で公式 API の仕様を引いた記録があるか
 #      — v0.6.37 で「Managed Flex Gateway の公開 URL は API から取れない」を【未解決】として取り込み、
 #      「人に画面を見てもらう」を手順にした。実際は Gateway Manager API の応答にそのまま載っていた。
 #      見ていたのは 36 本中 2 本の API だけだった。**探していないことを「取れない」と書いた項目は、
@@ -65,10 +65,10 @@ for idx, d, prefix, counted in (("knowledge/gotchas.md", "knowledge/gotchas", "g
 for p in sorted(pathlib.Path("knowledge/gotchas").glob("*.md")):
     for part in re.split(r'(?m)^(?=## )', p.read_text()):
         title = part.splitlines()[0] if part.startswith("## ") else ""
-        if "未解決" in title and "portal-search.sh" not in part:
-            bad.append(f"{p} の「{title[3:]}」は【未解決】なのに、portal-search.sh で公式 API の仕様を"
-                       f"引いた記録が無い — `bash template/scripts/portal-search.sh '<項目名>'` を引いて、"
-                       f"引いた語と結果を本文に書く (外れたら anypoint-api.sh --find で応答も探す)")
+        if "未解決" in title and "portal-search.py" not in part:
+            bad.append(f"{p} の「{title[3:]}」は【未解決】なのに、portal-search.py で公式 API の仕様を"
+                       f"引いた記録が無い — `python3 template/scripts/portal-search.py '<項目名>'` を引いて、"
+                       f"引いた語と結果を本文に書く (外れたら anypoint-api.py --find で応答も探す)")
 
 if bad:
     print("knowledge-index-check: 索引と実体がずれている", file=sys.stderr)

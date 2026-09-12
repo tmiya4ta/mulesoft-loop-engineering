@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env python3
 # PreToolUse(Edit|Write) hook。波の中で「このゴールが触る」と宣言した追記型ファイルを、
 # 進捗エージェント自身が触るのを弾く。
 #
@@ -21,17 +21,14 @@
 #
 # 限界: 見るのは Edit / Write だけです。`echo >> file` のようなシェル経由の追記は弾けません
 # (コマンド文字列からの判定は誤検知が多い)。そこは `/mule-run` の禁止の文章が受け持ちます。
-set -u
-# hook の JSON を先にファイルへ受ける。**python の本体を heredoc で渡すと stdin を食う**ので、
-# `json.load(sys.stdin)` では読めない (実測: deny が一度も出なかった)。
-inp=$(mktemp); trap 'rm -f "$inp"' EXIT
-cat > "$inp"
-
-python3 - "$inp" <<'PY'
+#
+# (v0.6.44 で bash + 埋め込み python から python だけにした。bash 版は「python の本体を heredoc で
+#  渡すと stdin を食う」ため、hook の JSON を一時ファイルに受けてから渡していた。python だけなら
+#  `json.load(sys.stdin)` で直接読めるので、その回り道が要らない。)
 import json, os, subprocess, sys, time
 
 try:
-    data = json.load(open(sys.argv[1], encoding="utf-8", errors="ignore"))
+    data = json.load(sys.stdin)
 except Exception:
     sys.exit(0)
 
@@ -100,4 +97,3 @@ for line in open(owned, encoding="utf-8", errors="ignore"):
     }}, ensure_ascii=False))
     sys.exit(0)
 sys.exit(0)
-PY

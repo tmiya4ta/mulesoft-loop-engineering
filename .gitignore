@@ -1,0 +1,4 @@
+# Python が勝手に作る中間物。v0.6.44 で hook と API の道具を Python にしたときから出る
+# (scripts を import したとき。実行だけなら出ないが、テストが import する)。
+__pycache__/
+*.pyc

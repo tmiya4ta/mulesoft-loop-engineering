@@ -20,7 +20,7 @@
 | stage | 誰が動くか | done_when の例 |
 |---|---|---|
 | impl | 実行エージェント (TDD) | `mvn -q clean test -Dmunit.test=order-test.xml` |
-| deploy | 進捗エージェント (`/mule-deploy` の手順) | `bash scripts/smoke-check.sh https://<app>/api` |
+| deploy | 進捗エージェント (`/mule-deploy` の手順) | `python3 scripts/smoke-check.py https://<app>/api` |
 | policy | 実行エージェント (API Manager の CLI) | `bash scripts/policy-check.sh https://<app>/api client-id` |
 
 deploy は全 impl を `blocked_by` にし、policy は deploy を `blocked_by` にする。

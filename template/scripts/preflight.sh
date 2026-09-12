@@ -31,7 +31,7 @@ if [ -n "$missing" ]; then
 fi
 
 # **git であることを最初に確かめる。** このループの仕掛けの多くは git が無いと
-# エラーも警告も出さずに no-op になる。根拠はコードそのもの: wave-guard.sh は git の外では
+# エラーも警告も出さずに no-op になる。根拠はコードそのもの: wave-guard.py は git の外では
 # 設計として exit 0 で素通りし (worktree を誤爆しないため)、worktree 隔離は作れず、
 # 「K ファイルが diff にあるか」は diff が取れず、--share は PR を出せない。
 # **黙って効かない検査は、無い検査より悪い** (効いていると思って進むため)。
@@ -41,7 +41,7 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     echo "preflight: ここは git リポジトリではない。この波は 1 件も配らない。"
     echo "git が無いと、次の 4 つが**エラーも出さずに何もしなくなる**:"
     echo "  - 実行エージェントの worktree 隔離 (並列ゴールが同じ木を踏み合う)"
-    echo "  - wave-guard.sh の追記型ファイルの分担 (git が無いと素通りする設計)"
+    echo "  - wave-guard.py の追記型ファイルの分担 (git が無いと素通りする設計)"
     echo "  - 「K ファイルが diff に含まれているか」の確認 (diff が取れない)"
     echo "  - /mule-learn --share の PR (昇格が共有されない)"
     echo "直し方: git init && git add -A && git commit -m 'initial'"
@@ -77,7 +77,10 @@ if [ -f scripts/plugin-root.sh ]; then
   tsrc=$(bash scripts/plugin-root.sh template/scripts 2>/dev/null || true)
   if [ -n "${tsrc:-}" ] && [ -d "$tsrc" ]; then
     stale=""
-    for f in "$tsrc"/*.sh; do
+    # **.sh と .py の両方を見る。** v0.6.44 から一部の道具は Python (拡張子が変わったのに
+    # .sh だけ照合していると、新しい .py が配られていないことに気付けない)。
+    for f in "$tsrc"/*.sh "$tsrc"/*.py; do
+      [ -f "$f" ] || continue
       b=$(basename "$f")
       if [ ! -f "scripts/$b" ]; then stale="$stale $b(無し)"
       # **「古い」と断定しない。** どちらが新しいかはこのスクリプトには分かりません
@@ -86,7 +89,7 @@ if [ -f scripts/plugin-root.sh ]; then
     done
     if [ -n "$stale" ]; then
       echo "preflight: scripts/ がプラグインと違うものがあります:$stale" >&2
-      echo "           直す: cp $tsrc/*.sh scripts/ && chmod +x scripts/*.sh" >&2
+      echo "           直す: cp $tsrc/*.sh $tsrc/*.py scripts/ && chmod +x scripts/*.sh scripts/*.py" >&2
       echo "           (波は止めません。検査が欠けたままだと、その検査が受け持つ失敗を取り逃します)" >&2
     fi
   fi

@@ -17,7 +17,7 @@ argument-hint: "[--verify-only <base-url>  デプロイ済みの URL に疎通�
 のはこのリポジトリの他のループと同じ作りで、`done_when` が実装の判定者であるように、
 `authorizations.yaml` がデプロイの判定者になる。
 
-判定は `scripts/deploy-guard.sh` (PreToolUse hook)。`mvn ... deploy` / `-DmuleDeploy` /
+判定は `scripts/deploy-guard.py` (PreToolUse hook)。`mvn ... deploy` / `-DmuleDeploy` /
 `anypoint-cli ... deploy` を捕まえて、次を見て allow か deny を返す。
 
 | 見るもの | deny になる条件 |
@@ -79,11 +79,11 @@ MCP の `deploy_mule_application` は使わない。経路は下の `mvn clean d
    同じ 404 は `<businessGroupId>` が無いときにも出ます (認証トークンの既定組織 = Root を見る)。
    `deploy-config.sh` が pom に入れるので、手で消さないこと。
    出力の末尾に配置先の URL か status が出る。RTF は Ingress の URL が sandbox.yaml の `public_url` になる。
-   CH2 で `public_url` が空なら `bash scripts/ch2-public-url.sh <app> <environment>` で既定の公開 URL を付けて取る。`runtime-mgr application modify --publicEndpoints` は成功を返すが効かず、`modify` は properties を消す (`knowledge/gotchas/deploy.md`)。取れた URL を sandbox.yaml の `public_url` と deploy ゴールの `done_when` に書く。
+   CH2 で `public_url` が空なら `python3 scripts/ch2-public-url.py <app> <environment>` で既定の公開 URL を付けて取る。`runtime-mgr application modify --publicEndpoints` は成功を返すが効かず、`modify` は properties を消す (`knowledge/gotchas/deploy.md`)。取れた URL を sandbox.yaml の `public_url` と deploy ゴールの `done_when` に書く。
    終わったら `bash scripts/run-log.sh deploy <kind> <environment> ok|failed <秒>` を記録する。
 
 4. **待つ。** `anypoint-cli-v4 runtime-mgr application describe <app> --environment <env> -o json` の `status` が `RUNNING`/`APPLIED` になるまで 30 秒間隔で最大 10 分。`FAILED` ならログを `runtime-mgr application logs` で取り、手順 6 へ。
-5. **疎通を確かめる。** `bash scripts/smoke-check.sh <base-url>`。samples の全ケースを配置先に投げて out.json と比較する。要求が `POST /<resource>` でないケースには `<case>.req.json` (method / path / headers) を隣に置く。samples の期待値は変えない。結果は `knowledge/deploy-log.jsonl` に 1 ケース 1 行。
+5. **疎通を確かめる。** `python3 scripts/smoke-check.py <base-url>`。samples の全ケースを配置先に投げて out.json と比較する。要求が `POST /<resource>` でないケースには `<case>.req.json` (method / path / headers) を隣に置く。samples の期待値は変えない。結果は `knowledge/deploy-log.jsonl` に 1 ケース 1 行。
    - ここで **MUnit は通るのに配置先では違う** ものが本命の収穫。mock で隠れていた接続先、properties の差、`api.autodiscovery`、TLS など。
 6. **失敗を学習ループに戻す。** 落ちた原因が分かった (直った) 瞬間に `knowledge/failures.jsonl` に 1 行。category は `/mule-learn` の固定語彙から `deploy-config` / `deploy-runtime` / `deploy-connectivity` を使う。この 3 つに当てはまらなければ語彙の他の値を見て、それでも無ければ `other`。**自分で言葉を作らない** (自作の値は数えられず昇格もされない)。`scope` はこのリポジトリの環境固有なら `repo`、CH2 / RTF なら誰でも踏むものなら `generic`。
 7. **締める。** 必ず「現在地 / 次にすること / そのあと」の 3 ブロック。次にすることは 1 つ。
@@ -114,4 +114,4 @@ MCP の `deploy_mule_application` は使わない。経路は下の `mvn clean d
 - smoke-check を通すために samples の期待値を変えること。
 - 秘密 (client secret、パスワード) を pom / 会話 / ログに書くこと。
 - 結果だけ書いて終わること。**必ず次の一手を書く。**
-- `deploy-guard.sh` の deny を回避すること (別経路を探す、pom を直接書き換える、hook を外す)。
+- `deploy-guard.py` の deny を回避すること (別経路を探す、pom を直接書き換える、hook を外す)。

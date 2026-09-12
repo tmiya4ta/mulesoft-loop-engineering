@@ -12,4 +12,4 @@
 - 分岐を変えたら **既存テストの `behavior` にモックを足す** (早期終了していた分岐が後続に到達して実 DB へ行く)。`assert` は変えない。[G]
 - 絞り込みは `-Dmunit.test=<file>.xml` (`-Dtest=` は効かない)。`clean` を付けないと「already been run」で実行されず BUILD SUCCESS が返る。[G]
 - CE で失われるのは **カバレッジ計測だけ** (`ee:transform` も `batch` も動く)。`requiredApplicationCoverage` は CE では警告だけ。保証は `scripts/coverage-check.sh` (全 flow が `flow-ref` される) と、samples のケース数。[G]
-- MUnit が検証しないもの: **SQL 文の正しさ、listener の直列化、実接続、トランザクション**。ここは配備後の `smoke-check.sh` (段 4) が見る。[G]
+- MUnit が検証しないもの: **SQL 文の正しさ、listener の直列化、実接続、トランザクション**。ここは配備後の `smoke-check.py` (段 4) が見る。[G]
