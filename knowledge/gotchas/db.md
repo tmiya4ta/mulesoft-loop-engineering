@@ -99,3 +99,20 @@ select の直後に件数を確認してエラーを上げる。**DataWeave 側�
 `non-repeatable-iterable` はイテレート中に接続を保持するので、`maxPoolSize` が小さいと `foreach` 内の `db:update` が接続を取れず止まる。
 既定の `repeatable-file-store-iterable` は結果をバッファして接続を返すので起きない。`scatter-gather` の並列数以上の `maxPoolSize` を取る。
 根拠: mulesoft-app-development スキル (利用者の過去の実測)。
+
+## Oracle へ sqlplus で UTF-8 の文字列を INSERT/UPDATE するとき、NLS_LANG を先に設定しないと不可逆に壊れる
+**症状**: シード投入 (`sqlplus` で直接 INSERT/UPDATE) した日本語の値が、アプリ経由 (JDBC/Mule) で
+読み出すと文字化けする。DataWeave の数値フォーマットの疑いで調べても再現しない
+(`45.0` と `45` は jq でも同値なので、数値は原因ではない)。
+
+**原因**: `sqlplus` はクライアント側の `NLS_LANG` 環境変数が無い/DB の文字集合と食い違う状態で
+非 ASCII 文字を送ると、送信時点でバイト列を壊す。`DUMP(col,1016)` で見ると全バイトが
+`ef,bf,bd` (= U+FFFD、置換文字) になっている — つまり **DB にもアプリにも非は無く、
+投入コマンドの側で既に壊れた値が格納されている**。
+
+**直し方**: `sqlplus` で UTF-8 のテキストを送る前に、DB の `NLS_CHARACTERSET` に合わせて
+`export NLS_LANG=AMERICAN_AMERICA.AL32UTF8` してから実行する (`AL32UTF8` が Oracle の
+UTF-8 文字集合名)。既に壊れた行は再 UPDATE で直す (再投入すれば直る。DDL からの作り直しは不要)。
+
+根拠: inventory3-api T-006 で実測 (Oracle、2026-09-11)。`DUMP()` で全バイト `ef,bf,bd` を確認、
+`NLS_LANG` 設定後の再 UPDATE で正しい日本語が格納されることを確認した。
