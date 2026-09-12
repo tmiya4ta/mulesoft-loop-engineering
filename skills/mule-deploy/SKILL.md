@@ -53,6 +53,17 @@ python3 scripts/env-probe.py        # 環境 / デプロイ先 / Flex Gateway �
 
 `ingress: gateway` のときの流れ:
 
+0. **既に `public` で動いているものを `gateway` に切り替えるときは、順番を間違えない。**
+   ゲートウェイの upstream がアプリの**公開** URL を指しているなら、**先に内部 URL へ向け替えてから**
+   公開 URL を外す (逆にすると経路ごと切れる)。**URI は末尾にスラッシュを付ける** —
+   `/api` だと `/api` + `inventory` が `/apiinventory` になって 404 になる
+   (`knowledge/gotchas/api-manager.md`)。
+   ```bash
+   python3 scripts/anypoint-api.py '/apimanager/api/v1/organizations/{org}/environments/{env}/apis/<id>/upstreams'
+   # → PATCH .../upstreams/<upstreamId>  {"uri":"https://<app>.internal-<dnsTarget>/api/"}
+   ```
+   向け替えたら、**ポリシーを一時的に外して素通しで 200 を確認し、すぐ同じ設定で付け直す。**
+   ポリシーが付いたままだと 401 で止まり、upstream が正しいかは分からない (2026-09-12 実測)。
 1. アプリを置く (公開 URL は付けない)。既に付いているなら外す — `python3 scripts/ch2-public-url.py --remove <app> <env>`
 2. deploy ゴールの `done_when` は `python3 scripts/app-status.py <app>` (RUNNING なら 0)。
    **外から疎通できないのが正しい状態**なので、ここで公開 URL に当てない。

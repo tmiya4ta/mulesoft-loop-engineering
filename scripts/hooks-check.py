@@ -134,8 +134,11 @@ def cases_for(name, tmpdir):
             # (実測)。ここで見たいのは索引・fixtures・表の検査が PR を止めるかどうか。
             (proj / "scripts/hooks-check.py").write_text("import sys\nsys.exit(0)\n")
             if broken:
-                idx = proj / "knowledge/gotchas.md"
-                idx.write_text(idx.read_text().replace("`gotchas/api-manager.md` | 7 |", "`gotchas/api-manager.md` | 99 |"))
+                # **索引の件数を直書きして壊さない。** 件数は項目を足すたびに変わるので、
+                # 数字を書くとテストが黙って牙を失う (実測: 7 → 9 にした版で deny しなくなった)。
+                # 代わりに「索引に載っていない gotchas ファイル」を 1 つ置く — これは
+                # knowledge-index-check が版に関係なく必ず捕まえる壊し方。
+                (proj / "knowledge/gotchas/zz-not-in-index.md").write_text("## 索引に載せていない項目\n")
             subprocess.run(["git", "init", "-q"], cwd=proj, check=False)
             return proj
         return [

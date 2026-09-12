@@ -29,13 +29,25 @@ PY
 fi
 path=${path:-/}
 code() { curl -sS -m 30 -o /dev/null -w '%{http_code}' "$@" "$base$path" 2>/dev/null || echo 000; }
-no=$(code)
-case "$kind" in
-  client-id) yes=$(code -H "client_id: ${CLIENT_ID:?}" -H "client_secret: ${CLIENT_SECRET:?}") ;;
-  jwt)       yes=$(code -H "Authorization: Bearer ${JWT:?}") ;;
-  none)      yes=$no; no=401 ;;
-  *) echo "policy-check: kind は client-id | jwt | none" >&2; exit 2 ;;
-esac
+# **ポリシーの適用・解除はゲートウェイに届くまで数秒〜十数秒かかる** (knowledge/gotchas/api-manager.md)。
+# 適用直後の 1 回目は**前の状態**が返るので、同じ結果が 2 回続くまで待つ (最大 5 回、8 秒間隔)。
+# 待たずに判定すると「効いていない」「まだ守れている」を取り違える (2026-09-12 実測)。
+measure() {
+  no=$(code)
+  case "$kind" in
+    client-id) yes=$(code -H "client_id: ${CLIENT_ID:?}" -H "client_secret: ${CLIENT_SECRET:?}") ;;
+    jwt)       yes=$(code -H "Authorization: Bearer ${JWT:?}") ;;
+    none)      yes=$no; no=401 ;;
+    *) echo "policy-check: kind は client-id | jwt | none" >&2; exit 2 ;;
+  esac
+}
+measure; prev="$no/$yes"
+for _ in 1 2 3 4; do
+  sleep 8; measure
+  [ "$no/$yes" = "$prev" ] && break
+  echo "policy-check: 応答が変わりました ($prev → $no/$yes)。ゲートウェイに反映中なので落ち着くまで待ちます" >&2
+  prev="$no/$yes"
+done
 echo "policy-check: without auth=$no, with auth=$yes ($kind, $path)"
 case "$no" in
   401|403) ;;

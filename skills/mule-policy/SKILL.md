@@ -89,7 +89,7 @@ python3 scripts/policy.py apply inventory3-api client-id-enforcement 1.3.3 --con
 
 ---
 
-## 3. 付ける前に知っておく 4 つ
+## 3. 付ける前に知っておく 6 つ
 
 1. **ポリシーは適用しただけでは効きません。** 経路にゲートウェイがいなければ、API は無防備なままです。
    詳しくは `bash scripts/plugin-root.sh knowledge/gotchas/api-manager.md` の最初の項目。
@@ -97,7 +97,14 @@ python3 scripts/policy.py apply inventory3-api client-id-enforcement 1.3.3 --con
    `client-id-enforcement-flex` が入ります。`-flex` の方を自分で指定しない。
 3. **そのゲートウェイが対応していないポリシーは付きません。** 失敗したらエラー本文を読む。
    同じ組織で動いている形に合わせるのが速い (`policy.py list <他のインスタンス>`)。
-4. **組織全体に自動で付くポリシー (automated policies) があります。** 自分が付けていないのに効いている、
+4. **適用・解除はゲートウェイに届くまで数秒〜十数秒かかります。** 201 / 204 の直後に叩くと**前の状態**が
+   返ります (実測: 外した直後の 1 回目は 401 のまま、2 回目から 200)。`policy-check.sh` は同じ結果が
+   2 回続くまで待つので、**自分で 1 回叩いて判断しない**。
+5. **「認証なしで 401」は経路が正しい証拠にはなりません。** client-id 系は契約が無いと upstream に
+   届く前に 401 を返すので、**upstream の設定ミスが隠れます** (実測: upstream の URI に末尾スラッシュが
+   無く `/apiinventory` になっていたのに、401 しか見えなかった)。経路まで確かめるなら、ポリシーを
+   一時的に外して素通しで 200 を見て、すぐ同じ設定で付け直す (`list` で設定を控えてから)。
+6. **組織全体に自動で付くポリシー (automated policies) があります。** 自分が付けていないのに効いている、
    逆に外したのに効いている、のときはここを見る:
    ```bash
    python3 scripts/anypoint-api.py '/apimanager/api/v1/organizations/{org}/automated-policies'

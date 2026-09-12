@@ -42,6 +42,30 @@ bash scripts/policy-check.sh <URL> client-id <path>    # ← 効いたかはこ�
 根拠: flexGateway のインスタンスで apply 201 / remove 204 / 誤キー 201 を実測 (2026-09-12)。
 手順は `bash scripts/plugin-root.sh --skill mule-policy`。
 
+## Flex Gateway の upstream は **末尾のスラッシュが要る** (`/api` だと `/apiinventory` になる)
+ゲートウェイは待ち受けパス (`endpoint.proxyUri` の `/inventory3-api/`) を剥がした残りを upstream の URI に
+**そのまま連結する**。残りには先頭のスラッシュが無いので、upstream が `https://app/api` だと
+`https://app/apiinventory` になり、アプリは `404 No listener for endpoint: /apiinventory` を返す。
+
+```bash
+# 直し方: upstream の uri を末尾スラッシュ付きにする
+python3 scripts/anypoint-api.py '/apimanager/api/v1/organizations/{org}/environments/{env}/apis/<id>/upstreams'
+# → PATCH .../upstreams/<upstreamId>  {"uri": "https://app.internal.../api/"}
+```
+
+**この誤りは client-id-enforcement を付けていると見えない。** 契約が無いとポリシーが先に 401 を返し、
+upstream まで到達しないため。**「認証なしで 401」だけを見て「経路ができた」と判断しないこと。**
+確かめるには、ポリシーを一時的に外して素通しで叩き (200 が返るか)、すぐ同じ設定で付け直す。
+根拠: inventory3-api で実測 (2026-09-12)。`/api` → 404 `/apiinventory`、`/api/` → 200 で在庫が返った。
+
+## ポリシーの適用・解除はゲートウェイに届くまで数秒〜十数秒かかる
+API Manager が 201 / 204 を返した直後にゲートウェイを叩くと、**まだ前の状態**が返る。
+実測 (2026-09-12、managed Flex Gateway): 外した直後の 1 回目は 401 のまま、2 回目 (約 10 秒後) から 200。
+付け直した直後の 1 回目は 200、2 回目から 401。
+
+**だから適用直後の 1 回の応答で合否を決めない。** `scripts/policy-check.sh` は落ち着くまで
+同じ結果が 2 回続くのを待つ (待たずに判定すると「効いていない」「まだ守れている」を取り違える)。
+
 ## autodiscovery は EE の成果物が要る
 `com.mulesoft.mule.modules:mule-api-gateway-module` は EE 側にあり、
 Exchange の entitlement が無い環境では **Maven でも解決できない** (1.3.0 / 1.4.0 / 1.5.0 /

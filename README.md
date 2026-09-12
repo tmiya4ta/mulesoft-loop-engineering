@@ -227,6 +227,34 @@ names the missing prerequisite. If something does not work, PR it to the plugin 
 ## Release notes
 
 <details>
+<summary><b>v0.6.46</b> — Two findings from actually closing the bypass. **A 401 is not evidence that the route is right**</summary>
+
+v0.6.45's `ingress: gateway` was carried out for real in the user's Sandbox (measuring `ch2-public-url.py --remove`).
+Doing so revealed that **the gateway route had never worked end to end**.
+
+| Found | What |
+|---|---|
+| **The upstream needs a trailing slash** | The gateway strips the listen path (`/inventory3-api/`) and **concatenates the remainder** (`inventory`, no leading slash) onto the upstream URI. `https://app/api` becomes `https://app/apiinventory` → `404 No listener for endpoint: /apiinventory`. With `/api/` it returned 200 with real inventory |
+| **Apply/unapply take seconds to reach the gateway** | Right after a 201 / 204 the gateway still answers with **the previous state** (first call after removal was still 401, the second returned 200; after re-applying, the first was 200 and the second 401) |
+
+**Why it was invisible.** Without a contract, client-id-enforcement answers 401 *before* the upstream is called.
+So **"401 without auth" was being read as "the route works"** while the upstream was broken. The only way to see
+it is to remove the policy briefly, confirm a 200 straight through, and re-apply the same configuration at once.
+
+**`policy-check.sh` now waits for the answer to settle** (until the same result repeats, up to 5 rounds, 8s apart).
+Judging on a single call right after applying confuses "not effective" with "still protected".
+
+`/mule-deploy` documents **the order for switching something already running as `public` over to `gateway`**:
+repoint the upstream to the internal URL (with the trailing slash) first, and remove the public URL *after*.
+The other order severs the route.
+
+Live result (the user's Sandbox, 2026-09-12): upstream repointed to the internal URL → policy briefly removed and
+a straight-through 200 confirmed → same configuration re-applied and 401 restored → `--remove` deleted the public
+URL → **direct access 404, through the gateway 401, app RUNNING**. The bypass is closed.
+
+</details>
+
+<details>
 <summary><b>v0.6.45</b> — **Always ask whether to attach a public endpoint** before deploying (`ingress`). The environment is read by machine, up front</summary>
 
 The "401 through the gateway, but 200 without auth on the app's own public URL" found in inventory3-api came
